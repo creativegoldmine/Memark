@@ -28,6 +28,8 @@ Deno.serve(async (req: Request) => {
 
     const { itemId, content, userId } = await req.json() as CategorizeRequest;
 
+    console.log('OpenAI key present:', !!openaiApiKey);
+
     let type = detectType(content);
     let title = generateTitle(content, type);
     let summary = generateSummary(content, type);
@@ -58,10 +60,12 @@ Deno.serve(async (req: Request) => {
 
     if (openaiApiKey) {
       try {
+        console.log('Calling OpenAI...');
         const aiResult = await categorizeWithAI(content, openaiApiKey);
+        console.log('AI result:', aiResult);
         type = aiResult.type || type;
-        if (!urlMatch) title = aiResult.title || title;
-        if (!urlMatch) summary = aiResult.summary || summary;
+        title = aiResult.title || title;
+        summary = aiResult.summary || summary;
         tags = aiResult.tags && aiResult.tags.length > 0 ? aiResult.tags : tags;
         category = aiResult.category || category;
       } catch (error) {
@@ -90,7 +94,7 @@ Deno.serve(async (req: Request) => {
       .from('items')
       .select('user_id')
       .eq('id', itemId)
-      .single();
+      .maybeSingle();
 
     if (item) {
       await supabase.from('ai_event_log').insert({
@@ -120,7 +124,11 @@ Deno.serve(async (req: Request) => {
   } catch (error) {
     console.error('Error categorizing item:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({
+        error: 'Internal server error',
+        message: error.message,
+        stack: error.stack
+      }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -223,15 +231,8 @@ async function categorizeWithAI(content: string, apiKey: string) {
   const isUrl = !!urlMatch;
 
   const systemPrompt = isUrl
-    ? `You are a smart link analyzer for MeMark. Analyze the URL and any text.
-Return JSON with: type (video/article/note/task/text), title (concise, 60 chars max, describe what the link is about),
-summary (150 chars, explain what value this content provides), tags (3-5 relevant, specific tags),
-category (Work/Personal/Finance/Learning/Tech/Entertainment/News/Shopping/Social).
-For Twitter/X links, infer the topic from the URL or text. Be specific and helpful.`
-    : `You are a smart categorization assistant for MeMark.
-Return JSON with: type (note/task/text/idea), title (60 chars, descriptive),
-summary (150 chars, key points), tags (3-5 relevant tags),
-category (Work/Personal/Finance/Learning/Ideas/Tasks).`;
+    ? `You are a smart link analyzer for MeMark. Analyze the URL and any text.\nReturn JSON with: type (video/article/note/task/text), title (concise, 60 chars max, describe what the link is about),\nsummary (150 chars, explain what value this content provides), tags (3-5 relevant, specific tags),\ncategory (Work/Personal/Finance/Learning/Tech/Entertainment/News/Shopping/Social).\nFor Twitter/X links, infer the topic from the URL or text. Be specific and helpful.`
+    : `You are a smart categorization assistant for MeMark.\nReturn JSON with: type (note/task/text/idea), title (60 chars, descriptive),\nsummary (150 chars, key points), tags (3-5 relevant tags),\ncategory (Work/Personal/Finance/Learning/Ideas/Tasks).`;
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -306,14 +307,16 @@ async function autoAssignToCollections(
   }
 
   for (const collectionId of collectionMatches) {
-    await supabase
+    const { error } = await supabase
       .from('collection_items')
       .insert({
         collection_id: collectionId,
         item_id: itemId,
-      })
-      .onConflict('collection_id, item_id')
-      .ignoreDuplicates();
+      });
+
+    if (error && !error.message.includes('duplicate')) {
+      console.error('Error adding item to collection:', error);
+    }
   }
 }
 
@@ -366,7 +369,7 @@ function generateSummary(content: string, type: string): string {
   if (cleanContent.length === 0) {
     return `A ${type} shared via MeMark`;
   }
-
+  
   const sentences = cleanContent.split(/[.!?]+/).filter(s => s.trim().length > 0);
   const summary = sentences.slice(0, 2).join('. ').trim();
 
