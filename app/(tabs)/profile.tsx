@@ -5,7 +5,7 @@ import { LoadingLogo } from '@/components/LoadingLogo';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/lib/supabase';
+import { supabase, supabaseUrl } from '@/lib/supabase';
 
 export default function Profile() {
   const router = useRouter();
@@ -39,28 +39,40 @@ export default function Profile() {
 
     try {
       console.log('Starting SMS sync...');
+      console.log('Supabase URL:', supabaseUrl);
 
       const { data: { session } } = await supabase.auth.getSession();
+      console.log('Session retrieved:', !!session);
+
       if (!session) {
         Alert.alert('Error', 'Not authenticated');
         setSyncing(false);
         return;
       }
 
-      const response = await fetch(
-        `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/sync-twilio-messages`,
-        {
+      const url = `${supabaseUrl}/functions/v1/sync-twilio-messages`;
+      console.log('Calling URL:', url);
+      console.log('Has access token:', !!session.access_token);
+
+      const response = await Promise.race([
+        fetch(url, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${session.access_token}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({}),
-        }
-      );
+        }),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Request timed out after 30 seconds')), 30000)
+        )
+      ]) as Response;
+
+      console.log('Response status:', response.status);
+      console.log('Response ok:', response.ok);
 
       const data = await response.json();
-      console.log('Sync response:', data);
+      console.log('Sync response data:', JSON.stringify(data, null, 2));
 
       if (data.success) {
         const total = data.total || 0;
