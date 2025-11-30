@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, Image, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, Image, ScrollView, Platform, Linking } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { X, ExternalLink, Clock, Archive, Bell, ArrowLeft } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -35,8 +35,12 @@ export function LinkPreviewModal({ visible, item, onClose, onUpdate }: LinkPrevi
         })
         .eq('id', item.id);
 
-      setWebViewUrl(urlMatch[0]);
-      setShowWebView(true);
+      if (Platform.OS === 'web') {
+        Linking.openURL(urlMatch[0]);
+      } else {
+        setWebViewUrl(urlMatch[0]);
+        setShowWebView(true);
+      }
       onUpdate?.();
     }
   };

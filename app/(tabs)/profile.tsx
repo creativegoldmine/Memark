@@ -16,6 +16,7 @@ export default function Profile() {
   const [tapCount, setTapCount] = useState(0);
   const [isAdminMode, setIsAdminMode] = useState(false);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [recategorizing, setRecategorizing] = useState(false);
 
   useEffect(() => {
     const checkAdminStatus = async () => {
@@ -313,6 +314,42 @@ export default function Profile() {
 
         <View style={[styles.section, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
           <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Data Management</Text>
+
+          <TouchableOpacity
+            style={styles.settingsRow}
+            onPress={async () => {
+              if (!user) return;
+              setRecategorizing(true);
+              try {
+                const response = await fetch(`${supabaseUrl}/functions/v1/bulk-recategorize`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ userId: user.id }),
+                });
+                const result = await response.json();
+                Alert.alert('Success', `Recategorized ${result.itemsProcessed} items into smart folders!`);
+              } catch (error) {
+                Alert.alert('Error', 'Failed to recategorize items');
+              } finally {
+                setRecategorizing(false);
+              }
+            }}
+            disabled={recategorizing}
+          >
+            <View style={[styles.infoIcon, { backgroundColor: theme.primary + '20' }]}>
+              {recategorizing ? (
+                <LoadingLogo size={12} />
+              ) : (
+                <Sparkles size={18} color={theme.primary} />
+              )}
+            </View>
+            <View style={styles.infoContent}>
+              <Text style={[styles.settingsText, { color: theme.text }]}>AI Recategorize All</Text>
+              <Text style={[styles.settingsSubtext, { color: theme.textSecondary }]}>
+                Organize all items into smart folders
+              </Text>
+            </View>
+          </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.settingsRow}

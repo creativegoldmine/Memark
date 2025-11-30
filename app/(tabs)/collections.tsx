@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
+import { Grid, List } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase, Item } from '@/lib/supabase';
@@ -16,6 +17,7 @@ export default function Collections() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
 
   const fetchItems = async () => {
     if (!user) return;
@@ -56,6 +58,24 @@ export default function Collections() {
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <LogoHeader pageTitle="ALL MARKS" />
 
+      <View style={[styles.header, { borderBottomColor: theme.border }]}>
+        <Text style={[styles.headerText, { color: theme.text }]}>Collections</Text>
+        <View style={styles.viewToggle}>
+          <TouchableOpacity
+            style={[styles.viewButton, viewMode === 'list' && { backgroundColor: theme.surface }]}
+            onPress={() => setViewMode('list')}
+          >
+            <List size={20} color={viewMode === 'list' ? theme.primary : theme.textTertiary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.viewButton, viewMode === 'grid' && { backgroundColor: theme.surface }]}
+            onPress={() => setViewMode('grid')}
+          >
+            <Grid size={20} color={viewMode === 'grid' ? theme.primary : theme.textTertiary} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -75,7 +95,7 @@ export default function Collections() {
             </Text>
           </View>
         ) : (
-          <View style={styles.itemsList}>
+          <View style={viewMode === 'grid' ? styles.itemsGrid : styles.itemsList}>
             {items.map((item) => (
               <ItemCard key={item.id} item={item} onPress={() => {
                 setSelectedItem(item);
@@ -114,7 +134,35 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 20,
   },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+  },
+  headerText: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  viewToggle: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  viewButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   itemsList: {
+    gap: 12,
+  },
+  itemsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 12,
   },
   emptyState: {
