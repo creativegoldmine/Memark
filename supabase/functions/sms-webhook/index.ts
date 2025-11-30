@@ -31,14 +31,28 @@ Deno.serve(async (req: Request) => {
     const mediaUrl = formData.get('MediaUrl0') as string | null;
 
     const phoneNumber = from.replace(/\D/g, '');
+    const phoneNumberWithout1 = phoneNumber.startsWith('1') ? phoneNumber.substring(1) : phoneNumber;
 
-    const { data: user, error: userError } = await supabase
+    let user = null;
+
+    const { data: user1 } = await supabase
       .from('users')
       .select('id')
       .eq('phone_number', phoneNumber)
       .maybeSingle();
 
-    if (userError || !user) {
+    if (!user1 && phoneNumber !== phoneNumberWithout1) {
+      const { data: user2 } = await supabase
+        .from('users')
+        .select('id')
+        .eq('phone_number', phoneNumberWithout1)
+        .maybeSingle();
+      user = user2;
+    } else {
+      user = user1;
+    }
+
+    if (!user) {
       return new Response(
         JSON.stringify({ error: 'User not found' }),
         {
