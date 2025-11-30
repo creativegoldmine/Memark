@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Image } from 'react-native';
-import { User, Phone, Mail, LogOut, Moon, Sun, Sparkles, Settings, MessageSquare, Copy, Upload, FileText, RefreshCw } from 'lucide-react-native';
+import { User, Phone, Mail, LogOut, Moon, Sun, Sparkles, Settings, MessageSquare, Copy, Upload, FileText, RefreshCw, Shield, ShieldAlert } from 'lucide-react-native';
 import { LoadingLogo } from '@/components/LoadingLogo';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -14,6 +14,18 @@ export default function Profile() {
   const [importing, setImporting] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [tapCount, setTapCount] = useState(0);
+  const [isAdminMode, setIsAdminMode] = useState(false);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      if (dbUser) {
+        setIsSuperAdmin(dbUser.is_superadmin || false);
+        setIsAdminMode(dbUser.active_role === 'superadmin');
+      }
+    };
+    checkAdminStatus();
+  }, [dbUser]);
 
   const handleSignOut = () => {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
@@ -239,6 +251,65 @@ export default function Profile() {
             );
           })}
         </View>
+
+        {isSuperAdmin && (
+          <View style={[styles.section, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+            <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>SuperAdmin</Text>
+
+            <TouchableOpacity
+              style={[
+                styles.adminToggle,
+                { backgroundColor: isAdminMode ? '#EF4444' + '20' : theme.surface },
+              ]}
+              onPress={async () => {
+                if (isAdminMode) {
+                  const { data, error } = await supabase.rpc('disable_superadmin_mode');
+                  if (!error) {
+                    setIsAdminMode(false);
+                    Alert.alert('Admin Mode Disabled', 'You are now in user mode');
+                  }
+                } else {
+                  Alert.alert(
+                    'Enable Admin Mode?',
+                    'This will give you access to administrative functions.',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Enable',
+                        style: 'destructive',
+                        onPress: async () => {
+                          const { data, error } = await supabase.rpc('enable_superadmin_mode');
+                          if (!error) {
+                            setIsAdminMode(true);
+                            router.push('/admin-panel');
+                          }
+                        },
+                      },
+                    ]
+                  );
+                }
+              }}
+            >
+              <View style={styles.adminToggleLeft}>
+                <View style={[styles.infoIcon, { backgroundColor: isAdminMode ? '#EF4444' : theme.primary }]}>
+                  {isAdminMode ? (
+                    <ShieldAlert size={18} color="#FFFFFF" />
+                  ) : (
+                    <Shield size={18} color="#FFFFFF" />
+                  )}
+                </View>
+                <View>
+                  <Text style={[styles.adminToggleTitle, { color: theme.text }]}>
+                    {isAdminMode ? 'Admin Mode Active' : 'Enable Admin Mode'}
+                  </Text>
+                  <Text style={[styles.adminToggleDescription, { color: theme.textSecondary }]}>
+                    {isAdminMode ? 'Manage users and system settings' : 'Switch to administrator role'}
+                  </Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          </View>
+        )}
 
         <View style={[styles.section, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
           <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Data Management</Text>
@@ -499,5 +570,23 @@ const styles = StyleSheet.create({
   },
   upgradeDescription: {
     fontSize: 14,
+  },
+  adminToggle: {
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 12,
+  },
+  adminToggleLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  adminToggleTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  adminToggleDescription: {
+    fontSize: 13,
   },
 });

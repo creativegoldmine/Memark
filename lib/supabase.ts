@@ -21,6 +21,9 @@ export interface User {
   name: string;
   avatar_url?: string;
   plan_type: string;
+  is_superadmin?: boolean;
+  active_role?: string;
+  superadmin_mode_enabled_at?: string;
   created_at: string;
   updated_at: string;
 }
