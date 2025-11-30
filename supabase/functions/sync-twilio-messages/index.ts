@@ -7,6 +7,10 @@ const corsHeaders = {
 };
 
 Deno.serve(async (req: Request) => {
+  console.log('=== FUNCTION INVOKED ===');
+  console.log('Method:', req.method);
+  console.log('Headers:', Object.fromEntries(req.headers.entries()));
+  
   if (req.method === 'OPTIONS') {
     return new Response(null, {
       status: 200,
@@ -16,6 +20,8 @@ Deno.serve(async (req: Request) => {
 
   try {
     const authHeader = req.headers.get('Authorization');
+    console.log('Auth header present:', !!authHeader);
+    
     if (!authHeader) {
       throw new Error('No authorization header');
     }
@@ -25,27 +31,35 @@ Deno.serve(async (req: Request) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
+    console.log('Getting user from token...');
     const { data: { user }, error: authError } = await supabase.auth.getUser(
       authHeader.replace('Bearer ', '')
     );
 
-    if (authError || !user) {
-      throw new Error('Unauthorized');
+    if (authError) {
+      console.error('Auth error:', authError);
+      throw new Error('Unauthorized: ' + authError.message);
     }
+    
+    if (!user) {
+      throw new Error('Unauthorized: No user found');
+    }
+
+    console.log('User authenticated:', user.id);
 
     const twilioAccountSid = Deno.env.get('TWILIO_ACCOUNT_SID');
     const twilioAuthToken = Deno.env.get('TWILIO_AUTH_TOKEN');
 
+    console.log('Twilio credentials check:');
+    console.log('  TWILIO_ACCOUNT_SID present:', !!twilioAccountSid);
+    console.log('  TWILIO_AUTH_TOKEN present:', !!twilioAuthToken);
+
     if (!twilioAccountSid || !twilioAuthToken) {
-      console.error('MISSING CREDENTIALS!');
-      console.error('TWILIO_ACCOUNT_SID present:', !!twilioAccountSid);
-      console.error('TWILIO_AUTH_TOKEN present:', !!twilioAuthToken);
-      throw new Error('Twilio credentials are NOT configured in Supabase. Go to Supabase Dashboard → Edge Functions → Secrets and add: TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN');
+      throw new Error('Twilio credentials not configured');
     }
 
     const auth = btoa(`${twilioAccountSid}:${twilioAuthToken}`);
 
-    console.log('=== STARTING TWILIO SYNC ===');
     console.log('Fetching Twilio phone numbers...');
     const numbersUrl = `https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/IncomingPhoneNumbers.json`;
 
@@ -58,15 +72,16 @@ Deno.serve(async (req: Request) => {
     if (!numbersResponse.ok) {
       const errorText = await numbersResponse.text();
       console.error('Twilio API error:', errorText);
-      throw new Error(`Twilio API error fetching numbers: ${numbersResponse.status} ${numbersResponse.statusText}`);
+      throw new Error(`Twilio API error: ${numbersResponse.status}`);
     }
 
     const numbersData = await numbersResponse.json();
     const phoneNumbers = numbersData.incoming_phone_numbers || [];
 
     if (phoneNumbers.length === 0) {
-      throw new Error('No Twilio phone numbers found in account');
+      throw new Error('No Twilio phone numbers found');
     }
+    
     const twilioPhoneNumber = phoneNumbers[0].phone_number;
     console.log(`Using Twilio number: ${twilioPhoneNumber}`);
 
@@ -91,7 +106,7 @@ Deno.serve(async (req: Request) => {
       if (!twilioResponse.ok) {
         const errorText = await twilioResponse.text();
         console.error('Twilio API error:', errorText);
-        throw new Error(`Twilio API error: ${twilioResponse.status} ${twilioResponse.statusText}`);
+        throw new Error(`Twilio API error: ${twilioResponse.status}`);
       }
 
       const twilioData = await twilioResponse.json();
@@ -105,12 +120,7 @@ Deno.serve(async (req: Request) => {
         : null;
     }
 
-    console.log(`=== TOTAL MESSAGES FETCHED: ${allMessages.length} ===`);
-    console.log(`Pages fetched: ${pageCount}`);
-
-    if (allMessages.length >= MAX_MESSAGES) {
-      console.log(`Reached maximum message limit of ${MAX_MESSAGES}`);
-    }
+    console.log(`Total messages fetched: ${allMessages.length}`);
 
     if (allMessages.length === 0) {
       return new Response(
@@ -120,7 +130,7 @@ Deno.serve(async (req: Request) => {
           imported: 0,
           skipped: 0,
           errors: 0,
-          message: 'No messages found in Twilio account for this number'
+          message: 'No messages found'
         }),
         {
           headers: {
@@ -134,21 +144,10 @@ Deno.serve(async (req: Request) => {
     let importedCount = 0;
     let skippedCount = 0;
     let errorCount = 0;
-    const errorDetails: string[] = [];
 
-    for (let i = 0; i < allMessages.length; i++) {
-      const message = allMessages[i];
-      
+    for (const message of allMessages) {
       try {
-        console.log(`\n--- Processing message ${i + 1}/${allMessages.length} ---`);
-        console.log('Message SID:', message.sid);
-        console.log('From:', message.from);
-        console.log('To:', message.to);
-        console.log('Body:', message.body?.substring(0, 50));
-        console.log('Date sent:', message.date_sent);
-
         const fromPhone = message.from.replace(/[^0-9]/g, '');
-        console.log('Cleaned phone:', fromPhone);
 
         const { data: userData, error: userError } = await supabase
           .from('users')
@@ -156,29 +155,16 @@ Deno.serve(async (req: Request) => {
           .eq('phone_number', fromPhone)
           .maybeSingle();
 
-        if (userError) {
-          console.error('Database error finding user:', userError);
-          errorCount++;
-          errorDetails.push(`User lookup failed for ${fromPhone}`);
-          continue;
-        }
-
-        if (!userData) {
-          console.log(`No user found for phone: ${fromPhone} - SKIPPING`);
+        if (userError || !userData) {
           skippedCount++;
           continue;
         }
-
-        console.log('Found user:', userData.email);
 
         const body = message.body?.trim();
-        if (!body || body.length === 0) {
-          console.log('Empty body - SKIPPING');
+        if (!body) {
           skippedCount++;
           continue;
         }
-
-        console.log('Message body:', body);
 
         const { data: existingItem } = await supabase
           .from('items')
@@ -188,7 +174,6 @@ Deno.serve(async (req: Request) => {
           .maybeSingle();
 
         if (existingItem) {
-          console.log('Duplicate message - SKIPPING');
           skippedCount++;
           continue;
         }
@@ -196,11 +181,9 @@ Deno.serve(async (req: Request) => {
         const urlPattern = /(https?:\/\/[^\s]+)/gi;
         const urls = body.match(urlPattern);
         const hasUrl = urls && urls.length > 0;
-
         const itemType = hasUrl ? 'article' : 'note';
-        console.log('Item type:', itemType);
 
-        const { data: newItem, error: insertError } = await supabase
+        const { error: insertError } = await supabase
           .from('items')
           .insert({
             user_id: userData.id,
@@ -209,52 +192,24 @@ Deno.serve(async (req: Request) => {
             title: hasUrl ? urls[0] : body.substring(0, 100),
             status: 'active',
             created_at: message.date_sent || new Date().toISOString(),
-          })
-          .select()
-          .single();
+          });
 
         if (insertError) {
-          console.error('Insert error:', insertError);
           errorCount++;
-          errorDetails.push(`Insert failed: ${insertError.message}`);
           continue;
         }
 
-        console.log('✓ IMPORTED successfully! Item ID:', newItem.id);
         importedCount++;
-
-        if (newItem && hasUrl) {
-          try {
-            console.log('Triggering AI categorization...');
-            const categorizeUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/categorize-item`;
-            await fetch(categorizeUrl, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
-              },
-              body: JSON.stringify({
-                item_id: newItem.id,
-                user_id: userData.id,
-              }),
-            });
-            console.log('Categorization triggered');
-          } catch (categorizeError) {
-            console.error('Categorization failed:', categorizeError);
-          }
-        }
       } catch (itemError) {
-        console.error('Error processing message:', itemError);
         errorCount++;
-        errorDetails.push(`Processing error: ${itemError.message}`);
       }
     }
 
-    console.log('\n=== SYNC COMPLETE ===');
-    console.log('Total messages:', allMessages.length);
-    console.log('Imported:', importedCount);
-    console.log('Skipped:', skippedCount);
-    console.log('Errors:', errorCount);
+    console.log('Sync complete:');
+    console.log('  Total:', allMessages.length);
+    console.log('  Imported:', importedCount);
+    console.log('  Skipped:', skippedCount);
+    console.log('  Errors:', errorCount);
 
     return new Response(
       JSON.stringify({
@@ -263,7 +218,6 @@ Deno.serve(async (req: Request) => {
         imported: importedCount,
         skipped: skippedCount,
         errors: errorCount,
-        errorDetails: errorDetails.length > 0 ? errorDetails : undefined,
       }),
       {
         headers: {
@@ -273,8 +227,7 @@ Deno.serve(async (req: Request) => {
       }
     );
   } catch (error) {
-    console.error('=== SYNC FAILED ===');
-    console.error('Error:', error);
+    console.error('Function error:', error);
     return new Response(
       JSON.stringify({
         success: false,
