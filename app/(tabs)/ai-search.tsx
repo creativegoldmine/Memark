@@ -16,6 +16,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase, Item } from '@/lib/supabase';
 import { ItemCard } from '@/components/ItemCard';
 import { LogoHeader } from '@/components/LogoHeader';
+import { LoadingLogo } from '@/components/LoadingLogo';
 
 interface Message {
   id: string;
