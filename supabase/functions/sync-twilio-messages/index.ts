@@ -148,14 +148,28 @@ Deno.serve(async (req: Request) => {
     for (const message of allMessages) {
       try {
         const fromPhone = message.from.replace(/[^0-9]/g, '');
+        const fromPhoneWithout1 = fromPhone.startsWith('1') ? fromPhone.substring(1) : fromPhone;
 
-        const { data: userData, error: userError } = await supabase
+        let userData = null;
+
+        const { data: userData1 } = await supabase
           .from('users')
           .select('id, phone_number, email')
           .eq('phone_number', fromPhone)
           .maybeSingle();
 
-        if (userError || !userData) {
+        if (!userData1 && fromPhone !== fromPhoneWithout1) {
+          const { data: userData2 } = await supabase
+            .from('users')
+            .select('id, phone_number, email')
+            .eq('phone_number', fromPhoneWithout1)
+            .maybeSingle();
+          userData = userData2;
+        } else {
+          userData = userData1;
+        }
+
+        if (!userData) {
           skippedCount++;
           continue;
         }
