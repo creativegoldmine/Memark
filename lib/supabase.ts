@@ -1,0 +1,64 @@
+import { createClient } from '@supabase/supabase-js';
+import Constants from 'expo-constants';
+
+const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl || process.env.EXPO_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = Constants.expoConfig?.extra?.supabaseAnonKey || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false,
+  },
+});
+
+export interface User {
+  id: string;
+  phone_number: string;
+  email: string;
+  name: string;
+  avatar_url?: string;
+  plan_type: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Item {
+  id: string;
+  user_id: string;
+  raw_content: string;
+  type: 'article' | 'video' | 'text' | 'note' | 'screenshot' | 'task' | 'unknown';
+  title?: string;
+  summary?: string;
+  tags: string[];
+  category?: string;
+  image_preview?: string;
+  media_url?: string;
+  score: number;
+  status: 'active' | 'archived' | 'done' | 'snoozed';
+  review_stage: number;
+  next_review_date: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Collection {
+  id: string;
+  user_id: string;
+  name: string;
+  icon?: string;
+  color?: string;
+  description?: string;
+  auto_generated: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AIEventLog {
+  id: string;
+  user_id: string;
+  item_id?: string;
+  action_type: string;
+  ai_output?: any;
+  created_at: string;
+}
