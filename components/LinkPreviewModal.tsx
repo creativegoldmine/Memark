@@ -1,5 +1,7 @@
-import { View, Text, StyleSheet, Modal, TouchableOpacity, Image, ScrollView, Linking } from 'react-native';
-import { X, ExternalLink, Clock, Archive, Bell } from 'lucide-react-native';
+import { useState } from 'react';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, Image, ScrollView } from 'react-native';
+import { WebView } from 'react-native-webview';
+import { X, ExternalLink, Clock, Archive, Bell, ArrowLeft } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Item } from '@/lib/supabase';
 import { supabase } from '@/lib/supabase';
@@ -13,6 +15,8 @@ interface LinkPreviewModalProps {
 
 export function LinkPreviewModal({ visible, item, onClose, onUpdate }: LinkPreviewModalProps) {
   const { theme } = useTheme();
+  const [showWebView, setShowWebView] = useState(false);
+  const [webViewUrl, setWebViewUrl] = useState('');
 
   if (!item) return null;
 
@@ -31,9 +35,15 @@ export function LinkPreviewModal({ visible, item, onClose, onUpdate }: LinkPrevi
         })
         .eq('id', item.id);
 
-      await Linking.openURL(urlMatch[0]);
+      setWebViewUrl(urlMatch[0]);
+      setShowWebView(true);
       onUpdate?.();
     }
+  };
+
+  const handleCloseWebView = () => {
+    setShowWebView(false);
+    setWebViewUrl('');
   };
 
   const handleSetReminder = async (days: number) => {
@@ -59,6 +69,31 @@ export function LinkPreviewModal({ visible, item, onClose, onUpdate }: LinkPrevi
     onUpdate?.();
     onClose();
   };
+
+  if (showWebView) {
+    return (
+      <Modal
+        visible={visible}
+        animationType="slide"
+        onRequestClose={handleCloseWebView}
+      >
+        <View style={{ flex: 1, backgroundColor: theme.background }}>
+          <View style={[styles.webViewHeader, { backgroundColor: theme.cardBackground, borderBottomColor: theme.border }]}>
+            <TouchableOpacity onPress={handleCloseWebView} style={styles.backButton}>
+              <ArrowLeft size={24} color={theme.text} />
+              <Text style={[styles.backText, { color: theme.text }]}>Back</Text>
+            </TouchableOpacity>
+          </View>
+          <WebView
+            source={{ uri: webViewUrl }}
+            style={{ flex: 1 }}
+            startInLoadingState
+            allowsBackForwardNavigationGestures
+          />
+        </View>
+      </Modal>
+    );
+  }
 
   return (
     <Modal
@@ -248,5 +283,20 @@ const styles = StyleSheet.create({
   iconButtonText: {
     fontSize: 12,
     fontWeight: '500',
+  },
+  webViewHeader: {
+    paddingTop: 50,
+    paddingBottom: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  backText: {
+    fontSize: 17,
+    fontWeight: '600',
   },
 });
