@@ -64,7 +64,7 @@ export default function Profile() {
           body: JSON.stringify({}),
         }),
         new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Request timed out after 30 seconds')), 30000)
+          setTimeout(() => reject(new Error('Request timed out after 60 seconds')), 60000)
         )
       ]) as Response;
 
@@ -101,57 +101,10 @@ export default function Profile() {
   };
 
   const handleImportBookmarks = () => {
-    Alert.prompt(
+    Alert.alert(
       'Import Bookmarks',
-      'Paste your bookmarks as JSON (array of objects with "url", "title", "created_at")',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Import',
-          onPress: async (text) => {
-            if (!text || !user) return;
-
-            setImporting(true);
-            try {
-              const bookmarks = JSON.parse(text);
-
-              const { data: { session } } = await supabase.auth.getSession();
-              if (!session) {
-                Alert.alert('Error', 'Not authenticated');
-                return;
-              }
-
-              const response = await fetch(
-                `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/import-bookmarks`,
-                {
-                  method: 'POST',
-                  headers: {
-                    'Authorization': `Bearer ${session.access_token}`,
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({ bookmarks }),
-                }
-              );
-
-              const result = await response.json();
-
-              if (result.success) {
-                Alert.alert(
-                  'Success!',
-                  `Imported ${result.imported} bookmarks${result.failed > 0 ? `, ${result.failed} failed` : ''}`
-                );
-              } else {
-                Alert.alert('Error', result.error || 'Failed to import bookmarks');
-              }
-            } catch (error) {
-              Alert.alert('Error', 'Invalid JSON format');
-            } finally {
-              setImporting(false);
-            }
-          },
-        },
-      ],
-      'plain-text'
+      'This feature is only available on mobile. Please use the mobile app to import bookmarks.',
+      [{ text: 'OK' }]
     );
   };
 

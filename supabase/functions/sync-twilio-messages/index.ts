@@ -141,81 +141,75 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    let importedCount = 0;
+    const fromPhone = allMessages[0]?.from.replace(/[^0-9]/g, '');
+    const fromPhoneWithout1 = fromPhone?.startsWith('1') ? fromPhone.substring(1) : fromPhone;
+
+    const { data: users } = await supabase
+      .from('users')
+      .select('id, phone_number')
+      .in('phone_number', [fromPhone, fromPhoneWithout1].filter(Boolean));
+
+    const user = users?.[0];
+
+    if (!user) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          total: allMessages.length,
+          imported: 0,
+          skipped: allMessages.length,
+          errors: 0,
+          message: 'User not found for phone number'
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { data: existingItems } = await supabase
+      .from('items')
+      .select('raw_content')
+      .eq('user_id', user.id);
+
+    const existingContents = new Set(existingItems?.map(item => item.raw_content) || []);
+
+    const itemsToInsert = [];
     let skippedCount = 0;
-    let errorCount = 0;
 
     for (const message of allMessages) {
-      try {
-        const fromPhone = message.from.replace(/[^0-9]/g, '');
-        const fromPhoneWithout1 = fromPhone.startsWith('1') ? fromPhone.substring(1) : fromPhone;
+      const body = message.body?.trim();
+      if (!body || existingContents.has(body)) {
+        skippedCount++;
+        continue;
+      }
 
-        let userData = null;
+      const urlPattern = /(https?:\/\/[^\s]+)/gi;
+      const urls = body.match(urlPattern);
+      const hasUrl = urls && urls.length > 0;
 
-        const { data: userData1 } = await supabase
-          .from('users')
-          .select('id, phone_number, email')
-          .eq('phone_number', fromPhone)
-          .maybeSingle();
+      itemsToInsert.push({
+        user_id: user.id,
+        raw_content: body,
+        type: hasUrl ? 'article' : 'note',
+        title: hasUrl ? urls[0] : body.substring(0, 100),
+        status: 'active',
+        created_at: message.date_sent || new Date().toISOString(),
+      });
+    }
 
-        if (!userData1 && fromPhone !== fromPhoneWithout1) {
-          const { data: userData2 } = await supabase
-            .from('users')
-            .select('id, phone_number, email')
-            .eq('phone_number', fromPhoneWithout1)
-            .maybeSingle();
-          userData = userData2;
-        } else {
-          userData = userData1;
-        }
+    let importedCount = 0;
+    let errorCount = 0;
 
-        if (!userData) {
-          skippedCount++;
-          continue;
-        }
+    if (itemsToInsert.length > 0) {
+      const { data, error } = await supabase
+        .from('items')
+        .insert(itemsToInsert)
+        .select();
 
-        const body = message.body?.trim();
-        if (!body) {
-          skippedCount++;
-          continue;
-        }
-
-        const { data: existingItem } = await supabase
-          .from('items')
-          .select('id')
-          .eq('user_id', userData.id)
-          .eq('raw_content', body)
-          .maybeSingle();
-
-        if (existingItem) {
-          skippedCount++;
-          continue;
-        }
-
-        const urlPattern = /(https?:\/\/[^\s]+)/gi;
-        const urls = body.match(urlPattern);
-        const hasUrl = urls && urls.length > 0;
-        const itemType = hasUrl ? 'article' : 'note';
-
-        const { error: insertError } = await supabase
-          .from('items')
-          .insert({
-            user_id: userData.id,
-            raw_content: body,
-            type: itemType,
-            title: hasUrl ? urls[0] : body.substring(0, 100),
-            status: 'active',
-            created_at: message.date_sent || new Date().toISOString(),
-          });
-
-        if (insertError) {
-          errorCount++;
-          continue;
-        }
-
-        importedCount++;
-      } catch (itemError) {
-        errorCount++;
+      if (error) {
+        console.error('Bulk insert error:', error);
+        errorCount = itemsToInsert.length;
+      } else {
+        importedCount = data?.length || 0;
       }
     }
 
