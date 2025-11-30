@@ -30,6 +30,8 @@ export default function Profile() {
   };
 
   const handleSyncTwilioMessages = async () => {
+    alert('BUTTON CLICKED - Handler is firing!');
+
     if (!user) {
       Alert.alert('Error', 'Please log in first');
       return;
