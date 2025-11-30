@@ -37,7 +37,10 @@ Deno.serve(async (req: Request) => {
     const twilioAuthToken = Deno.env.get('TWILIO_AUTH_TOKEN');
 
     if (!twilioAccountSid || !twilioAuthToken) {
-      throw new Error('Twilio credentials not configured. Please add TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN to Supabase secrets.');
+      console.error('MISSING CREDENTIALS!');
+      console.error('TWILIO_ACCOUNT_SID present:', !!twilioAccountSid);
+      console.error('TWILIO_AUTH_TOKEN present:', !!twilioAuthToken);
+      throw new Error('Twilio credentials are NOT configured in Supabase. Go to Supabase Dashboard → Edge Functions → Secrets and add: TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN');
     }
 
     const auth = btoa(`${twilioAccountSid}:${twilioAuthToken}`);
@@ -64,7 +67,6 @@ Deno.serve(async (req: Request) => {
     if (phoneNumbers.length === 0) {
       throw new Error('No Twilio phone numbers found in account');
     }
-
     const twilioPhoneNumber = phoneNumbers[0].phone_number;
     console.log(`Using Twilio number: ${twilioPhoneNumber}`);
 
