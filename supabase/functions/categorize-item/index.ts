@@ -39,10 +39,18 @@ Deno.serve(async (req: Request) => {
     const urlMatch = content.match(/https?:\/\/[^\s]+/);
     if (urlMatch) {
       try {
+        const cleanUrl = urlMatch[0].split('?')[0];
         const metadata = await fetchLinkMetadata(urlMatch[0]);
         if (metadata.title) title = metadata.title;
         if (metadata.description) summary = metadata.description;
         if (metadata.image) imagePreview = metadata.image;
+
+        if (!metadata.title || !metadata.description) {
+          const fallbackMetadata = await fetchWithJSONLD(urlMatch[0]);
+          if (!metadata.title && fallbackMetadata.title) title = fallbackMetadata.title;
+          if (!metadata.description && fallbackMetadata.description) summary = fallbackMetadata.description;
+          if (!metadata.image && fallbackMetadata.image) imagePreview = fallbackMetadata.image;
+        }
       } catch (error) {
         console.error('Link metadata fetch failed:', error);
       }
@@ -125,8 +133,11 @@ async function fetchLinkMetadata(url: string) {
   try {
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; MeMark/1.0)',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
       },
+      redirect: 'follow',
     });
 
     if (!response.ok) {
@@ -135,21 +146,25 @@ async function fetchLinkMetadata(url: string) {
 
     const html = await response.text();
 
-    const ogTitle = html.match(/<meta property="og:title" content="([^"]+)"/i)?.[1];
-    const ogDescription = html.match(/<meta property="og:description" content="([^"]+)"/i)?.[1];
-    const ogImage = html.match(/<meta property="og:image" content="([^"]+)"/i)?.[1];
+    const ogTitle = html.match(/<meta\s+property=["']og:title["']\s+content=["']([^"']+)["']/i)?.[1];
+    const ogDescription = html.match(/<meta\s+property=["']og:description["']\s+content=["']([^"']+)["']/i)?.[1];
+    const ogImage = html.match(/<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/i)?.[1];
 
-    const twitterTitle = html.match(/<meta name="twitter:title" content="([^"]+)"/i)?.[1];
-    const twitterDescription = html.match(/<meta name="twitter:description" content="([^"]+)"/i)?.[1];
-    const twitterImage = html.match(/<meta name="twitter:image" content="([^"]+)"/i)?.[1];
+    const twitterTitle = html.match(/<meta\s+name=["']twitter:title["']\s+content=["']([^"']+)["']/i)?.[1];
+    const twitterDescription = html.match(/<meta\s+name=["']twitter:description["']\s+content=["']([^"']+)["']/i)?.[1];
+    const twitterImage = html.match(/<meta\s+name=["']twitter:image["']\s+content=["']([^"']+)["']/i)?.[1];
 
     const htmlTitle = html.match(/<title>([^<]+)<\/title>/i)?.[1];
-    const metaDescription = html.match(/<meta name="description" content="([^"]+)"/i)?.[1];
+    const metaDescription = html.match(/<meta\s+name=["']description["']\s+content=["']([^"']+)["']/i)?.[1];
+
+    const title = ogTitle || twitterTitle || htmlTitle || null;
+    const description = ogDescription || twitterDescription || metaDescription || null;
+    const image = ogImage || twitterImage || null;
 
     return {
-      title: ogTitle || twitterTitle || htmlTitle || null,
-      description: ogDescription || twitterDescription || metaDescription || null,
-      image: ogImage || twitterImage || null,
+      title: title ? decodeHTMLEntities(title) : null,
+      description: description ? decodeHTMLEntities(description) : null,
+      image: image,
     };
   } catch (error) {
     console.error('Error fetching link metadata:', error);
@@ -157,7 +172,67 @@ async function fetchLinkMetadata(url: string) {
   }
 }
 
+async function fetchWithJSONLD(url: string) {
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      },
+    });
+
+    if (!response.ok) {
+      return { title: null, description: null, image: null };
+    }
+
+    const html = await response.text();
+    const jsonldMatch = html.match(/<script type="application\/ld\+json">([^<]+)<\/script>/i);
+
+    if (jsonldMatch) {
+      try {
+        const jsonld = JSON.parse(jsonldMatch[1]);
+        return {
+          title: jsonld.headline || jsonld.name || null,
+          description: jsonld.description || null,
+          image: jsonld.image?.url || jsonld.image || null,
+        };
+      } catch {
+        return { title: null, description: null, image: null };
+      }
+    }
+
+    return { title: null, description: null, image: null };
+  } catch (error) {
+    return { title: null, description: null, image: null };
+  }
+}
+
+function decodeHTMLEntities(text: string): string {
+  const entities: Record<string, string> = {
+    '&amp;': '&',
+    '&lt;': '<',
+    '&gt;': '>',
+    '&quot;': '"',
+    '&#39;': "'",
+    '&nbsp;': ' ',
+  };
+  return text.replace(/&[#\w]+;/g, (entity) => entities[entity] || entity);
+}
+
 async function categorizeWithAI(content: string, apiKey: string) {
+  const urlMatch = content.match(/https?:\/\/[^\s]+/);
+  const isUrl = !!urlMatch;
+
+  const systemPrompt = isUrl
+    ? `You are a smart link analyzer for MeMark. Analyze the URL and any text.
+Return JSON with: type (video/article/note/task/text), title (concise, 60 chars max, describe what the link is about),
+summary (150 chars, explain what value this content provides), tags (3-5 relevant, specific tags),
+category (Work/Personal/Finance/Learning/Tech/Entertainment/News/Shopping/Social).
+For Twitter/X links, infer the topic from the URL or text. Be specific and helpful.`
+    : `You are a smart categorization assistant for MeMark.
+Return JSON with: type (note/task/text/idea), title (60 chars, descriptive),
+summary (150 chars, key points), tags (3-5 relevant tags),
+category (Work/Personal/Finance/Learning/Ideas/Tasks).`;
+
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -169,14 +244,13 @@ async function categorizeWithAI(content: string, apiKey: string) {
       messages: [
         {
           role: 'system',
-          content: `You are a smart categorization assistant for MeMark, a personal knowledge manager.
-Analyze the content and return JSON with: type (video/article/note/task/text), title (max 60 chars),
-summary (max 200 chars), tags (array of 1-5 relevant tags), and category (Work/Personal/Finance/Learning/Inspiration/Videos to Watch/Articles to Read).
-Be concise and accurate.`,
+          content: systemPrompt,
         },
         {
           role: 'user',
-          content: `Categorize this content:\n\n${content.substring(0, 2000)}`,
+          content: isUrl
+            ? `Analyze this link and provide useful context:\n\n${content.substring(0, 2000)}`
+            : `Categorize this content:\n\n${content.substring(0, 2000)}`,
         },
       ],
       temperature: 0.3,
