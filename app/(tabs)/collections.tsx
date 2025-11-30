@@ -74,7 +74,7 @@ export default function Collections() {
         ) : (
           <View style={styles.itemsList}>
             {items.map((item) => (
-              <ItemCard key={item.id} item={item} />
+              <ItemCard key={item.id} item={item} onPress={() => {}} />
             ))}
           </View>
         )}

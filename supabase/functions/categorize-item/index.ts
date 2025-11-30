@@ -28,8 +28,6 @@ Deno.serve(async (req: Request) => {
 
     const { itemId, content, userId } = await req.json() as CategorizeRequest;
 
-    console.log('OpenAI key present:', !!openaiApiKey);
-
     let type = detectType(content);
     let title = generateTitle(content, type);
     let summary = generateSummary(content, type);
@@ -39,7 +37,9 @@ Deno.serve(async (req: Request) => {
     let imagePreview = extractImageUrl(content);
 
     const urlMatch = content.match(/https?:\/\/[^\s]+/);
-    if (urlMatch) {
+    const isTwitter = urlMatch && (urlMatch[0].includes('x.com') || urlMatch[0].includes('twitter.com'));
+
+    if (urlMatch && !isTwitter) {
       try {
         const cleanUrl = urlMatch[0].split('?')[0];
         const metadata = await fetchLinkMetadata(urlMatch[0]);
@@ -58,11 +58,13 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    if (isTwitter) {
+      imagePreview = `https://logo.clearbit.com/x.com`;
+    }
+
     if (openaiApiKey) {
       try {
-        console.log('Calling OpenAI...');
         const aiResult = await categorizeWithAI(content, openaiApiKey);
-        console.log('AI result:', aiResult);
         type = aiResult.type || type;
         title = aiResult.title || title;
         summary = aiResult.summary || summary;
@@ -229,9 +231,10 @@ function decodeHTMLEntities(text: string): string {
 async function categorizeWithAI(content: string, apiKey: string) {
   const urlMatch = content.match(/https?:\/\/[^\s]+/);
   const isUrl = !!urlMatch;
+  const isTwitter = urlMatch && (urlMatch[0].includes('x.com') || urlMatch[0].includes('twitter.com'));
 
   const systemPrompt = isUrl
-    ? `You are a smart link analyzer for MeMark. Analyze the URL and any text.\nReturn JSON with: type (video/article/note/task/text), title (concise, 60 chars max, describe what the link is about),\nsummary (150 chars, explain what value this content provides), tags (3-5 relevant, specific tags),\ncategory (Work/Personal/Finance/Learning/Tech/Entertainment/News/Shopping/Social).\nFor Twitter/X links, infer the topic from the URL or text. Be specific and helpful.`
+    ? `You are a smart link analyzer for MeMark. Analyze the URL and any text.\nReturn JSON with: type (video/article/note/task/text), title (concise, 60 chars max, describe what the link is about),\nsummary (150 chars max, explain what value this content provides or likely topic), tags (3-5 relevant, specific tags),\ncategory (Work/Personal/Finance/Learning/Tech/Entertainment/News/Shopping/Social).\n${isTwitter ? 'For Twitter/X posts, analyze the username/handle and URL to infer the topic. Create an engaging title and summary.' : 'Be specific and helpful.'}`
     : `You are a smart categorization assistant for MeMark.\nReturn JSON with: type (note/task/text/idea), title (60 chars, descriptive),\nsummary (150 chars, key points), tags (3-5 relevant tags),\ncategory (Work/Personal/Finance/Learning/Ideas/Tasks).`;
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {

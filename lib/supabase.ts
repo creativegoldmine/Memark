@@ -42,6 +42,9 @@ export interface Item {
   next_review_date: string;
   created_at: string;
   updated_at: string;
+  last_viewed_at?: string;
+  view_count?: number;
+  is_archived?: boolean;
 }
 
 export interface Collection {

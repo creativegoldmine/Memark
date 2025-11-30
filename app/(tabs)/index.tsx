@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase, Item } from '@/lib/supabase';
 import { ItemCard } from '@/components/ItemCard';
 import { LoadingLogo } from '@/components/LoadingLogo';
+import { LinkPreviewModal } from '@/components/LinkPreviewModal';
 
 export default function Home() {
   const { theme, themeMode } = useTheme();
@@ -13,6 +14,8 @@ export default function Home() {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<Item | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
   const [stats, setStats] = useState({
     todayCount: 0,
     reviewCount: 0,
@@ -27,6 +30,7 @@ export default function Home() {
       .select('*')
       .eq('user_id', user.id)
       .eq('status', 'active')
+      .eq('is_archived', false)
       .order('created_at', { ascending: false })
       .limit(20);
 
@@ -59,6 +63,20 @@ export default function Home() {
 
   const onRefresh = () => {
     setRefreshing(true);
+    fetchItems();
+  };
+
+  const handleItemPress = (item: Item) => {
+    setSelectedItem(item);
+    setModalVisible(true);
+  };
+
+  const handleModalClose = () => {
+    setModalVisible(false);
+    setSelectedItem(null);
+  };
+
+  const handleItemUpdate = () => {
     fetchItems();
   };
 
@@ -138,7 +156,7 @@ export default function Home() {
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: theme.text }]}>Today's Items</Text>
             {todayItems.map((item) => (
-              <ItemCard key={item.id} item={item} onPress={() => {}} />
+              <ItemCard key={item.id} item={item} onPress={() => handleItemPress(item)} />
             ))}
           </View>
         )}
@@ -147,7 +165,7 @@ export default function Home() {
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: theme.text }]}>Videos to Watch</Text>
             {videoItems.slice(0, 3).map((item) => (
-              <ItemCard key={item.id} item={item} onPress={() => {}} />
+              <ItemCard key={item.id} item={item} onPress={() => handleItemPress(item)} />
             ))}
           </View>
         )}
@@ -156,7 +174,7 @@ export default function Home() {
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: theme.text }]}>Articles to Read</Text>
             {articleItems.slice(0, 3).map((item) => (
-              <ItemCard key={item.id} item={item} onPress={() => {}} />
+              <ItemCard key={item.id} item={item} onPress={() => handleItemPress(item)} />
             ))}
           </View>
         )}
@@ -170,6 +188,13 @@ export default function Home() {
           </View>
         )}
       </ScrollView>
+
+      <LinkPreviewModal
+        visible={modalVisible}
+        item={selectedItem}
+        onClose={handleModalClose}
+        onUpdate={handleItemUpdate}
+      />
     </View>
   );
 }
