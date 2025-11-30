@@ -40,17 +40,27 @@ export default function Profile() {
     try {
       console.log('Starting SMS sync...');
 
-      const { data, error } = await supabase.functions.invoke('sync-twilio-messages', {
-        body: {},
-      });
-
-      console.log('Sync response:', { data, error });
-
-      if (error) {
-        console.error('Function invocation error:', error);
-        Alert.alert('Sync Error', error.message || 'Failed to call sync function');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        Alert.alert('Error', 'Not authenticated');
+        setSyncing(false);
         return;
       }
+
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/sync-twilio-messages`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({}),
+        }
+      );
+
+      const data = await response.json();
+      console.log('Sync response:', data);
 
       if (data.success) {
         const total = data.total || 0;
