@@ -30,8 +30,6 @@ export default function Profile() {
   };
 
   const handleSyncTwilioMessages = async () => {
-    alert('BUTTON CLICKED - Handler is firing!');
-
     if (!user) {
       Alert.alert('Error', 'Please log in first');
       return;
@@ -40,57 +38,41 @@ export default function Profile() {
     setSyncing(true);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        Alert.alert('Error', 'Session expired. Please log in again.');
-        setSyncing(false);
-        return;
-      }
+      console.log('Starting SMS sync...');
 
-      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-      console.log('Supabase URL:', supabaseUrl);
-
-      if (!supabaseUrl) {
-        Alert.alert('Error', 'Supabase URL not configured');
-        setSyncing(false);
-        return;
-      }
-
-      const functionUrl = `${supabaseUrl}/functions/v1/sync-twilio-messages`;
-      console.log('Calling function:', functionUrl);
-
-      const response = await fetch(functionUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
+      const { data, error } = await supabase.functions.invoke('sync-twilio-messages', {
+        body: {},
       });
 
-      console.log('Response status:', response.status);
+      console.log('Sync response:', { data, error });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Response error:', errorText);
-        Alert.alert('Error', `Server returned ${response.status}: ${errorText}`);
-        setSyncing(false);
+      if (error) {
+        console.error('Function invocation error:', error);
+        Alert.alert('Sync Error', error.message || 'Failed to call sync function');
         return;
       }
 
-      const result = await response.json();
-      console.log('Result:', result);
+      if (data.success) {
+        const total = data.total || 0;
+        const imported = data.imported || 0;
+        const skipped = data.skipped || 0;
+        const errors = data.errors || 0;
 
-      if (result.success) {
-        Alert.alert(
-          'Sync Complete',
-          `Imported ${result.imported} new messages\nSkipped ${result.skipped} duplicates`
-        );
+        let message = `Total messages found: ${total}\n`;
+        message += `Imported: ${imported}\n`;
+        message += `Skipped: ${skipped}`;
+
+        if (errors > 0) {
+          message += `\nErrors: ${errors}`;
+        }
+
+        Alert.alert('Sync Complete', message);
       } else {
-        Alert.alert('Sync Failed', result.error || 'Unknown error occurred');
+        Alert.alert('Sync Failed', data.error || 'Unknown error occurred');
       }
     } catch (error: any) {
       console.error('Sync error:', error);
-      Alert.alert('Error', error.message || 'Failed to sync messages');
+      Alert.alert('Sync Error', error.message || 'Failed to sync messages');
     } finally {
       setSyncing(false);
     }
