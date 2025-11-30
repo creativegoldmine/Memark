@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Twilio Connection</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        button {
+            background: #0066cc;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 6px;
+            margin: 10px 0;
+        }
+        button:hover {
+            background: #0052a3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 6px;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        .error {
+            background: #ffe6e6;
+            color: #cc0000;
+        }
+        .success {
+            background: #e6ffe6;
+            color: #006600;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test Twilio Connection</h1>
+    <p>This will test if Twilio credentials are configured correctly and can fetch phone numbers.</p>
+
+    <button id="testBtn" onclick="testTwilio()">Test Twilio Connection</button>
+    <button id="syncBtn" onclick="syncMessages()">Sync Messages</button>
+
+    <div id="result"></div>
+
+    <script>
+        const SUPABASE_URL = 'https://ckhzhabcvxyawhjcjsfu.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNraHpoYWJjdnh5YXdoamNqc2Z1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM4NDYzNTcsImV4cCI6MjA3OTQyMjM1N30.iHMU4n930fyTa4714cjEmuelKU4X9NDCI9O-VJw12ts';
+
+        async function testTwilio() {
+            const resultDiv = document.getElementById('result');
+            const testBtn = document.getElementById('testBtn');
+
+            testBtn.disabled = true;
+            resultDiv.textContent = 'Testing Twilio connection...';
+            resultDiv.className = '';
+
+            try {
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/test-twilio-connection`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'Content-Type': 'application/json',
+                    },
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    resultDiv.textContent = `SUCCESS!\n\nFound ${data.count} Twilio phone number(s):\n\n${JSON.stringify(data.phone_numbers, null, 2)}`;
+                    resultDiv.className = 'success';
+                } else {
+                    resultDiv.textContent = `FAILED!\n\nError: ${data.error}\n\nDetails:\n${JSON.stringify(data, null, 2)}`;
+                    resultDiv.className = 'error';
+                }
+            } catch (error) {
+                resultDiv.textContent = `ERROR!\n\n${error.message}`;
+                resultDiv.className = 'error';
+            } finally {
+                testBtn.disabled = false;
+            }
+        }
+
+        async function syncMessages() {
+            const resultDiv = document.getElementById('result');
+            const syncBtn = document.getElementById('syncBtn');
+
+            syncBtn.disabled = true;
+            resultDiv.textContent = 'Syncing messages from Twilio...';
+            resultDiv.className = '';
+
+            try {
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/sync-twilio-messages`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'Content-Type': 'application/json',
+                    },
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    resultDiv.textContent = `SYNC COMPLETE!\n\nTotal messages: ${data.total}\nImported: ${data.imported}\nSkipped: ${data.skipped}\nErrors: ${data.errors}`;
+                    resultDiv.className = 'success';
+                } else {
+                    resultDiv.textContent = `SYNC FAILED!\n\nError: ${data.error}`;
+                    resultDiv.className = 'error';
+                }
+            } catch (error) {
+                resultDiv.textContent = `ERROR!\n\n${error.message}`;
+                resultDiv.className = 'error';
+            } finally {
+                syncBtn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
