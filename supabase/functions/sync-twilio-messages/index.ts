@@ -73,10 +73,12 @@ Deno.serve(async (req: Request) => {
     console.log('Fetching messages from Twilio...');
 
     let allMessages: any[] = [];
-    let nextPageUrl = `https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Messages.json?To=${encodeURIComponent(twilioPhoneNumber)}&PageSize=1000`;
+    let nextPageUrl = `https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Messages.json?To=${encodeURIComponent(twilioPhoneNumber)}&PageSize=100`;
     let pageCount = 0;
+    const MAX_PAGES = 3;
+    const MAX_MESSAGES = 300;
 
-    while (nextPageUrl && pageCount < 10) {
+    while (nextPageUrl && pageCount < MAX_PAGES && allMessages.length < MAX_MESSAGES) {
       pageCount++;
       console.log(`Fetching page ${pageCount}...`);
       
@@ -104,6 +106,11 @@ Deno.serve(async (req: Request) => {
     }
 
     console.log(`=== TOTAL MESSAGES FETCHED: ${allMessages.length} ===`);
+    console.log(`Pages fetched: ${pageCount}`);
+
+    if (allMessages.length >= MAX_MESSAGES) {
+      console.log(`Reached maximum message limit of ${MAX_MESSAGES}`);
+    }
 
     if (allMessages.length === 0) {
       return new Response(
