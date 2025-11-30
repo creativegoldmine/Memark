@@ -13,10 +13,11 @@ import {
 import { Send, Sparkles } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase, Item } from '@/lib/supabase';
+import { supabase, Item, supabaseUrl } from '@/lib/supabase';
 import { ItemCard } from '@/components/ItemCard';
 import { LogoHeader } from '@/components/LogoHeader';
 import { LoadingLogo } from '@/components/LoadingLogo';
+import { LinkPreviewModal } from '@/components/LinkPreviewModal';
 
 interface Message {
   id: string;
@@ -32,11 +33,13 @@ export default function AISearch() {
     {
       id: '1',
       role: 'assistant',
-      content: "Hi! I'm your MeMark AI assistant. Ask me to find anything you've saved, like:\n\n• \"Find that coding course I saved\"\n• \"Show me articles about design\"\n• \"What videos did I save last week?\"\n• \"Find links about productivity\"",
+      content: "Hi! I'm your MeMark AI assistant. I help you remember things by understanding how you describe them.\n\nTry asking me naturally:\n\n• \"that article about AI from last week\"\n• \"the cooking video I saved\"\n• \"something about productivity\"\n• \"the Twitter post about design\"",
     },
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<Item | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
   const handleSend = async () => {
@@ -83,31 +86,41 @@ export default function AISearch() {
   };
 
   const searchWithAI = async (query: string, items: Item[]) => {
-    const lowerQuery = query.toLowerCase();
+    try {
+      const response = await fetch(`${supabaseUrl}/functions/v1/ai-recall`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query,
+          userId: user!.id,
+        }),
+      });
 
+      if (!response.ok) {
+        throw new Error('AI recall failed');
+      }
+
+      const result = await response.json();
+      return result;
+    } catch (error) {
+      console.error('AI search error:', error);
+      return {
+        message: "I had trouble searching. Let me try a basic search instead.",
+        items: basicSearch(query, items),
+      };
+    }
+  };
+
+  const basicSearch = (query: string, items: Item[]) => {
+    const lowerQuery = query.toLowerCase();
     const matches = items.filter((item) => {
       const searchText = `${item.title} ${item.summary} ${item.raw_content} ${item.tags?.join(' ')} ${item.category}`.toLowerCase();
       const queryWords = lowerQuery.split(' ').filter((w) => w.length > 2);
       return queryWords.some((word) => searchText.includes(word));
     });
-
-    if (matches.length === 0) {
-      return {
-        message: "I couldn't find anything matching that. Try different keywords or check your saved content.",
-        items: [],
-      };
-    }
-
-    const categories = [...new Set(matches.map((i) => i.type))].join(', ');
-    const message =
-      matches.length === 1
-        ? `I found 1 ${matches[0].type} that matches your search:`
-        : `I found ${matches.length} items matching your search (${categories}):`;
-
-    return {
-      message,
-      items: matches.slice(0, 10),
-    };
+    return matches.slice(0, 10);
   };
 
   useEffect(() => {
@@ -151,7 +164,10 @@ export default function AISearch() {
             {message.items && message.items.length > 0 && (
               <View style={styles.itemsContainer}>
                 {message.items.map((item) => (
-                  <ItemCard key={item.id} item={item} onPress={() => {}} />
+                  <ItemCard key={item.id} item={item} onPress={() => {
+                    setSelectedItem(item);
+                    setModalVisible(true);
+                  }} />
                 ))}
               </View>
             )}
@@ -184,6 +200,16 @@ export default function AISearch() {
           <Send size={20} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
+
+      <LinkPreviewModal
+        visible={modalVisible}
+        item={selectedItem}
+        onClose={() => {
+          setModalVisible(false);
+          setSelectedItem(null);
+        }}
+        onUpdate={() => {}}
+      />
     </KeyboardAvoidingView>
   );
 }

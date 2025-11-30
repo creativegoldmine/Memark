@@ -6,6 +6,7 @@ import { supabase, Item } from '@/lib/supabase';
 import { LogoHeader } from '@/components/LogoHeader';
 import { LoadingLogo } from '@/components/LoadingLogo';
 import { ItemCard } from '@/components/ItemCard';
+import { LinkPreviewModal } from '@/components/LinkPreviewModal';
 
 export default function Collections() {
   const { theme } = useTheme();
@@ -13,6 +14,8 @@ export default function Collections() {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<Item | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
 
   const fetchItems = async () => {
     if (!user) return;
@@ -74,11 +77,24 @@ export default function Collections() {
         ) : (
           <View style={styles.itemsList}>
             {items.map((item) => (
-              <ItemCard key={item.id} item={item} onPress={() => {}} />
+              <ItemCard key={item.id} item={item} onPress={() => {
+                setSelectedItem(item);
+                setModalVisible(true);
+              }} />
             ))}
           </View>
         )}
       </ScrollView>
+
+      <LinkPreviewModal
+        visible={modalVisible}
+        item={selectedItem}
+        onClose={() => {
+          setModalVisible(false);
+          setSelectedItem(null);
+        }}
+        onUpdate={fetchItems}
+      />
     </View>
   );
 }

@@ -46,7 +46,7 @@ export default function ShareHandler() {
       const { data: item, error } = await supabase
         .from('items')
         .insert({
-          user_id: user.id,
+          user_id: user!.id,
           raw_content: sharedContent,
           status: 'active',
           review_stage: 1,
@@ -70,7 +70,7 @@ export default function ShareHandler() {
             body: JSON.stringify({
               itemId: item.id,
               content: sharedContent,
-              userId: user.id,
+              userId: user!.id,
             }),
           }
         );
