@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity } from 'react-native';
 import { Search as SearchIcon, Filter, X } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -15,21 +15,12 @@ export default function Search() {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [items, setItems] = useState<Item[]>([]);
-  const [filteredItems, setFilteredItems] = useState<Item[]>([]);
   const [selectedType, setSelectedType] = useState('All');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [showFilters, setShowFilters] = useState(false);
 
-  useEffect(() => {
-    fetchItems();
-  }, [user]);
-
-  useEffect(() => {
-    filterItems();
-  }, [searchQuery, selectedType, selectedCategory, items]);
-
-  const fetchItems = async () => {
-    if (!user) return;
+  const fetchItems = useCallback(async () => {
+    if (!user?.id) return;
 
     const { data } = await supabase
       .from('items')
@@ -40,9 +31,15 @@ export default function Search() {
     if (data) {
       setItems(data);
     }
-  };
+  }, [user?.id]);
 
-  const filterItems = () => {
+  useEffect(() => {
+    if (user?.id) {
+      fetchItems();
+    }
+  }, [user?.id, fetchItems]);
+
+  const filteredItems = useMemo(() => {
     let filtered = items;
 
     if (searchQuery) {
@@ -64,8 +61,8 @@ export default function Search() {
       filtered = filtered.filter((item) => item.category?.toLowerCase() === selectedCategory.toLowerCase());
     }
 
-    setFilteredItems(filtered);
-  };
+    return filtered;
+  }, [items, searchQuery, selectedType, selectedCategory]);
 
   const clearSearch = () => {
     setSearchQuery('');

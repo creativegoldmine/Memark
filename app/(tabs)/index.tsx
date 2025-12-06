@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Image } from 'react-native';
 import { Flame, Plus } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -21,9 +21,10 @@ export default function Home() {
     reviewCount: 0,
     streak: 0,
   });
+  const subscriptionRef = useRef<any>(null);
 
-  const fetchItems = async () => {
-    if (!user) return;
+  const fetchItems = useCallback(async () => {
+    if (!user?.id) return;
 
     const { data, error } = await supabase
       .from('items')
@@ -40,7 +41,7 @@ export default function Home() {
     }
     setLoading(false);
     setRefreshing(false);
-  };
+  }, [user?.id]);
 
   const calculateStats = (items: Item[]) => {
     const today = new Date();
@@ -76,13 +77,46 @@ export default function Home() {
     setSelectedItem(null);
   };
 
-  const handleItemUpdate = () => {
-    fetchItems();
+  const handleItemUpdate = (updatedItem: Item) => {
+    setItems(prev => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
   };
 
   useEffect(() => {
-    fetchItems();
-  }, [user]);
+    if (user?.id) {
+      fetchItems();
+    }
+  }, [user?.id, fetchItems]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    subscriptionRef.current = supabase
+      .channel('items_changes')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'items',
+        filter: `user_id=eq.${user.id}`
+      }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          const newItem = payload.new as Item;
+          if (newItem.status === 'active' && !newItem.is_archived) {
+            setItems(prev => [newItem, ...prev].slice(0, 20));
+            calculateStats([newItem, ...items]);
+          }
+        } else if (payload.eventType === 'UPDATE') {
+          const updatedItem = payload.new as Item;
+          setItems(prev => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
+        } else if (payload.eventType === 'DELETE') {
+          setItems(prev => prev.filter(item => item.id !== payload.old.id));
+        }
+      })
+      .subscribe();
+
+    return () => {
+      subscriptionRef.current?.unsubscribe();
+    };
+  }, [user?.id, items]);
 
   const todayItems = items.filter((item) => {
     const today = new Date();
@@ -193,7 +227,7 @@ export default function Home() {
         visible={modalVisible}
         item={selectedItem}
         onClose={handleModalClose}
-        onUpdate={handleItemUpdate}
+        onUpdate={() => selectedItem && handleItemUpdate(selectedItem)}
       />
     </View>
   );

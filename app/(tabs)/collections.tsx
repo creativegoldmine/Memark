@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
-import { Grid, List, ChevronRight } from 'lucide-react-native';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, TextInput, Modal } from 'react-native';
+import { Grid, List, ChevronRight, Plus, X, Trash2 } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase, Item } from '@/lib/supabase';
@@ -31,9 +31,13 @@ export default function Collections() {
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [createModalVisible, setCreateModalVisible] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [newFolderIcon, setNewFolderIcon] = useState('📁');
+  const subscriptionRef = useRef<any>(null);
 
-  const fetchFolders = async () => {
-    if (!user) return;
+  const fetchFolders = useCallback(async () => {
+    if (!user?.id) return;
 
     const { data: foldersData } = await supabase
       .from('folders')
@@ -58,10 +62,10 @@ export default function Collections() {
 
     setLoading(false);
     setRefreshing(false);
-  };
+  }, [user?.id]);
 
-  const fetchFolderItems = async (folderId: string) => {
-    if (!user) return;
+  const fetchFolderItems = useCallback(async (folderId: string) => {
+    if (!user?.id) return;
 
     const { data: itemFolders } = await supabase
       .from('item_folders')
@@ -84,17 +88,71 @@ export default function Collections() {
     } else {
       setFolderItems([]);
     }
+  }, [user?.id]);
+
+  const createFolder = async () => {
+    if (!user?.id || !newFolderName.trim()) return;
+
+    const { error } = await supabase.from('folders').insert({
+      user_id: user.id,
+      name: newFolderName.trim(),
+      path: newFolderName.trim(),
+      icon: newFolderIcon,
+      is_auto_generated: false,
+      sort_order: folders.length,
+    });
+
+    if (!error) {
+      setNewFolderName('');
+      setNewFolderIcon('📁');
+      setCreateModalVisible(false);
+      fetchFolders();
+    }
+  };
+
+  const deleteFolder = async (folderId: string) => {
+    const { error } = await supabase.from('folders').delete().eq('id', folderId);
+
+    if (!error) {
+      setFolders(prev => prev.filter(f => f.id !== folderId));
+      if (selectedFolder?.id === folderId) {
+        setSelectedFolder(null);
+        setFolderItems([]);
+      }
+    }
   };
 
   useEffect(() => {
-    fetchFolders();
-  }, [user]);
+    if (user?.id) {
+      fetchFolders();
+    }
+  }, [user?.id, fetchFolders]);
 
   useEffect(() => {
-    if (selectedFolder) {
+    if (selectedFolder?.id) {
       fetchFolderItems(selectedFolder.id);
     }
-  }, [selectedFolder]);
+  }, [selectedFolder?.id, fetchFolderItems]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    subscriptionRef.current = supabase
+      .channel('folders_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'folders', filter: `user_id=eq.${user.id}` }, () => {
+        fetchFolders();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'item_folders' }, () => {
+        if (selectedFolder?.id) {
+          fetchFolderItems(selectedFolder.id);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      subscriptionRef.current?.unsubscribe();
+    };
+  }, [user?.id, selectedFolder?.id, fetchFolders, fetchFolderItems]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -122,22 +180,30 @@ export default function Collections() {
 
       <View style={[styles.header, { borderBottomColor: theme.border }]}>
         <Text style={[styles.headerText, { color: theme.text }]}>
-          {selectedFolder ? selectedFolder.name : 'Your Folders'}
+          {selectedFolder ? selectedFolder.name : 'Collections'}
         </Text>
         {!selectedFolder && (
-          <View style={styles.viewToggle}>
+          <View style={styles.headerActions}>
             <TouchableOpacity
-              style={[styles.viewButton, viewMode === 'list' && { backgroundColor: theme.surface }]}
-              onPress={() => setViewMode('list')}
+              style={[styles.createButton, { backgroundColor: theme.primary }]}
+              onPress={() => setCreateModalVisible(true)}
             >
-              <List size={20} color={viewMode === 'list' ? theme.primary : theme.textTertiary} />
+              <Plus size={18} color="#FFFFFF" />
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.viewButton, viewMode === 'grid' && { backgroundColor: theme.surface }]}
-              onPress={() => setViewMode('grid')}
-            >
-              <Grid size={20} color={viewMode === 'grid' ? theme.primary : theme.textTertiary} />
-            </TouchableOpacity>
+            <View style={styles.viewToggle}>
+              <TouchableOpacity
+                style={[styles.viewButton, viewMode === 'list' && { backgroundColor: theme.surface }]}
+                onPress={() => setViewMode('list')}
+              >
+                <List size={20} color={viewMode === 'list' ? theme.primary : theme.textTertiary} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.viewButton, viewMode === 'grid' && { backgroundColor: theme.surface }]}
+                onPress={() => setViewMode('grid')}
+              >
+                <Grid size={20} color={viewMode === 'grid' ? theme.primary : theme.textTertiary} />
+              </TouchableOpacity>
+            </View>
           </View>
         )}
       </View>
@@ -173,7 +239,14 @@ export default function Collections() {
                   onPress={() => setSelectedFolder(folder)}
                 >
                   <View style={styles.folderContent}>
-                    <Text style={styles.folderIcon}>{folder.icon}</Text>
+                    <View style={styles.folderTop}>
+                      <Text style={styles.folderIcon}>{folder.icon}</Text>
+                      {!folder.is_auto_generated && viewMode === 'grid' && (
+                        <TouchableOpacity onPress={() => deleteFolder(folder.id)}>
+                          <Trash2 size={16} color={theme.textTertiary} />
+                        </TouchableOpacity>
+                      )}
+                    </View>
                     <View style={styles.folderInfo}>
                       <Text style={[styles.folderName, { color: theme.text }]} numberOfLines={1}>
                         {folder.name}
@@ -181,9 +254,21 @@ export default function Collections() {
                       <Text style={[styles.folderCount, { color: theme.textSecondary }]}>
                         {folder.itemCount} items
                       </Text>
+                      {folder.is_auto_generated && (
+                        <View style={[styles.autoTag, { backgroundColor: theme.surface }]}>
+                          <Text style={[styles.autoTagText, { color: theme.textTertiary }]}>Auto</Text>
+                        </View>
+                      )}
                     </View>
                   </View>
-                  {viewMode === 'list' && <ChevronRight size={20} color={theme.textTertiary} />}
+                  {viewMode === 'list' && !folder.is_auto_generated && (
+                    <TouchableOpacity onPress={() => deleteFolder(folder.id)}>
+                      <Trash2 size={16} color={theme.textTertiary} />
+                    </TouchableOpacity>
+                  )}
+                  {viewMode === 'list' && folder.is_auto_generated && (
+                    <ChevronRight size={20} color={theme.textTertiary} />
+                  )}
                 </TouchableOpacity>
               ))}
             </View>
@@ -234,11 +319,58 @@ export default function Collections() {
           setSelectedItem(null);
         }}
         onUpdate={() => {
-          if (selectedFolder) {
-            fetchFolderItems(selectedFolder.id);
+          if (selectedFolder?.id) {
+            setFolderItems(prev =>
+              prev.map(item => item.id === selectedItem?.id ? { ...item, ...selectedItem } : item)
+            );
           }
         }}
       />
+
+      <Modal visible={createModalVisible} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modal, { backgroundColor: theme.cardBackground }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: theme.text }]}>New Collection</Text>
+              <TouchableOpacity onPress={() => setCreateModalVisible(false)}>
+                <X size={24} color={theme.text} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.iconPicker}>
+              {['📁', '📂', '🗂️', '📚', '💼', '🎨', '🎬', '🎮', '🏋️', '✈️'].map((emoji) => (
+                <TouchableOpacity
+                  key={emoji}
+                  style={[
+                    styles.iconOption,
+                    { backgroundColor: newFolderIcon === emoji ? theme.primary : theme.surface },
+                  ]}
+                  onPress={() => setNewFolderIcon(emoji)}
+                >
+                  <Text style={styles.iconEmoji}>{emoji}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <TextInput
+              style={[styles.input, { backgroundColor: theme.surface, color: theme.text }]}
+              placeholder="Collection name"
+              placeholderTextColor={theme.textTertiary}
+              value={newFolderName}
+              onChangeText={setNewFolderName}
+              maxLength={50}
+            />
+
+            <TouchableOpacity
+              style={[styles.submitButton, { backgroundColor: theme.primary }]}
+              onPress={createFolder}
+              disabled={!newFolderName.trim()}
+            >
+              <Text style={styles.submitButtonText}>Create Collection</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -269,6 +401,18 @@ const styles = StyleSheet.create({
   headerText: {
     fontSize: 20,
     fontWeight: '700',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  createButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   viewToggle: {
     flexDirection: 'row',
@@ -305,16 +449,30 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   folderContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
     flex: 1,
+  },
+  folderTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
   },
   folderIcon: {
     fontSize: 32,
   },
   folderInfo: {
     flex: 1,
+  },
+  autoTag: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginTop: 8,
+  },
+  autoTagText: {
+    fontSize: 11,
+    fontWeight: '600',
   },
   folderName: {
     fontSize: 16,
@@ -350,5 +508,57 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     lineHeight: 20,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modal: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  iconPicker: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 20,
+  },
+  iconOption: {
+    width: 50,
+    height: 50,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconEmoji: {
+    fontSize: 24,
+  },
+  input: {
+    padding: 16,
+    borderRadius: 12,
+    fontSize: 16,
+    marginBottom: 16,
+  },
+  submitButton: {
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  submitButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
