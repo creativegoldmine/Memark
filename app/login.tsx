@@ -69,7 +69,12 @@ export default function Login() {
           </View>
 
           <View style={styles.inputContainer}>
-            <Text style={[styles.label, { color: theme.textSecondary }]}>Password</Text>
+            <View style={styles.labelRow}>
+              <Text style={[styles.label, { color: theme.textSecondary }]}>Password</Text>
+              <TouchableOpacity onPress={() => router.push('/forgot-password')}>
+                <Text style={[styles.forgotLink, { color: theme.primary }]}>Forgot?</Text>
+              </TouchableOpacity>
+            </View>
             <TextInput
               style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]}
               placeholder="Enter your password"
@@ -137,9 +142,18 @@ const styles = StyleSheet.create({
   inputContainer: {
     gap: 8,
   },
+  labelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   label: {
     fontSize: 14,
     fontWeight: '500',
+  },
+  forgotLink: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   input: {
     paddingVertical: 14,
