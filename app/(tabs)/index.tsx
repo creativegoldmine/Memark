@@ -101,14 +101,25 @@ export default function Home() {
         if (payload.eventType === 'INSERT') {
           const newItem = payload.new as Item;
           if (newItem.status === 'active' && !newItem.is_archived) {
-            setItems(prev => [newItem, ...prev].slice(0, 20));
-            calculateStats([newItem, ...items]);
+            setItems(prev => {
+              const updated = [newItem, ...prev].slice(0, 20);
+              calculateStats(updated);
+              return updated;
+            });
           }
         } else if (payload.eventType === 'UPDATE') {
           const updatedItem = payload.new as Item;
-          setItems(prev => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
+          setItems(prev => {
+            const updated = prev.map(item => item.id === updatedItem.id ? updatedItem : item);
+            calculateStats(updated);
+            return updated;
+          });
         } else if (payload.eventType === 'DELETE') {
-          setItems(prev => prev.filter(item => item.id !== payload.old.id));
+          setItems(prev => {
+            const updated = prev.filter(item => item.id !== payload.old.id);
+            calculateStats(updated);
+            return updated;
+          });
         }
       })
       .subscribe();
@@ -116,7 +127,7 @@ export default function Home() {
     return () => {
       subscriptionRef.current?.unsubscribe();
     };
-  }, [user?.id, items]);
+  }, [user?.id]);
 
   const todayItems = items.filter((item) => {
     const today = new Date();

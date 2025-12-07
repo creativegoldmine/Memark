@@ -137,12 +137,25 @@ export default function Collections() {
   useEffect(() => {
     if (!user?.id) return;
 
+    if (subscriptionRef.current) {
+      subscriptionRef.current.unsubscribe();
+    }
+
     subscriptionRef.current = supabase
-      .channel('folders_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'folders', filter: `user_id=eq.${user.id}` }, () => {
+      .channel(`folders_changes_${user.id}_${selectedFolder?.id || 'none'}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'folders',
+        filter: `user_id=eq.${user.id}`
+      }, () => {
         fetchFolders();
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'item_folders' }, () => {
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'item_folders'
+      }, () => {
         if (selectedFolder?.id) {
           fetchFolderItems(selectedFolder.id);
         }
@@ -152,7 +165,7 @@ export default function Collections() {
     return () => {
       subscriptionRef.current?.unsubscribe();
     };
-  }, [user?.id, selectedFolder?.id, fetchFolders, fetchFolderItems]);
+  }, [user?.id, selectedFolder?.id]);
 
   const onRefresh = () => {
     setRefreshing(true);
