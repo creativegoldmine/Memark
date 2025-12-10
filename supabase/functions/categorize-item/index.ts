@@ -20,7 +20,7 @@ Deno.serve(async (req: Request) => {
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { itemId, content, userId } = await req.json();
+    const { itemId, content, userId, metadata: userMetadata } = await req.json();
 
     let metadata = null;
     const urlMatch = content.match(/https?:\/\/[^\s]+/);
@@ -33,12 +33,12 @@ Deno.serve(async (req: Request) => {
     let title = metadata?.title || content.substring(0, 60);
     let summary = metadata?.description || '';
     let tags: string[] = [];
-    let category = 'General';
+    let category = userMetadata?.contentType || 'General';
     let imagePreview = metadata?.image || null;
     let score = 70;
 
     if (openaiApiKey) {
-      const aiResult = await categorizeWithAI(openaiApiKey, content, metadata);
+      const aiResult = await categorizeWithAI(openaiApiKey, content, metadata, userMetadata);
       if (aiResult) {
         type = aiResult.type || type;
         title = aiResult.title || title;
@@ -159,20 +159,31 @@ async function fetchLinkMetadata(url: string) {
   }
 }
 
-async function categorizeWithAI(apiKey: string, content: string, metadata: any) {
+async function categorizeWithAI(apiKey: string, content: string, metadata: any, userMetadata?: any) {
   try {
+    const userContext = userMetadata ? `
+
+User provided context:
+- Notes: ${userMetadata.userNotes || 'None'}
+- Suggested content type: ${userMetadata.contentType || 'Not specified'}
+- Priority: ${userMetadata.priority || 'medium'}
+- Importance: ${userMetadata.importance || 'normal'}
+- Needs review: ${userMetadata.needsReview ? 'Yes' : 'No'}
+
+Please consider this user context when categorizing. If the user specified a content type or mentioned where to place it, strongly prioritize that information.` : '';
+
     const prompt = `Analyze this content and categorize it.
 
 Content: ${content}
-${metadata ? `\nMetadata: Title: ${metadata.title}\nDescription: ${metadata.description}` : ''}
+${metadata ? `\nMetadata: Title: ${metadata.title}\nDescription: ${metadata.description}` : ''}${userContext}
 
 Provide a JSON response with:
 - type: "article", "video", "text", "link", "image", or "note"
 - title: A concise, descriptive title (max 60 chars)
 - summary: A brief summary (max 150 chars)
-- tags: Array of 3-5 relevant tags
-- category: One of [Technology, Education, Entertainment, News, Business, Health, Science, Sports, Travel, Food, Other]
-- score: Relevance score 1-100`;
+- tags: Array of 3-5 relevant tags (incorporate user notes if relevant)
+- category: One of [Technology, Education, Entertainment, News, Business, Health, Science, Sports, Travel, Food, Other] (prioritize user's suggested content type if provided)
+- score: Relevance score 1-100 (boost score if user marked as important)`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',

@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Image } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 
 interface LogoHeaderProps {
@@ -11,11 +11,7 @@ export function LogoHeader({ pageTitle }: LogoHeaderProps) {
   return (
     <View style={[styles.header, { backgroundColor: theme.cardBackground, borderBottomColor: theme.border }]}>
       <View style={styles.logoContainer}>
-        <Image
-          source={require('@/assets/images/MeMark.png')}
-          style={styles.logo}
-          resizeMode="contain"
-        />
+        <Text style={[styles.logoText, { color: theme.primary }]}>MeMark</Text>
       </View>
       <Text style={[styles.pageTitle, { color: theme.textSecondary }]}>{pageTitle}</Text>
     </View>
@@ -34,9 +30,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
-  logo: {
-    width: 375,
-    height: 125,
+  logoText: {
+    fontSize: 36,
+    fontWeight: '700',
+    letterSpacing: -1,
   },
   pageTitle: {
     fontSize: 11,
