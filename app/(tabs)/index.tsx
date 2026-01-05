@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Platform } from 'react-native';
 import { Flame, Plus } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -151,12 +151,8 @@ export default function Home() {
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={[styles.header, { backgroundColor: theme.cardBackground, borderBottomColor: theme.border }]}>
-        <View style={styles.headerTop}>
-          <Image
-            source={require('@/assets/images/MeMark.png')}
-            style={styles.logo}
-            resizeMode="contain"
-          />
+        <View style={styles.logoContainer}>
+          <Text style={[styles.logoText, { color: theme.primary }]}>MeMark</Text>
         </View>
         <View style={styles.headerContent}>
           <View>
@@ -258,14 +254,28 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     paddingHorizontal: 20,
     borderBottomWidth: 1,
+    ...(Platform.OS === 'web' ? {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.08,
+      shadowRadius: 12,
+    } : {
+      elevation: 4,
+    }),
   },
-  headerTop: {
+  logoContainer: {
     alignItems: 'center',
     marginBottom: 12,
   },
-  logo: {
-    width: 375,
-    height: 125,
+  logoText: {
+    fontSize: 32,
+    fontWeight: '800',
+    letterSpacing: -1,
+    ...(Platform.OS === 'web' ? {
+      textShadowColor: 'rgba(0, 0, 0, 0.15)',
+      textShadowOffset: { width: 0, height: 3 },
+      textShadowRadius: 6,
+    } : {}),
   },
   pageTitle: {
     fontSize: 11,

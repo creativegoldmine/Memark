@@ -128,11 +128,11 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     ...(Platform.OS === 'web' ? {
       shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.08,
-      shadowRadius: 12,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.12,
+      shadowRadius: 16,
     } : {
-      elevation: 3,
+      elevation: 5,
     }),
   },
   image: {
@@ -163,11 +163,11 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     ...(Platform.OS === 'web' ? {
       shadowColor: '#000',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.05,
-      shadowRadius: 2,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 4,
     } : {
-      elevation: 1,
+      elevation: 2,
     }),
   },
   categoryText: {
@@ -197,10 +197,12 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     ...(Platform.OS === 'web' ? {
       shadowColor: '#000',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.03,
-      shadowRadius: 1,
-    } : {}),
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.06,
+      shadowRadius: 3,
+    } : {
+      elevation: 1,
+    }),
   },
   tagText: {
     fontSize: 11,

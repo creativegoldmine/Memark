@@ -175,20 +175,9 @@ async function getOrCreateFolder(
   icon: string,
   autoRule: string | null
 ) {
-  const { data: existing } = await supabase
+  const { data: folder, error } = await supabase
     .from('folders')
-    .select('*')
-    .eq('user_id', userId)
-    .eq('path', path)
-    .maybeSingle();
-
-  if (existing) {
-    return existing;
-  }
-
-  const { data: newFolder, error } = await supabase
-    .from('folders')
-    .insert({
+    .upsert({
       user_id: userId,
       name,
       parent_folder_id: parentId,
@@ -196,12 +185,15 @@ async function getOrCreateFolder(
       icon,
       is_auto_generated: true,
       auto_rule: autoRule,
+    }, {
+      onConflict: 'user_id,path',
+      ignoreDuplicates: false,
     })
     .select()
     .single();
 
   if (error) throw error;
-  return newFolder;
+  return folder;
 }
 
 function getDomainIcon(domain: string): string {

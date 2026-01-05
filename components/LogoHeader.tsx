@@ -35,11 +35,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     ...(Platform.OS === 'web' ? {
       shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.05,
-      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.08,
+      shadowRadius: 12,
     } : {
-      elevation: 2,
+      elevation: 4,
     }),
   },
   logoContainer: {
@@ -54,9 +54,9 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: -1.5,
     ...(Platform.OS === 'web' ? {
-      textShadowColor: 'rgba(0, 0, 0, 0.1)',
-      textShadowOffset: { width: 0, height: 2 },
-      textShadowRadius: 4,
+      textShadowColor: 'rgba(0, 0, 0, 0.15)',
+      textShadowOffset: { width: 0, height: 3 },
+      textShadowRadius: 6,
     } : {}),
   },
   logoShadow: {
