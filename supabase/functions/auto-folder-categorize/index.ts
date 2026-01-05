@@ -33,72 +33,67 @@ Deno.serve(async (req: Request) => {
 
     const folders = [];
 
-    const url = extractUrl(item.raw_content);
-    if (url) {
-      const domain = extractDomain(url);
-      if (domain) {
-        const domainFolder = await getOrCreateFolder(
-          supabase,
-          userId,
-          domain,
-          null,
-          domain,
-          getDomainIcon(domain),
-          domain
-        );
-        folders.push(domainFolder.id);
-
-        if (item.category) {
-          const categoryFolder = await getOrCreateFolder(
-            supabase,
-            userId,
-            item.category,
-            domainFolder.id,
-            `${domain}/${item.category}`,
-            getCategoryIcon(item.category),
-            null
-          );
-          folders.push(categoryFolder.id);
-        }
-      }
-    }
-
-    if (item.type) {
-      const typeFolder = await getOrCreateFolder(
+    if (item.category) {
+      const categoryFolder = await getOrCreateFolder(
         supabase,
         userId,
-        item.type.charAt(0).toUpperCase() + item.type.slice(1),
+        item.category,
         null,
-        item.type,
-        getTypeIcon(item.type),
-        null
+        item.category.toLowerCase(),
+        getCategoryIcon(item.category),
+        item.category
       );
-      folders.push(typeFolder.id);
+      folders.push(categoryFolder.id);
     }
 
     if (item.tags && Array.isArray(item.tags) && item.tags.length > 0) {
-      const priorityTags = item.tags.slice(0, 3);
+      const { data: existingFolders } = await supabase
+        .from('folders')
+        .select('id, name, path')
+        .eq('user_id', userId);
 
-      for (const tag of priorityTags) {
-        const normalizedTag = tag.toString().toLowerCase();
+      const existingFolderNames = new Set(
+        existingFolders?.map((f: any) => f.name.toLowerCase()) || []
+      );
 
-        if (normalizedTag.length < 3 || normalizedTag.length > 30) continue;
+      const priorityTag = item.tags[0];
+      if (priorityTag) {
+        const normalizedTag = priorityTag.toString().toLowerCase();
 
-        const tagName = tag.toString()
-          .split('-')
-          .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
-          .join(' ');
+        if (normalizedTag.length >= 3 && normalizedTag.length <= 30) {
+          const tagName = priorityTag.toString()
+            .split('-')
+            .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
 
-        const tagFolder = await getOrCreateFolder(
-          supabase,
-          userId,
-          tagName,
-          null,
-          `tag-${normalizedTag}`,
-          getTagIcon(normalizedTag),
-          null
-        );
-        folders.push(tagFolder.id);
+          if (!existingFolderNames.has(tagName.toLowerCase())) {
+            const { data: itemCount } = await supabase
+              .from('items')
+              .select('id', { count: 'exact' })
+              .eq('user_id', userId)
+              .contains('tags', [priorityTag]);
+
+            if (itemCount && itemCount.length >= 3) {
+              const tagFolder = await getOrCreateFolder(
+                supabase,
+                userId,
+                tagName,
+                null,
+                `tag-${normalizedTag}`,
+                getTagIcon(normalizedTag),
+                null
+              );
+              folders.push(tagFolder.id);
+            }
+          } else {
+            const existingFolder = existingFolders?.find(
+              (f: any) => f.name.toLowerCase() === tagName.toLowerCase()
+            );
+            if (existingFolder) {
+              folders.push(existingFolder.id);
+            }
+          }
+        }
       }
     }
 
@@ -175,9 +170,20 @@ async function getOrCreateFolder(
   icon: string,
   autoRule: string | null
 ) {
+  const { data: existingFolder } = await supabase
+    .from('folders')
+    .select('*')
+    .eq('user_id', userId)
+    .ilike('name', name)
+    .maybeSingle();
+
+  if (existingFolder) {
+    return existingFolder;
+  }
+
   const { data: folder, error } = await supabase
     .from('folders')
-    .upsert({
+    .insert({
       user_id: userId,
       name,
       parent_folder_id: parentId,
@@ -185,9 +191,6 @@ async function getOrCreateFolder(
       icon,
       is_auto_generated: true,
       auto_rule: autoRule,
-    }, {
-      onConflict: 'user_id,path',
-      ignoreDuplicates: false,
     })
     .select()
     .single();
