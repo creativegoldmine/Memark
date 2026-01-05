@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import { Search as SearchIcon, Filter, X } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -18,6 +18,7 @@ export default function Browse() {
   const [selectedType, setSelectedType] = useState('All');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [showFilters, setShowFilters] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const fetchItems = useCallback(async () => {
     if (!user?.id) return;
@@ -69,6 +70,12 @@ export default function Browse() {
     setSelectedType('All');
     setSelectedCategory('All');
   };
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchItems();
+    setRefreshing(false);
+  }, [fetchItems]);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -165,7 +172,13 @@ export default function Browse() {
         </View>
       )}
 
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />
+        }
+      >
         {filteredItems.length > 0 ? (
           <>
             <Text style={[styles.resultsCount, { color: theme.textSecondary }]}>

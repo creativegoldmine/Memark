@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
@@ -7,12 +7,18 @@ import { useTheme } from '@/contexts/ThemeContext';
 
 export default function Login() {
   const router = useRouter();
-  const { signIn } = useAuth();
+  const { signIn, session } = useAuth();
   const { theme } = useTheme();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (session) {
+      router.replace('/(tabs)');
+    }
+  }, [session]);
 
   const handleLogin = async () => {
     if (!email || !password) {
