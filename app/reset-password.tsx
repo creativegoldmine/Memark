@@ -19,9 +19,11 @@ export default function ResetPassword() {
   const [hasSession, setHasSession] = useState(false);
 
   useEffect(() => {
-    checkSession();
+    if (Platform.OS === 'web') {
+      handleWebHashParams();
+    } else {
+      checkSession();
 
-    if (Platform.OS !== 'web') {
       const subscription = Linking.addEventListener('url', ({ url }) => {
         handleDeepLink(url);
       });
@@ -33,6 +35,38 @@ export default function ResetPassword() {
       return () => subscription.remove();
     }
   }, []);
+
+  const handleWebHashParams = async () => {
+    if (typeof window === 'undefined') return;
+
+    const hash = window.location.hash;
+    if (!hash) {
+      checkSession();
+      return;
+    }
+
+    const params = new URLSearchParams(hash.substring(1));
+    const accessToken = params.get('access_token');
+    const refreshToken = params.get('refresh_token');
+    const type = params.get('type');
+
+    if (accessToken && refreshToken && type === 'recovery') {
+      try {
+        await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+
+        window.history.replaceState({}, document.title, window.location.pathname);
+        checkSession();
+      } catch (error) {
+        console.error('Error setting session:', error);
+        checkSession();
+      }
+    } else {
+      checkSession();
+    }
+  };
 
   const handleDeepLink = async (url: string) => {
     const { queryParams } = Linking.parse(url);
