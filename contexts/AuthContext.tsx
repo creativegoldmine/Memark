@@ -56,16 +56,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        await fetchDbUser(session.user.id);
+        (async () => {
+          await fetchDbUser(session.user.id);
+        })();
       } else {
         setDbUser(null);
       }
       setLoading(false);
-    }));
+    });
 
     return () => {
       subscription.unsubscribe();
