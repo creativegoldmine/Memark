@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform } from 'react-native';
 import { User, Phone, Mail, LogOut, Moon, Sun, Sparkles, Settings, MessageSquare, Copy, Upload, FileText, RefreshCw, Shield, ShieldAlert } from 'lucide-react-native';
 import { LoadingLogo } from '@/components/LoadingLogo';
 import { useRouter } from 'expo-router';
@@ -142,11 +142,7 @@ export default function Profile() {
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={[styles.header, { backgroundColor: theme.cardBackground, borderBottomColor: theme.border }]}>
         <TouchableOpacity onPress={handleAdminAccess} activeOpacity={1} style={styles.logoContainer}>
-          <Image
-            source={require('@/assets/images/MeMark.png')}
-            style={styles.logo}
-            resizeMode="contain"
-          />
+          <Text style={[styles.logoText, { color: theme.primary }]}>MeMark</Text>
         </TouchableOpacity>
         <Text style={[styles.pageTitle, { color: theme.textSecondary }]}>Settings</Text>
       </View>
@@ -422,14 +418,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderBottomWidth: 1,
     alignItems: 'center',
+    ...(Platform.OS === 'web' ? {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.08,
+      shadowRadius: 12,
+    } : {
+      elevation: 4,
+    }),
   },
   logoContainer: {
     alignItems: 'center',
     marginBottom: 8,
   },
-  logo: {
-    width: 375,
-    height: 125,
+  logoText: {
+    fontSize: 32,
+    fontWeight: '800',
+    letterSpacing: -1,
+    ...(Platform.OS === 'web' ? {
+      textShadowColor: 'rgba(0, 0, 0, 0.15)',
+      textShadowOffset: { width: 0, height: 3 },
+      textShadowRadius: 6,
+    } : {}),
   },
   pageTitle: {
     fontSize: 14,

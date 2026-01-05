@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, TextInput, Modal } from 'react-native';
-import { Grid, List, ChevronRight, Plus, X, Trash2 } from 'lucide-react-native';
+import { Grid, List, ChevronRight, Plus, X, Trash2, Search as SearchIcon } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase, Item } from '@/lib/supabase';
@@ -34,6 +34,7 @@ export default function Collections() {
   const [createModalVisible, setCreateModalVisible] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [newFolderIcon, setNewFolderIcon] = useState('📁');
+  const [searchQuery, setSearchQuery] = useState('');
   const subscriptionRef = useRef<any>(null);
 
   const fetchFolders = useCallback(async () => {
@@ -177,6 +178,26 @@ export default function Collections() {
     }
   };
 
+  const filteredFolders = useMemo(() => {
+    if (!searchQuery) return folders;
+    const query = searchQuery.toLowerCase();
+    return folders.filter((folder) =>
+      folder.name.toLowerCase().includes(query) ||
+      folder.path.toLowerCase().includes(query)
+    );
+  }, [folders, searchQuery]);
+
+  const filteredItems = useMemo(() => {
+    if (!searchQuery) return folderItems;
+    const query = searchQuery.toLowerCase();
+    return folderItems.filter((item) =>
+      item.title?.toLowerCase().includes(query) ||
+      item.summary?.toLowerCase().includes(query) ||
+      item.raw_content?.toLowerCase().includes(query) ||
+      item.tags?.some((tag) => tag.toLowerCase().includes(query))
+    );
+  }, [folderItems, searchQuery]);
+
   if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -221,6 +242,24 @@ export default function Collections() {
         )}
       </View>
 
+      <View style={styles.searchContainer}>
+        <View style={[styles.searchBar, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <SearchIcon size={20} color={theme.textSecondary} />
+          <TextInput
+            style={[styles.searchInput, { color: theme.text }]}
+            placeholder={selectedFolder ? "Search items..." : "Search collections..."}
+            placeholderTextColor={theme.textTertiary}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery !== '' && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <X size={20} color={theme.textSecondary} />
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -233,16 +272,20 @@ export default function Collections() {
         }
       >
         {!selectedFolder ? (
-          folders.length === 0 ? (
+          filteredFolders.length === 0 ? (
             <View style={styles.emptyState}>
-              <Text style={[styles.emptyTitle, { color: theme.text }]}>No folders yet</Text>
+              <Text style={[styles.emptyTitle, { color: theme.text }]}>
+                {folders.length === 0 ? 'No folders yet' : 'No results found'}
+              </Text>
               <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
-                Go to Settings and tap "AI Recategorize All"{'\n'}to create smart folders
+                {folders.length === 0
+                  ? 'Go to Settings and tap "AI Recategorize All"\nto create smart folders'
+                  : 'Try adjusting your search'}
               </Text>
             </View>
           ) : (
             <View style={viewMode === 'grid' ? styles.foldersGrid : styles.foldersList}>
-              {folders.map((folder) => (
+              {filteredFolders.map((folder) => (
                 <TouchableOpacity
                   key={folder.id}
                   style={[
@@ -293,22 +336,27 @@ export default function Collections() {
               onPress={() => {
                 setSelectedFolder(null);
                 setFolderItems([]);
+                setSearchQuery('');
               }}
             >
               <ChevronRight size={20} color={theme.textSecondary} style={{ transform: [{ rotate: '180deg' }] }} />
               <Text style={[styles.backText, { color: theme.textSecondary }]}>Back to Folders</Text>
             </TouchableOpacity>
 
-            {folderItems.length === 0 ? (
+            {filteredItems.length === 0 ? (
               <View style={styles.emptyState}>
-                <Text style={[styles.emptyTitle, { color: theme.text }]}>No items yet</Text>
+                <Text style={[styles.emptyTitle, { color: theme.text }]}>
+                  {folderItems.length === 0 ? 'No items yet' : 'No results found'}
+                </Text>
                 <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
-                  Items will appear here automatically
+                  {folderItems.length === 0
+                    ? 'Items will appear here automatically'
+                    : 'Try adjusting your search'}
                 </Text>
               </View>
             ) : (
               <View style={styles.itemsList}>
-                {folderItems.map((item) => (
+                {filteredItems.map((item) => (
                   <ItemCard
                     key={item.id}
                     item={item}
@@ -402,6 +450,23 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 20,
+  },
+  searchContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 12,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
   },
   header: {
     flexDirection: 'row',

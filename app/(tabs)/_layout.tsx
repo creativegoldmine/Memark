@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Home, FolderOpen, Search, Settings, Sparkles } from 'lucide-react-native';
+import { Home, FolderOpen, List, Settings, Sparkles } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 
 export default function TabLayout() {
@@ -42,15 +42,15 @@ export default function TabLayout() {
       <Tabs.Screen
         name="ai-search"
         options={{
-          title: 'AI',
+          title: 'AI Search',
           tabBarIcon: ({ size, color }) => <Sparkles size={size} color={color} />,
         }}
       />
       <Tabs.Screen
-        name="search"
+        name="browse"
         options={{
-          title: 'Search',
-          tabBarIcon: ({ size, color }) => <Search size={size} color={color} />,
+          title: 'Browse',
+          tabBarIcon: ({ size, color }) => <List size={size} color={color} />,
         }}
       />
       <Tabs.Screen

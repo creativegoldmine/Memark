@@ -10,7 +10,7 @@ import { LogoHeader } from '@/components/LogoHeader';
 const FILTER_TYPES = ['All', 'Article', 'Video', 'Note', 'Screenshot', 'Task'];
 const FILTER_CATEGORIES = ['All', 'Work', 'Personal', 'Inspiration', 'Finance', 'Learning'];
 
-export default function Search() {
+export default function Browse() {
   const { theme } = useTheme();
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
@@ -72,7 +72,7 @@ export default function Search() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <LogoHeader pageTitle="SEARCH" />
+      <LogoHeader pageTitle="BROWSE" />
 
       <View style={styles.searchContainer}>
         <View style={[styles.searchBar, { backgroundColor: theme.surface, borderColor: theme.border }]}>
