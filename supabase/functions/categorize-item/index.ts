@@ -23,10 +23,12 @@ Deno.serve(async (req: Request) => {
     const { itemId, content, userId, metadata: userMetadata } = await req.json();
 
     let metadata = null;
+    let ogMetadata = null;
     const urlMatch = content.match(/https?:\/\/[^\s]+/);
 
     if (urlMatch) {
       metadata = await fetchLinkMetadata(urlMatch[0]);
+      ogMetadata = metadata?.ogData || null;
     }
 
     let type = 'text';
@@ -49,17 +51,30 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    const updateData: any = {
+      type,
+      title,
+      summary,
+      tags,
+      category,
+      image_preview: imagePreview,
+      score,
+    };
+
+    if (ogMetadata) {
+      updateData.og_title = ogMetadata.og_title;
+      updateData.og_description = ogMetadata.og_description;
+      updateData.og_image = ogMetadata.og_image;
+      updateData.og_site_name = ogMetadata.og_site_name;
+      updateData.og_url = ogMetadata.og_url;
+      updateData.og_type = ogMetadata.og_type;
+      updateData.og_author = ogMetadata.og_author;
+      updateData.og_published_time = ogMetadata.og_published_time;
+    }
+
     const { data: item } = await supabase
       .from('items')
-      .update({
-        type,
-        title,
-        summary,
-        tags,
-        category,
-        image_preview: imagePreview,
-        score,
-      })
+      .update(updateData)
       .eq('id', itemId)
       .select()
       .single();
@@ -140,6 +155,11 @@ async function fetchLinkMetadata(url: string) {
     const ogTitle = html.match(/<meta\s+property=["']og:title["']\s+content=["']([^"']+)["']/i)?.[1];
     const ogDescription = html.match(/<meta\s+property=["']og:description["']\s+content=["']([^"']+)["']/i)?.[1];
     const ogImage = html.match(/<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/i)?.[1];
+    const ogSiteName = html.match(/<meta\s+property=["']og:site_name["']\s+content=["']([^"']+)["']/i)?.[1];
+    const ogUrl = html.match(/<meta\s+property=["']og:url["']\s+content=["']([^"']+)["']/i)?.[1];
+    const ogType = html.match(/<meta\s+property=["']og:type["']\s+content=["']([^"']+)["']/i)?.[1];
+    const ogAuthor = html.match(/<meta\s+property=["'](?:og:author|article:author)["']\s+content=["']([^"']+)["']/i)?.[1];
+    const ogPublishedTime = html.match(/<meta\s+property=["']article:published_time["']\s+content=["']([^"']+)["']/i)?.[1];
 
     const twitterTitle = html.match(/<meta\s+name=["']twitter:title["']\s+content=["']([^"']+)["']/i)?.[1];
     const twitterDescription = html.match(/<meta\s+name=["']twitter:description["']\s+content=["']([^"']+)["']/i)?.[1];
@@ -152,6 +172,16 @@ async function fetchLinkMetadata(url: string) {
       title: ogTitle || twitterTitle || htmlTitle,
       description: ogDescription || twitterDescription || metaDescription,
       image: ogImage || twitterImage,
+      ogData: {
+        og_title: ogTitle || twitterTitle || htmlTitle,
+        og_description: ogDescription || twitterDescription || metaDescription,
+        og_image: ogImage || twitterImage,
+        og_site_name: ogSiteName,
+        og_url: ogUrl || url,
+        og_type: ogType,
+        og_author: ogAuthor,
+        og_published_time: ogPublishedTime,
+      },
     };
   } catch (error) {
     console.error('Error fetching metadata:', error);
