@@ -76,6 +76,32 @@ Deno.serve(async (req: Request) => {
       folders.push(typeFolder.id);
     }
 
+    if (item.tags && Array.isArray(item.tags) && item.tags.length > 0) {
+      const priorityTags = item.tags.slice(0, 3);
+
+      for (const tag of priorityTags) {
+        const normalizedTag = tag.toString().toLowerCase();
+
+        if (normalizedTag.length < 3 || normalizedTag.length > 30) continue;
+
+        const tagName = tag.toString()
+          .split('-')
+          .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(' ');
+
+        const tagFolder = await getOrCreateFolder(
+          supabase,
+          userId,
+          tagName,
+          null,
+          `tag-${normalizedTag}`,
+          getTagIcon(normalizedTag),
+          null
+        );
+        folders.push(tagFolder.id);
+      }
+    }
+
     for (const folderId of folders) {
       await supabase
         .from('item_folders')
@@ -196,17 +222,66 @@ function getDomainIcon(domain: string): string {
 function getCategoryIcon(category: string): string {
   const icons: Record<string, string> = {
     'Technology': '💻',
+    'Development': '⚡',
+    'Programming': '👨‍💻',
+    'Tutorial': '📖',
     'Education': '📚',
+    'Learning': '🎓',
     'Entertainment': '🎬',
     'News': '📰',
+    'News-Politics': '🏛️',
+    'News-Tech': '📱',
+    'News-Celebrity': '⭐',
     'Business': '💼',
+    'Strategy': '♟️',
     'Health': '🏥',
+    'Fitness': '💪',
     'Science': '🔬',
     'Sports': '⚽',
     'Travel': '✈️',
     'Food': '🍔',
+    'Inspiration': '✨',
+    'Creative': '🎨',
+    'Design': '🖌️',
+    'Social': '👥',
+    'Culture': '🌍',
+    'Finance': '💰',
+    'Career': '📈',
+    'Personal-Growth': '🌱',
   };
   return icons[category] || '📂';
+}
+
+function getTagIcon(tag: string): string {
+  const tagIcons: Record<string, string> = {
+    'coding': '💻',
+    'react': '⚛️',
+    'javascript': '💛',
+    'python': '🐍',
+    'ai': '🤖',
+    'tutorial': '📖',
+    'learning': '🎓',
+    'business': '💼',
+    'strategy': '♟️',
+    'design': '🎨',
+    'inspiration': '✨',
+    'vibe': '🌊',
+    'news': '📰',
+    'politics': '🏛️',
+    'celebrity': '⭐',
+    'trump': '🇺🇸',
+    'tech': '💡',
+    'health': '🏥',
+    'fitness': '💪',
+    'finance': '💰',
+    'career': '📈',
+  };
+
+  for (const [key, icon] of Object.entries(tagIcons)) {
+    if (tag.includes(key)) return icon;
+  }
+
+  return '🏷️';
 }
 
 function getTypeIcon(type: string): string {

@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Platform } from 'react-native';
 import { Link2, Video, FileText, MessageSquare, Image as ImageIcon, CheckSquare } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Item } from '@/lib/supabase';
@@ -126,6 +126,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     overflow: 'hidden',
     marginBottom: 12,
+    ...Platform.select({
+      web: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+        transition: 'all 0.2s ease',
+      },
+      default: {
+        elevation: 3,
+      },
+    }),
   },
   image: {
     width: '100%',
@@ -153,6 +165,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
+    ...Platform.select({
+      web: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+      },
+      default: {
+        elevation: 1,
+      },
+    }),
   },
   categoryText: {
     fontSize: 10,
@@ -179,6 +202,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
+    ...Platform.select({
+      web: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.03,
+        shadowRadius: 1,
+      },
+    }),
   },
   tagText: {
     fontSize: 11,

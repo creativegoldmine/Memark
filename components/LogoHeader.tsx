@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 
 interface LogoHeaderProps {
@@ -11,7 +11,15 @@ export function LogoHeader({ pageTitle }: LogoHeaderProps) {
   return (
     <View style={[styles.header, { backgroundColor: theme.cardBackground, borderBottomColor: theme.border }]}>
       <View style={styles.logoContainer}>
-        <Text style={[styles.logoText, { color: theme.primary }]}>MeMark</Text>
+        <View style={styles.logoWrapper}>
+          <Text style={[styles.logoText, { color: theme.primary }]}>MeMark</Text>
+          {Platform.OS === 'web' && (
+            <View style={[styles.logoShadow, {
+              shadowColor: theme.primary,
+              backgroundColor: theme.primary + '10',
+            }]} />
+          )}
+        </View>
       </View>
       <Text style={[styles.pageTitle, { color: theme.textSecondary }]}>{pageTitle}</Text>
     </View>
@@ -21,24 +29,56 @@ export function LogoHeader({ pageTitle }: LogoHeaderProps) {
 const styles = StyleSheet.create({
   header: {
     paddingTop: 40,
-    paddingBottom: 12,
+    paddingBottom: 16,
     paddingHorizontal: 20,
     borderBottomWidth: 1,
     alignItems: 'center',
+    ...Platform.select({
+      web: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+      },
+      default: {
+        elevation: 2,
+      },
+    }),
   },
   logoContainer: {
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 10,
+  },
+  logoWrapper: {
+    position: 'relative',
   },
   logoText: {
-    fontSize: 36,
-    fontWeight: '700',
-    letterSpacing: -1,
+    fontSize: 42,
+    fontWeight: '800',
+    letterSpacing: -1.5,
+    ...Platform.select({
+      web: {
+        textShadowColor: 'rgba(0, 0, 0, 0.1)',
+        textShadowOffset: { width: 0, height: 2 },
+        textShadowRadius: 4,
+      },
+    }),
+  },
+  logoShadow: {
+    position: 'absolute',
+    bottom: -6,
+    left: 0,
+    right: 0,
+    height: 6,
+    borderRadius: 3,
+    opacity: 0.3,
+    zIndex: -1,
   },
   pageTitle: {
     fontSize: 11,
     fontWeight: '700',
     textTransform: 'uppercase',
-    letterSpacing: 1,
+    letterSpacing: 1.5,
+    opacity: 0.7,
   },
 });

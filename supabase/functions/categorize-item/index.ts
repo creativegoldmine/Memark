@@ -202,17 +202,26 @@ User provided context:
 
 Please consider this user context when categorizing. If the user specified a content type or mentioned where to place it, strongly prioritize that information.` : '';
 
-    const prompt = `Analyze this content and categorize it.
+    const prompt = `Analyze this content and categorize it for FUNCTIONAL USE. The user wants to retrieve and USE this information later, so be specific about what VALUE it provides.
 
 Content: ${content}
 ${metadata ? `\nMetadata: Title: ${metadata.title}\nDescription: ${metadata.description}` : ''}${userContext}
+
+CRITICAL: Avoid generic "Entertainment" categorization. Think about WHY someone saved this and HOW they'll use it:
+- Is it educational content they want to learn from? → Education/Tutorial/Learning
+- Is it coding/development content? → Development/Programming/Tech-Tutorial
+- Is it inspirational/vibe content for creative work? → Inspiration/Creative/Vibe
+- Is it news about specific people/topics? → News-[Topic] (e.g., News-Politics, News-Celebrity, News-Tech)
+- Is it business strategy/growth content? → Business/Strategy/Growth
+- Is it social/cultural commentary? → Social/Culture/Commentary
+- Is it actually just entertainment with no functional value? → Entertainment (use sparingly)
 
 Provide a JSON response with:
 - type: "article", "video", "text", "link", "image", or "note"
 - title: A concise, descriptive title (max 60 chars)
 - summary: A brief summary (max 150 chars)
-- tags: Array of 3-5 relevant tags (incorporate user notes if relevant)
-- category: One of [Technology, Education, Entertainment, News, Business, Health, Science, Sports, Travel, Food, Other] (prioritize user's suggested content type if provided)
+- tags: Array of 5-8 SPECIFIC, FUNCTIONAL tags that describe the content's value and use case (e.g., "coding-tutorial", "react", "trump-news", "business-strategy", "vibe-coding", "celebrity-gossip", "learning-resource")
+- category: ONE SPECIFIC category from [Development, Programming, Tutorial, Education, Learning, Business, Strategy, News-Politics, News-Tech, News-Celebrity, Inspiration, Creative, Design, Health, Fitness, Social, Culture, Finance, Career, Personal-Growth, Entertainment] (prioritize user's suggested content type if provided)
 - score: Relevance score 1-100 (boost score if user marked as important)`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
