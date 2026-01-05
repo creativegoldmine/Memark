@@ -48,20 +48,36 @@ export default function ResetPassword() {
     const params = new URLSearchParams(hash.substring(1));
     const accessToken = params.get('access_token');
     const refreshToken = params.get('refresh_token');
-    const type = params.get('type');
+    const error = params.get('error');
+    const errorDescription = params.get('error_description');
 
-    if (accessToken && refreshToken && type === 'recovery') {
+    if (error) {
+      console.error('Auth error:', error, errorDescription);
+      Alert.alert('Error', errorDescription || 'The reset link is invalid or has expired. Please request a new one.');
+      window.history.replaceState({}, document.title, window.location.pathname);
+      router.replace('/forgot-password');
+      return;
+    }
+
+    if (accessToken && refreshToken) {
       try {
-        await supabase.auth.setSession({
+        const { error: sessionError } = await supabase.auth.setSession({
           access_token: accessToken,
           refresh_token: refreshToken,
         });
 
-        window.history.replaceState({}, document.title, window.location.pathname);
-        checkSession();
+        if (sessionError) {
+          console.error('Session error:', sessionError);
+          Alert.alert('Error', 'Failed to verify reset link. Please request a new one.');
+          router.replace('/forgot-password');
+        } else {
+          window.history.replaceState({}, document.title, window.location.pathname);
+          checkSession();
+        }
       } catch (error) {
         console.error('Error setting session:', error);
-        checkSession();
+        Alert.alert('Error', 'An error occurred. Please try again.');
+        router.replace('/forgot-password');
       }
     } else {
       checkSession();

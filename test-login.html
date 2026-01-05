@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MeMark - Test Login</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #0066cc 0%, #004c99 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      max-width: 450px;
+      width: 100%;
+      padding: 48px;
+    }
+
+    .logo {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .logo-text {
+      font-size: 32px;
+      font-weight: 700;
+      color: #0066cc;
+    }
+
+    h1 {
+      font-size: 28px;
+      color: #1a1a1a;
+      margin-bottom: 8px;
+      text-align: center;
+    }
+
+    .subtitle {
+      color: #666;
+      text-align: center;
+      margin-bottom: 32px;
+      font-size: 15px;
+      line-height: 1.5;
+    }
+
+    label {
+      display: block;
+      font-weight: 600;
+      color: #1a1a1a;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+
+    input {
+      width: 100%;
+      padding: 14px 16px;
+      border: 2px solid #e1e4e8;
+      border-radius: 12px;
+      font-size: 15px;
+      transition: all 0.2s;
+      margin-bottom: 20px;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: #0066cc;
+      box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+    }
+
+    button {
+      width: 100%;
+      background: #0066cc;
+      color: white;
+      border: none;
+      padding: 16px 24px;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: 12px;
+    }
+
+    button:hover:not(:disabled) {
+      background: #0052a3;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0, 102, 204, 0.4);
+    }
+
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .alert {
+      padding: 14px 16px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      font-size: 14px;
+      line-height: 1.5;
+      font-weight: 500;
+    }
+
+    .alert-success {
+      background: #d4edda;
+      color: #155724;
+      border-left: 4px solid #28a745;
+    }
+
+    .alert-error {
+      background: #f8d7da;
+      color: #721c24;
+      border-left: 4px solid #dc3545;
+    }
+
+    .alert-info {
+      background: #d1ecf1;
+      color: #0c5460;
+      border-left: 4px solid #17a2b8;
+    }
+
+    .user-info {
+      background: #f8f9fa;
+      padding: 16px;
+      border-radius: 12px;
+      margin-top: 20px;
+      border-left: 4px solid #0066cc;
+    }
+
+    .user-info-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #e1e4e8;
+    }
+
+    .user-info-item:last-child {
+      border-bottom: none;
+    }
+
+    .user-info-label {
+      font-weight: 600;
+      color: #666;
+      font-size: 13px;
+    }
+
+    .user-info-value {
+      color: #1a1a1a;
+      font-size: 13px;
+      word-break: break-all;
+    }
+
+    .btn-secondary {
+      background: #6c757d;
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: #5a6268;
+    }
+
+    .success-icon {
+      text-align: center;
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">
+      <div class="logo-text">MeMark</div>
+    </div>
+
+    <h1>Test Login</h1>
+    <p class="subtitle">
+      Test your MeMark account login
+    </p>
+
+    <div id="result"></div>
+
+    <label for="email">Email Address</label>
+    <input
+      type="email"
+      id="email"
+      placeholder="matthewjohnson22687@gmail.com"
+      value="matthewjohnson22687@gmail.com"
+      autocomplete="email"
+    >
+
+    <label for="password">Password</label>
+    <input
+      type="password"
+      id="password"
+      placeholder="Enter your password"
+      autocomplete="current-password"
+      value="test123456"
+    >
+
+    <button id="loginBtn" onclick="testLogin()">Test Login</button>
+    <button class="btn-secondary" onclick="window.location.href='/admin-reset-password.html'">
+      Reset Password Instead
+    </button>
+
+    <div id="userInfo" style="display: none;"></div>
+  </div>
+
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+    const supabaseUrl = 'https://ckhzhabcvxyawhjcjsfu.supabase.co';
+    const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNraHpoYWJjdnh5YXdoamNqc2Z1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM4NDYzNTcsImV4cCI6MjA3OTQyMjM1N30.iHMU4n930fyTa4714cjEmuelKU4X9NDCI9O-VJw12ts';
+
+    window.supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+    window.testLogin = async function() {
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const resultDiv = document.getElementById('result');
+      const userInfoDiv = document.getElementById('userInfo');
+      const btn = document.getElementById('loginBtn');
+
+      resultDiv.innerHTML = '';
+      userInfoDiv.style.display = 'none';
+
+      if (!email || !password) {
+        resultDiv.innerHTML = '<div class="alert alert-error">Please enter both email and password</div>';
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Testing Login...';
+      resultDiv.innerHTML = '<div class="alert alert-info">Attempting to log in...</div>';
+
+      try {
+        const { data, error } = await window.supabase.auth.signInWithPassword({
+          email: email,
+          password: password
+        });
+
+        if (error) {
+          resultDiv.innerHTML = `
+            <div class="alert alert-error">
+              <strong>Login Failed</strong><br>
+              ${error.message}
+              ${error.message.includes('Invalid') ? '<br><br>Try resetting your password using the button below.' : ''}
+            </div>
+          `;
+          btn.disabled = false;
+          btn.textContent = 'Test Login';
+        } else {
+          resultDiv.innerHTML = `
+            <div class="success-icon">✅</div>
+            <div class="alert alert-success">
+              <strong>Login Successful!</strong><br>
+              Your account is working properly.
+            </div>
+          `;
+
+          userInfoDiv.innerHTML = `
+            <div class="user-info">
+              <div class="user-info-item">
+                <span class="user-info-label">Email:</span>
+                <span class="user-info-value">${data.user.email}</span>
+              </div>
+              <div class="user-info-item">
+                <span class="user-info-label">User ID:</span>
+                <span class="user-info-value">${data.user.id}</span>
+              </div>
+              <div class="user-info-item">
+                <span class="user-info-label">Created:</span>
+                <span class="user-info-value">${new Date(data.user.created_at).toLocaleString()}</span>
+              </div>
+              <div class="user-info-item">
+                <span class="user-info-label">Last Sign In:</span>
+                <span class="user-info-value">${new Date(data.user.last_sign_in_at).toLocaleString()}</span>
+              </div>
+            </div>
+          `;
+          userInfoDiv.style.display = 'block';
+
+          btn.textContent = 'Logged In Successfully';
+
+          setTimeout(() => {
+            window.location.href = '/';
+          }, 2000);
+        }
+      } catch (err) {
+        resultDiv.innerHTML = `
+          <div class="alert alert-error">
+            <strong>Error:</strong> ${err.message || 'Network error. Please try again.'}
+          </div>
+        `;
+        btn.disabled = false;
+        btn.textContent = 'Test Login';
+      }
+    };
+
+    document.getElementById('password').addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        testLogin();
+      }
+    });
+  </script>
+</body>
+</html>
