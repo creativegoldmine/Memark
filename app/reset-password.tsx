@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Alert, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, Lock, CheckCircle, Eye, EyeOff } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { supabase } from '@/lib/supabase';
+import * as Linking from 'expo-linking';
 
 export default function ResetPassword() {
   const router = useRouter();
@@ -19,7 +20,31 @@ export default function ResetPassword() {
 
   useEffect(() => {
     checkSession();
+
+    if (Platform.OS !== 'web') {
+      const subscription = Linking.addEventListener('url', ({ url }) => {
+        handleDeepLink(url);
+      });
+
+      Linking.getInitialURL().then((url) => {
+        if (url) handleDeepLink(url);
+      });
+
+      return () => subscription.remove();
+    }
   }, []);
+
+  const handleDeepLink = async (url: string) => {
+    const { queryParams } = Linking.parse(url);
+
+    if (queryParams?.access_token && queryParams?.refresh_token) {
+      await supabase.auth.setSession({
+        access_token: queryParams.access_token as string,
+        refresh_token: queryParams.refresh_token as string,
+      });
+      checkSession();
+    }
+  };
 
   const checkSession = async () => {
     const { data: { session } } = await supabase.auth.getSession();

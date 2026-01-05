@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Alert, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, Mail, CheckCircle } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { supabase } from '@/lib/supabase';
+import * as Linking from 'expo-linking';
 
 export default function ForgotPassword() {
   const router = useRouter();
@@ -27,10 +28,14 @@ export default function ForgotPassword() {
 
     setLoading(true);
     try {
+      const redirectUrl = Platform.OS === 'web'
+        ? `${window.location.origin}/reset-password`
+        : Linking.createURL('reset-password');
+
       const { error } = await supabase.auth.resetPasswordForEmail(
         email.toLowerCase().trim(),
         {
-          redirectTo: `${window.location.origin}/reset-password`,
+          redirectTo: redirectUrl,
         }
       );
 
