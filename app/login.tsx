@@ -31,13 +31,11 @@ export default function Login() {
         } else {
           Alert.alert('Login Error', error.message || 'Failed to sign in. Please try again.');
         }
-      } else {
-        router.replace('/(tabs)');
+        setLoading(false);
       }
     } catch (err) {
       console.error('Unexpected login error:', err);
       Alert.alert('Error', 'An unexpected error occurred. Please try again.');
-    } finally {
       setLoading(false);
     }
   };
