@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auth Diagnosis - MeMark</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #1a202c;
+            margin-bottom: 10px;
+            font-size: 32px;
+        }
+        .subtitle {
+            color: #718096;
+            margin-bottom: 40px;
+            font-size: 16px;
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 25px;
+            background: #f7fafc;
+            border-radius: 12px;
+            border-left: 4px solid #667eea;
+        }
+        .section h2 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: #2d3748;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .status-grid {
+            display: grid;
+            gap: 15px;
+        }
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+        .status-label {
+            font-weight: 500;
+            color: #4a5568;
+        }
+        .status-value {
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #2d3748;
+            background: #edf2f7;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+        .status-good {
+            color: #38a169;
+            font-weight: 600;
+        }
+        .status-bad {
+            color: #e53e3e;
+            font-weight: 600;
+        }
+        .status-warning {
+            color: #d69e2e;
+            font-weight: 600;
+        }
+        input {
+            width: 100%;
+            padding: 14px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.2s;
+        }
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        button {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .success {
+            background: #c6f6d5;
+            color: #22543d;
+            border: 2px solid #9ae6b4;
+        }
+        .error {
+            background: #fed7d7;
+            color: #742a2a;
+            border: 2px solid #fc8181;
+        }
+        .info {
+            background: #bee3f8;
+            color: #2c5282;
+            border: 2px solid #90cdf4;
+        }
+        .warning {
+            background: #feebc8;
+            color: #744210;
+            border: 2px solid #fbd38d;
+        }
+        code {
+            background: #edf2f7;
+            padding: 3px 6px;
+            border-radius: 4px;
+            font-size: 13px;
+            font-family: 'Courier New', monospace;
+        }
+        .steps {
+            list-style: none;
+            padding: 0;
+            counter-reset: step;
+        }
+        .steps li {
+            counter-increment: step;
+            padding-left: 35px;
+            position: relative;
+            margin-bottom: 15px;
+            line-height: 1.6;
+        }
+        .steps li::before {
+            content: counter(step);
+            position: absolute;
+            left: 0;
+            top: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            font-weight: bold;
+        }
+        .icon {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            line-height: 24px;
+            text-align: center;
+        }
+        .loading {
+            display: inline-block;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Auth Diagnosis Tool</h1>
+        <p class="subtitle">Diagnose and test your password reset functionality</p>
+
+        <div class="section">
+            <h2><span class="icon">⚙️</span> Current Configuration</h2>
+            <div class="status-grid">
+                <div class="status-item">
+                    <span class="status-label">Current URL</span>
+                    <span class="status-value" id="currentUrl">-</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Supabase URL</span>
+                    <span class="status-value" id="supabaseUrl">-</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Expected Reset URL</span>
+                    <span class="status-value" id="resetUrl">-</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Auth Status</span>
+                    <span class="status-value" id="authStatus">Checking...</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Session Valid</span>
+                    <span class="status-value" id="sessionStatus">-</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2><span class="icon">✉️</span> Send Test Reset Email</h2>
+            <input type="email" id="emailInput" placeholder="Enter your email address" />
+            <button onclick="sendReset()" id="resetButton">Send Password Reset</button>
+            <div id="resetResult"></div>
+        </div>
+
+        <div class="section">
+            <h2><span class="icon">📋</span> Instructions</h2>
+            <ol class="steps">
+                <li>Check the "Current URL" above - this is where reset links will redirect to</li>
+                <li>Enter your email and click "Send Password Reset"</li>
+                <li>Check your email inbox for the reset link</li>
+                <li>Click the link in the email - it should redirect back to this URL</li>
+                <li>If you see "Invalid Link", the URLs don't match or the link expired</li>
+            </ol>
+
+            <div class="result info">
+                <strong>💡 Pro Tip:</strong> Make sure you access this page from the same URL (domain and port) every time. If you switch between <code>localhost:3000</code> and <code>127.0.0.1:3000</code>, or use different ports, the reset link won't work.
+            </div>
+        </div>
+
+        <div class="section">
+            <h2><span class="icon">⚠️</span> Common Issues</h2>
+            <div class="result warning">
+                <strong>Issue: "Invalid Link" error</strong><br>
+                <strong>Cause:</strong> URL mismatch or expired token (1 hour expiry)<br>
+                <strong>Fix:</strong> Request a new reset link from the same URL<br><br>
+
+                <strong>Issue: Link doesn't work</strong><br>
+                <strong>Cause:</strong> Browser cache or session conflicts<br>
+                <strong>Fix:</strong> Try in an incognito/private window<br><br>
+
+                <strong>Issue: Email not received</strong><br>
+                <strong>Cause:</strong> Email in spam or Supabase email rate limits<br>
+                <strong>Fix:</strong> Check spam folder, wait 60 seconds between attempts
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://ckhzhabcvxyawhjcjsfu.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNraHpoYWJjdnh5YXdoamNqc2Z1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM4NDYzNTcsImV4cCI6MjA3OTQyMjM1N30.iHMU4n930fyTa4714cjEmuelKU4X9NDCI9O-VJw12ts';
+
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // Initialize on page load
+        async function init() {
+            // Update current configuration
+            document.getElementById('currentUrl').textContent = window.location.origin;
+            document.getElementById('supabaseUrl').textContent = SUPABASE_URL;
+            document.getElementById('resetUrl').textContent = window.location.origin + '/reset-password';
+
+            // Check auth status
+            const { data: { session }, error } = await supabase.auth.getSession();
+
+            if (session) {
+                document.getElementById('authStatus').textContent = '✓ Authenticated';
+                document.getElementById('authStatus').className = 'status-value status-good';
+                document.getElementById('sessionStatus').textContent = '✓ Valid';
+                document.getElementById('sessionStatus').className = 'status-value status-good';
+            } else {
+                document.getElementById('authStatus').textContent = '✗ Not authenticated';
+                document.getElementById('authStatus').className = 'status-value status-warning';
+                document.getElementById('sessionStatus').textContent = 'No session';
+                document.getElementById('sessionStatus').className = 'status-value status-warning';
+            }
+        }
+
+        async function sendReset() {
+            const email = document.getElementById('emailInput').value.trim();
+            const resultDiv = document.getElementById('resetResult');
+            const button = document.getElementById('resetButton');
+
+            if (!email) {
+                resultDiv.innerHTML = '<div class="result error">⚠️ Please enter an email address</div>';
+                return;
+            }
+
+            const emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;
+            if (!emailRegex.test(email)) {
+                resultDiv.innerHTML = '<div class="result error">⚠️ Please enter a valid email address</div>';
+                return;
+            }
+
+            button.disabled = true;
+            button.innerHTML = '<span class="loading">⏳</span> Sending...';
+            resultDiv.innerHTML = '<div class="result info">📤 Sending password reset email...</div>';
+
+            try {
+                const redirectUrl = window.location.origin + '/reset-password';
+                const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                    redirectTo: redirectUrl,
+                });
+
+                if (error) {
+                    resultDiv.innerHTML = `
+                        <div class="result error">
+                            <strong>❌ Error:</strong> ${error.message}
+                            <br><br>
+                            <strong>Troubleshooting:</strong>
+                            <br>• Make sure the email is registered in the system
+                            <br>• Wait 60 seconds before requesting another reset
+                            <br>• Check your spam folder
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="result success">
+                            <strong>✅ Success!</strong> Password reset email sent to <strong>${email}</strong>
+                            <br><br>
+                            <strong>Next steps:</strong>
+                            <br>1. Check your email inbox (and spam folder)
+                            <br>2. Click the reset link in the email
+                            <br>3. You'll be redirected to: <code>${redirectUrl}</code>
+                            <br>4. Enter your new password
+                            <br><br>
+                            <strong>⚠️ Important:</strong> The link expires in 1 hour
+                        </div>
+                    `;
+                }
+            } catch (err) {
+                resultDiv.innerHTML = `
+                    <div class="result error">
+                        <strong>❌ Unexpected Error:</strong> ${err.message}
+                        <br><br>
+                        This might indicate a connection issue or configuration problem.
+                    </div>
+                `;
+            } finally {
+                button.disabled = false;
+                button.textContent = 'Send Password Reset';
+            }
+        }
+
+        // Initialize when page loads
+        init();
+    </script>
+</body>
+</html>
