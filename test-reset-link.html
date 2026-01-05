@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Password Reset Link Diagnostic</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 10px;
+    }
+    .subtitle {
+      color: #666;
+      margin-bottom: 30px;
+    }
+    .section {
+      margin: 20px 0;
+      padding: 20px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border-left: 4px solid #007bff;
+    }
+    .section h3 {
+      margin-top: 0;
+      color: #007bff;
+    }
+    .info {
+      background: #e7f3ff;
+      border-left-color: #0066cc;
+      padding: 15px;
+      margin: 15px 0;
+      border-radius: 4px;
+    }
+    .success {
+      background: #d4edda;
+      border-left: 4px solid #28a745;
+      color: #155724;
+    }
+    .error {
+      background: #f8d7da;
+      border-left: 4px solid #dc3545;
+      color: #721c24;
+    }
+    .warning {
+      background: #fff3cd;
+      border-left: 4px solid #ffc107;
+      color: #856404;
+    }
+    button {
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+      margin: 10px 10px 10px 0;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    code {
+      background: #f4f4f4;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: monospace;
+      font-size: 14px;
+    }
+    pre {
+      background: #f4f4f4;
+      padding: 15px;
+      border-radius: 6px;
+      overflow-x: auto;
+      font-size: 14px;
+    }
+    input {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 16px;
+      margin-bottom: 15px;
+    }
+    .password-input {
+      position: relative;
+    }
+    #result {
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔧 Password Reset Diagnostic Tool</h1>
+    <p class="subtitle">This tool helps diagnose and fix password reset link issues</p>
+
+    <!-- URL Analysis Section -->
+    <div class="section">
+      <h3>📋 Current URL Analysis</h3>
+      <div id="urlAnalysis"></div>
+    </div>
+
+    <!-- Manual Reset Section -->
+    <div class="section">
+      <h3>🔑 Manual Password Reset</h3>
+      <p>If you have the tokens from the email URL, paste them below:</p>
+
+      <label style="display: block; margin-bottom: 5px; font-weight: 600;">Access Token (from URL):</label>
+      <input type="text" id="accessToken" placeholder="Paste access_token from email link">
+
+      <label style="display: block; margin-bottom: 5px; font-weight: 600;">Refresh Token (from URL):</label>
+      <input type="text" id="refreshToken" placeholder="Paste refresh_token from email link">
+
+      <button onclick="setSessionManually()">Set Session</button>
+
+      <div id="sessionResult"></div>
+    </div>
+
+    <!-- Password Reset Form -->
+    <div class="section" id="resetSection" style="display: none;">
+      <h3>✅ Reset Your Password</h3>
+      <div class="success" style="margin-bottom: 20px;">
+        <p><strong>Session Active!</strong> You can now reset your password.</p>
+      </div>
+
+      <label style="display: block; margin-bottom: 5px; font-weight: 600;">New Password:</label>
+      <input type="password" id="newPassword" placeholder="Enter new password (min 6 characters)">
+
+      <label style="display: block; margin-bottom: 5px; font-weight: 600;">Confirm Password:</label>
+      <input type="password" id="confirmPassword" placeholder="Confirm new password">
+
+      <button onclick="resetPassword()">Update Password</button>
+
+      <div id="resetResult"></div>
+    </div>
+
+    <!-- Instructions -->
+    <div class="section info">
+      <h3>📖 How to Use This Tool</h3>
+      <ol>
+        <li>Check the email you received for the password reset link</li>
+        <li>The link should look like: <code>https://...#access_token=...&refresh_token=...</code></li>
+        <li>If clicking the link shows "unable to open", copy the tokens manually:
+          <ul>
+            <li>Find <code>access_token=</code> in the URL and copy everything after it until the next <code>&</code></li>
+            <li>Find <code>refresh_token=</code> and copy everything after it until the next <code>&</code></li>
+          </ul>
+        </li>
+        <li>Paste the tokens into the form above and click "Set Session"</li>
+        <li>Once the session is set, you can reset your password</li>
+      </ol>
+    </div>
+  </div>
+
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+    const supabaseUrl = 'https://ckhzhabcvxyawhjcjsfu.supabase.co';
+    const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNraHpoYWJjdnh5YXdoamNqc2Z1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM4NDYzNTcsImV4cCI6MjA3OTQyMjM1N30.iHMU4n930fyTa4714cjEmuelKU4X9NDCI9O-VJw12ts';
+
+    window.supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+    // Analyze current URL
+    function analyzeURL() {
+      const urlAnalysis = document.getElementById('urlAnalysis');
+      const hash = window.location.hash;
+      const fullUrl = window.location.href;
+
+      let html = '<div>';
+      html += `<p><strong>Full URL:</strong><br><code style="word-break: break-all;">${fullUrl}</code></p>`;
+
+      if (hash) {
+        html += '<div class="info" style="margin-top: 15px;"><p><strong>✅ Hash Detected!</strong> Attempting to extract tokens...</p></div>';
+
+        const params = new URLSearchParams(hash.substring(1));
+        const accessToken = params.get('access_token');
+        const refreshToken = params.get('refresh_token');
+        const type = params.get('type');
+
+        if (accessToken && refreshToken) {
+          html += '<div class="success" style="margin-top: 15px;">';
+          html += '<p><strong>Tokens Found!</strong> Attempting automatic login...</p>';
+          html += `<p>Type: <code>${type || 'unknown'}</code></p>`;
+          html += '</div>';
+
+          // Auto-set session
+          setTimeout(() => {
+            document.getElementById('accessToken').value = accessToken;
+            document.getElementById('refreshToken').value = refreshToken;
+            setSessionManually();
+          }, 500);
+        } else {
+          html += '<div class="warning" style="margin-top: 15px;"><p><strong>⚠️ Incomplete Tokens</strong> - Please copy tokens manually from your email</p></div>';
+        }
+      } else {
+        html += '<div class="warning" style="margin-top: 15px;"><p><strong>No tokens in URL</strong> - Please paste the full reset link from your email, or extract the tokens manually</p></div>';
+      }
+
+      html += '</div>';
+      urlAnalysis.innerHTML = html;
+    }
+
+    window.setSessionManually = async function() {
+      const accessToken = document.getElementById('accessToken').value.trim();
+      const refreshToken = document.getElementById('refreshToken').value.trim();
+      const resultDiv = document.getElementById('sessionResult');
+
+      if (!accessToken || !refreshToken) {
+        resultDiv.innerHTML = '<div class="error" style="margin-top: 15px;"><p>Please enter both tokens</p></div>';
+        return;
+      }
+
+      resultDiv.innerHTML = '<div class="info" style="margin-top: 15px;"><p>Setting session...</p></div>';
+
+      try {
+        const { data, error } = await window.supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken
+        });
+
+        if (error) {
+          resultDiv.innerHTML = `<div class="error" style="margin-top: 15px;"><p><strong>Error:</strong> ${error.message}</p></div>`;
+        } else {
+          resultDiv.innerHTML = '<div class="success" style="margin-top: 15px;"><p><strong>✅ Session Set Successfully!</strong> You can now reset your password below.</p></div>';
+          document.getElementById('resetSection').style.display = 'block';
+
+          // Clear URL hash
+          if (window.location.hash) {
+            history.replaceState(null, '', window.location.pathname);
+          }
+        }
+      } catch (err) {
+        resultDiv.innerHTML = `<div class="error" style="margin-top: 15px;"><p><strong>Error:</strong> ${err.message}</p></div>`;
+      }
+    };
+
+    window.resetPassword = async function() {
+      const newPassword = document.getElementById('newPassword').value;
+      const confirmPassword = document.getElementById('confirmPassword').value;
+      const resultDiv = document.getElementById('resetResult');
+
+      if (!newPassword || !confirmPassword) {
+        resultDiv.innerHTML = '<div class="error" style="margin-top: 15px;"><p>Please fill in both password fields</p></div>';
+        return;
+      }
+
+      if (newPassword.length < 6) {
+        resultDiv.innerHTML = '<div class="error" style="margin-top: 15px;"><p>Password must be at least 6 characters</p></div>';
+        return;
+      }
+
+      if (newPassword !== confirmPassword) {
+        resultDiv.innerHTML = '<div class="error" style="margin-top: 15px;"><p>Passwords do not match</p></div>';
+        return;
+      }
+
+      resultDiv.innerHTML = '<div class="info" style="margin-top: 15px;"><p>Updating password...</p></div>';
+
+      try {
+        const { error } = await window.supabase.auth.updateUser({
+          password: newPassword
+        });
+
+        if (error) {
+          resultDiv.innerHTML = `<div class="error" style="margin-top: 15px;"><p><strong>Error:</strong> ${error.message}</p></div>`;
+        } else {
+          resultDiv.innerHTML = `
+            <div class="success" style="margin-top: 15px;">
+              <h4>🎉 Password Updated Successfully!</h4>
+              <p>Your password has been reset. You can now log in with your new password.</p>
+              <p>Email: <strong>matthewjohnson22687@gmail.com</strong></p>
+              <p style="margin-top: 15px;">
+                <a href="/" style="color: #007bff; font-weight: 600;">← Back to App</a>
+              </p>
+            </div>
+          `;
+
+          // Clear form
+          document.getElementById('newPassword').value = '';
+          document.getElementById('confirmPassword').value = '';
+        }
+      } catch (err) {
+        resultDiv.innerHTML = `<div class="error" style="margin-top: 15px;"><p><strong>Error:</strong> ${err.message}</p></div>`;
+      }
+    };
+
+    // Run analysis on page load
+    analyzeURL();
+  </script>
+</body>
+</html>
