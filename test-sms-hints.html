@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MeMark - Test SMS Categorization</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #0066cc 0%, #004c99 100%);
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 20px;
+      padding: 40px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+
+    h1 {
+      color: #0066cc;
+      margin-bottom: 10px;
+      font-size: 32px;
+    }
+
+    .subtitle {
+      color: #666;
+      margin-bottom: 30px;
+      font-size: 16px;
+      line-height: 1.6;
+    }
+
+    .section {
+      margin-bottom: 30px;
+      padding: 20px;
+      background: #f8f9fa;
+      border-radius: 12px;
+      border-left: 4px solid #0066cc;
+    }
+
+    .section h2 {
+      color: #1a1a1a;
+      font-size: 20px;
+      margin-bottom: 15px;
+    }
+
+    .example {
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      border: 1px solid #e1e4e8;
+    }
+
+    .example:last-child {
+      margin-bottom: 0;
+    }
+
+    .example-label {
+      font-weight: 600;
+      color: #0066cc;
+      font-size: 14px;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .example-content {
+      font-family: 'Courier New', monospace;
+      background: #f8f9fa;
+      padding: 12px;
+      border-radius: 6px;
+      color: #1a1a1a;
+      font-size: 14px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .example-result {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #e1e4e8;
+    }
+
+    .result-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0;
+      font-size: 13px;
+    }
+
+    .result-label {
+      color: #666;
+      font-weight: 500;
+    }
+
+    .result-value {
+      color: #1a1a1a;
+      font-weight: 600;
+    }
+
+    .highlight {
+      background: #fff3cd;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+
+    .status {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .status-working {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .feature-list {
+      list-style: none;
+      padding: 0;
+    }
+
+    .feature-list li {
+      padding: 10px 0;
+      padding-left: 30px;
+      position: relative;
+      color: #333;
+      line-height: 1.6;
+    }
+
+    .feature-list li:before {
+      content: "✓";
+      position: absolute;
+      left: 0;
+      color: #28a745;
+      font-weight: bold;
+      font-size: 18px;
+    }
+
+    .info-box {
+      background: #d1ecf1;
+      border-left: 4px solid #17a2b8;
+      padding: 15px;
+      border-radius: 8px;
+      margin-top: 20px;
+    }
+
+    .info-box strong {
+      color: #0c5460;
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    .info-box p {
+      color: #0c5460;
+      line-height: 1.6;
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>MeMark SMS Categorization</h1>
+    <p class="subtitle">
+      <span class="status status-working">✓ Working</span><br><br>
+      Your MeMark now automatically understands and categorizes messages you send via SMS.
+      The AI analyzes each message, extracts important details, and organizes it into smart folders.
+    </p>
+
+    <div class="section">
+      <h2>How It Works</h2>
+      <ul class="feature-list">
+        <li>Every message is automatically parsed and understood by AI</li>
+        <li>Links are extracted and categorized by domain (x.com, youtube.com, etc.)</li>
+        <li>Content is categorized by type (Education, Business, Technology, etc.)</li>
+        <li>Smart folders are automatically created and organized</li>
+        <li>You can add hints to guide the categorization</li>
+      </ul>
+    </div>
+
+    <div class="section">
+      <h2>SMS Hint Examples</h2>
+
+      <div class="example">
+        <div class="example-label">Example 1: Basic Link</div>
+        <div class="example-content">https://x.com/techcrunch/status/123456789</div>
+        <div class="example-result">
+          <div class="result-item">
+            <span class="result-label">Folders Created:</span>
+            <span class="result-value">x.com → Technology → Link</span>
+          </div>
+          <div class="result-item">
+            <span class="result-label">AI Analysis:</span>
+            <span class="result-value">Automatic title, summary, and tags</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="example">
+        <div class="example-label">Example 2: With Category Hint</div>
+        <div class="example-content">https://youtube.com/watch?v=abc123
+place in education</div>
+        <div class="example-result">
+          <div class="result-item">
+            <span class="result-label">Category Hint:</span>
+            <span class="result-value highlight">Education</span>
+          </div>
+          <div class="result-item">
+            <span class="result-label">Folders:</span>
+            <span class="result-value">youtube.com → Education</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="example">
+        <div class="example-label">Example 3: With Priority</div>
+        <div class="example-content">Check this article: https://example.com/article
+important
+place in business</div>
+        <div class="example-result">
+          <div class="result-item">
+            <span class="result-label">Priority:</span>
+            <span class="result-value highlight">High</span>
+          </div>
+          <div class="result-item">
+            <span class="result-label">Category:</span>
+            <span class="result-value highlight">Business</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="example">
+        <div class="example-label">Example 4: With Custom Note</div>
+        <div class="example-content">https://github.com/example/repo
+note: Review this for the new project
+place in technology</div>
+        <div class="example-result">
+          <div class="result-item">
+            <span class="result-label">User Note:</span>
+            <span class="result-value">Review this for the new project</span>
+          </div>
+          <div class="result-item">
+            <span class="result-label">Category:</span>
+            <span class="result-value">Technology</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="example">
+        <div class="example-label">Example 5: Natural Language</div>
+        <div class="example-content">Great cooking tutorial: https://youtube.com/watch?v=xyz
+This is for food recipes</div>
+        <div class="example-result">
+          <div class="result-item">
+            <span class="result-label">Detected Category:</span>
+            <span class="result-value highlight">Food</span>
+          </div>
+          <div class="result-item">
+            <span class="result-label">Note:</span>
+            <span class="result-value">AI detects "cooking" and "recipes"</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Supported Category Hints</h2>
+      <ul class="feature-list">
+        <li><strong>Education:</strong> learning, study, course, tutorial</li>
+        <li><strong>Business:</strong> work, career, professional</li>
+        <li><strong>Technology:</strong> tech, programming, coding, dev</li>
+        <li><strong>Health:</strong> fitness, wellness, medical</li>
+        <li><strong>Entertainment:</strong> fun, movie, show, game</li>
+        <li><strong>News:</strong> current events, politics</li>
+        <li><strong>Science:</strong> research, study</li>
+        <li><strong>Sports:</strong> athletic, exercise</li>
+        <li><strong>Travel:</strong> vacation, trip</li>
+        <li><strong>Food:</strong> cooking, recipe, restaurant</li>
+      </ul>
+    </div>
+
+    <div class="info-box">
+      <strong>Pro Tip:</strong>
+      <p>
+        You don't need to use hints every time! The AI is smart enough to categorize most content automatically.
+        Use hints only when you want to override the AI's decision or add specific context.
+      </p>
+    </div>
+  </div>
+</body>
+</html>
