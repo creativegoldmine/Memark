@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Platform, Share, Switch, Modal, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, Share2, ExternalLink, Maximize2, Star, Eye, Globe, Lock, Crown } from 'lucide-react-native';
+import { ArrowLeft, ArrowRight, Share2, ExternalLink, RefreshCw, Star, Eye, Globe, Lock, Crown, BookOpen, X } from 'lucide-react-native';
 import { WebView } from 'react-native-webview';
 import * as Haptics from 'expo-haptics';
+import * as Linking from 'expo-linking';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Item, supabase, supabaseUrl, Profile } from '@/lib/supabase';
@@ -14,6 +15,7 @@ export default function ItemDetail() {
   const params = useLocalSearchParams();
   const { theme } = useTheme();
   const { user, dbUser } = useAuth();
+  const webViewRef = useRef<WebView>(null);
   const [item, setItem] = useState<Item | null>(null);
   const [loading, setLoading] = useState(true);
   const [webViewLoading, setWebViewLoading] = useState(false);
@@ -22,6 +24,9 @@ export default function ItemDetail() {
   const [showPublicToggle, setShowPublicToggle] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [canGoBack, setCanGoBack] = useState(false);
+  const [canGoForward, setCanGoForward] = useState(false);
+  const [currentUrl, setCurrentUrl] = useState('');
 
   const itemId = params.id as string;
   const isPro = dbUser?.plan_type === 'pro' || dbUser?.plan_type === 'premium';
@@ -191,6 +196,56 @@ export default function ItemDetail() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
     setReaderMode(!readerMode);
+    if (!readerMode && webViewRef.current) {
+      webViewRef.current.injectJavaScript(readerModeJS);
+    } else if (webViewRef.current) {
+      webViewRef.current.reload();
+    }
+  };
+
+  const handleWebViewGoBack = () => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    webViewRef.current?.goBack();
+  };
+
+  const handleWebViewGoForward = () => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    webViewRef.current?.goForward();
+  };
+
+  const handleRefresh = () => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    webViewRef.current?.reload();
+  };
+
+  const handleOpenExternal = async () => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    const url = currentUrl || item?.raw_content;
+    if (url) {
+      await Linking.openURL(url);
+    }
+  };
+
+  const handleShareUrl = async () => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    try {
+      await Share.share({
+        message: currentUrl || item?.raw_content || '',
+        url: currentUrl || item?.raw_content || '',
+      });
+    } catch (err) {
+      console.error('Share error:', err);
+    }
   };
 
   const readerModeJS = `
@@ -225,6 +280,40 @@ export default function ItemDetail() {
     const isNote = item.type === 'note' || item.type === 'text';
 
     if (isLink) {
+      if (Platform.OS === 'web') {
+        return (
+          <View style={styles.webViewContainer}>
+            <View style={[styles.browserToolbar, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
+              <View style={styles.toolbarLeft}>
+                <TouchableOpacity style={styles.toolbarButton} onPress={handleRefresh}>
+                  <RefreshCw size={18} color={theme.text} />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.toolbarButton} onPress={handleShareUrl}>
+                  <Share2 size={18} color={theme.text} />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.toolbarButton} onPress={handleOpenExternal}>
+                  <ExternalLink size={18} color={theme.text} />
+                </TouchableOpacity>
+              </View>
+              <Text style={[styles.urlDisplay, { color: theme.textSecondary }]} numberOfLines={1}>
+                {item.raw_content}
+              </Text>
+            </View>
+            <View style={styles.iframeContainer}>
+              <iframe
+                src={item.raw_content}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  border: 'none',
+                }}
+                title="Content"
+              />
+            </View>
+          </View>
+        );
+      }
+
       return (
         <View style={styles.webViewContainer}>
           {webViewLoading && (
@@ -234,11 +323,13 @@ export default function ItemDetail() {
             </View>
           )}
           <WebView
+            ref={webViewRef}
             source={{ uri: item.raw_content }}
             style={styles.webView}
             onLoadStart={() => setWebViewLoading(true)}
             onLoadEnd={() => {
               setWebViewLoading(false);
+              setCurrentUrl(item.raw_content);
               if (Platform.OS !== 'web') {
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               }
@@ -247,20 +338,47 @@ export default function ItemDetail() {
               setWebViewLoading(false);
               setError('Failed to load page');
             }}
+            onNavigationStateChange={(navState) => {
+              setCanGoBack(navState.canGoBack);
+              setCanGoForward(navState.canGoForward);
+              setCurrentUrl(navState.url);
+            }}
             injectedJavaScript={readerMode ? readerModeJS : undefined}
             startInLoadingState={true}
             allowsBackForwardNavigationGestures
             sharedCookiesEnabled
+            javaScriptEnabled
+            domStorageEnabled
           />
           <View style={[styles.webViewControls, { backgroundColor: theme.cardBackground, borderTopColor: theme.border }]}>
+            <TouchableOpacity
+              style={[styles.controlButton, !canGoBack && styles.controlButtonDisabled]}
+              onPress={handleWebViewGoBack}
+              disabled={!canGoBack}
+            >
+              <ArrowLeft size={18} color={canGoBack ? theme.text : theme.textTertiary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.controlButton, !canGoForward && styles.controlButtonDisabled]}
+              onPress={handleWebViewGoForward}
+              disabled={!canGoForward}
+            >
+              <ArrowRight size={18} color={canGoForward ? theme.text : theme.textTertiary} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.controlButton} onPress={handleRefresh}>
+              <RefreshCw size={18} color={theme.text} />
+            </TouchableOpacity>
             <TouchableOpacity
               style={[styles.controlButton, readerMode && { backgroundColor: theme.primary + '20' }]}
               onPress={toggleReaderMode}
             >
-              <Eye size={20} color={readerMode ? theme.primary : theme.textSecondary} />
-              <Text style={[styles.controlText, { color: readerMode ? theme.primary : theme.textSecondary }]}>
-                Reader
-              </Text>
+              <BookOpen size={18} color={readerMode ? theme.primary : theme.text} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.controlButton} onPress={handleShareUrl}>
+              <Share2 size={18} color={theme.text} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.controlButton} onPress={handleOpenExternal}>
+              <ExternalLink size={18} color={theme.text} />
             </TouchableOpacity>
           </View>
         </View>
@@ -649,6 +767,34 @@ const styles = StyleSheet.create({
   controlText: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  controlButtonDisabled: {
+    opacity: 0.4,
+  },
+  browserToolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    gap: 8,
+  },
+  toolbarLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  toolbarButton: {
+    padding: 8,
+    borderRadius: 8,
+  },
+  urlDisplay: {
+    flex: 1,
+    fontSize: 13,
+    marginLeft: 8,
+  },
+  iframeContainer: {
+    flex: 1,
   },
   noteContainer: {
     flex: 1,

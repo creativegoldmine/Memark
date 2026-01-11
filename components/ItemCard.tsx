@@ -91,8 +91,8 @@ export function ItemCard({ item, onPress, onOpenUrl, viewMode = 'list' }: ItemCa
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
-    const url = item.raw_content;
-    if (url.startsWith('http') && onOpenUrl) {
+    const url = extractUrl();
+    if (url && onOpenUrl) {
       onOpenUrl(url);
     }
   };
@@ -103,6 +103,15 @@ export function ItemCard({ item, onPress, onOpenUrl, viewMode = 'list' }: ItemCa
     }
     const urlMatch = item.raw_content.match(/https?:\/\/[^\s]+/);
     return urlMatch ? urlMatch[0] : null;
+  };
+
+  const getDomain = (url: string) => {
+    try {
+      const domain = new URL(url).hostname.replace('www.', '');
+      return domain;
+    } catch {
+      return url;
+    }
   };
 
   const renderScoreBar = () => {
@@ -196,18 +205,40 @@ export function ItemCard({ item, onPress, onOpenUrl, viewMode = 'list' }: ItemCa
             >
               {item.preview_desc || item.summary}
             </Text>
-            {expanded && extractUrl() && (
-              <TouchableOpacity
-                style={[styles.urlButton, { backgroundColor: theme.primary + '10', borderColor: theme.primary + '30' }]}
-                onPress={handleUrlPress}
-                activeOpacity={0.7}
-              >
-                <ExternalLink size={14} color={theme.primary} />
-                <Text style={[styles.urlText, { color: theme.primary }]} numberOfLines={1}>
-                  {extractUrl()}
-                </Text>
-              </TouchableOpacity>
+
+            {expanded && (
+              <View style={styles.expandedContent}>
+                {item.og_title && item.og_title !== item.title && (
+                  <Text style={[styles.ogTitle, { color: theme.text }]} numberOfLines={2}>
+                    {item.og_title}
+                  </Text>
+                )}
+                {item.og_description && item.og_description !== item.summary && (
+                  <Text style={[styles.ogDescription, { color: theme.textSecondary }]} numberOfLines={4}>
+                    {item.og_description}
+                  </Text>
+                )}
+                {extractUrl() && (
+                  <TouchableOpacity
+                    style={[styles.urlButton, { backgroundColor: theme.primary + '10', borderColor: theme.primary + '30' }]}
+                    onPress={handleUrlPress}
+                    activeOpacity={0.7}
+                  >
+                    <ExternalLink size={16} color={theme.primary} />
+                    <View style={styles.urlContent}>
+                      <Text style={[styles.urlDomain, { color: theme.primary }]}>
+                        {getDomain(extractUrl()!)}
+                      </Text>
+                      <Text style={[styles.urlText, { color: theme.textSecondary }]} numberOfLines={1}>
+                        {extractUrl()}
+                      </Text>
+                    </View>
+                    <ChevronDown size={16} color={theme.primary} style={{ transform: [{ rotate: '-90deg' }] }} />
+                  </TouchableOpacity>
+                )}
+              </View>
             )}
+
             {(item.preview_desc || item.summary || '').length > 100 && (
               <TouchableOpacity
                 style={styles.expandButton}
@@ -442,17 +473,40 @@ const styles = StyleSheet.create({
   urlButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 10,
     borderWidth: 1,
-    marginTop: 10,
+    marginTop: 12,
     marginBottom: 6,
   },
-  urlText: {
-    fontSize: 13,
-    fontWeight: '600',
+  urlContent: {
     flex: 1,
+  },
+  urlDomain: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  urlText: {
+    fontSize: 12,
+  },
+  expandedContent: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(139, 92, 246, 0.15)',
+  },
+  ogTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 6,
+    lineHeight: 20,
+  },
+  ogDescription: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 8,
   },
 });

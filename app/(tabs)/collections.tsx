@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, TextInput, Modal } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, TextInput, Modal, Platform } from 'react-native';
 import { Grid, List, ChevronRight, Plus, X, Trash2, Search as SearchIcon } from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase, Item } from '@/lib/supabase';
@@ -8,6 +9,7 @@ import { LogoHeader } from '@/components/LogoHeader';
 import { LoadingLogo } from '@/components/LoadingLogo';
 import { ItemCard } from '@/components/ItemCard';
 import { LinkPreviewModal } from '@/components/LinkPreviewModal';
+import { InAppBrowser } from '@/components/InAppBrowser';
 import { collectionIconNames, collectionIconDisplayNames } from '@/constants/theme';
 import {
   getCollectionIcon,
@@ -53,7 +55,31 @@ export default function Collections() {
   const [newFolderName, setNewFolderName] = useState('');
   const [newFolderIcon, setNewFolderIcon] = useState('folder');
   const [searchQuery, setSearchQuery] = useState('');
+  const [browserVisible, setBrowserVisible] = useState(false);
+  const [browserUrl, setBrowserUrl] = useState('');
   const subscriptionRef = useRef<any>(null);
+
+  const handleOpenUrl = (url: string) => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    setBrowserUrl(url);
+    setBrowserVisible(true);
+  };
+
+  const handleFolderPress = (folder: Folder) => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    setSelectedFolder(folder);
+  };
+
+  const handleIconSelect = (iconName: string) => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    setNewFolderIcon(iconName);
+  };
 
   const fetchFolders = useCallback(async () => {
     if (!user?.id) return;
@@ -310,7 +336,7 @@ export default function Collections() {
                     viewMode === 'grid' ? styles.folderCardGrid : styles.folderCardList,
                     { backgroundColor: theme.cardBackground, borderColor: theme.border }
                   ]}
-                  onPress={() => setSelectedFolder(folder)}
+                  onPress={() => handleFolderPress(folder)}
                 >
                   <View style={styles.folderContent}>
                     <View style={styles.folderTop}>
@@ -387,6 +413,7 @@ export default function Collections() {
                       setSelectedItem(item);
                       setModalVisible(true);
                     }}
+                    onOpenUrl={handleOpenUrl}
                   />
                 ))}
               </View>
@@ -453,7 +480,7 @@ export default function Collections() {
                         borderWidth: 2,
                       },
                     ]}
-                    onPress={() => setNewFolderIcon(iconName)}
+                    onPress={() => handleIconSelect(iconName)}
                   >
                     <IconComponent size={24} color={isSelected ? theme.primary : theme.textSecondary} />
                   </TouchableOpacity>
@@ -480,6 +507,12 @@ export default function Collections() {
           </View>
         </View>
       </Modal>
+
+      <InAppBrowser
+        url={browserUrl}
+        visible={browserVisible}
+        onClose={() => setBrowserVisible(false)}
+      />
     </View>
   );
 }
