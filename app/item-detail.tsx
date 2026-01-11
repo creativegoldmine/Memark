@@ -79,19 +79,32 @@ export default function ItemDetail() {
   };
 
   const updateViewCount = async (id: string) => {
-    const { data: currentItem } = await supabase
-      .from('items')
-      .select('view_count')
-      .eq('id', id)
-      .maybeSingle();
+    try {
+      const { data: currentItem, error: fetchError } = await supabase
+        .from('items')
+        .select('view_count')
+        .eq('id', id)
+        .maybeSingle();
 
-    await supabase
-      .from('items')
-      .update({
-        last_viewed_at: new Date().toISOString(),
-        view_count: (currentItem?.view_count || 0) + 1
-      })
-      .eq('id', id);
+      if (fetchError) {
+        console.error('Error fetching view count:', fetchError);
+        return;
+      }
+
+      const { error: updateError } = await supabase
+        .from('items')
+        .update({
+          last_viewed_at: new Date().toISOString(),
+          view_count: (currentItem?.view_count || 0) + 1
+        })
+        .eq('id', id);
+
+      if (updateError) {
+        console.error('Error updating view count:', updateError);
+      }
+    } catch (err) {
+      console.error('Fatal error updating view count:', err);
+    }
   };
 
   const handleShare = async () => {

@@ -22,21 +22,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const fetchDbUser = async (userId: string, retries = 3) => {
-    for (let i = 0; i < retries; i++) {
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
+    try {
+      for (let i = 0; i < retries; i++) {
+        const { data, error } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', userId)
+          .maybeSingle();
 
-      if (data) {
-        setDbUser(data);
-        return;
-      }
+        if (error) {
+          console.error('Error fetching dbUser:', error);
+          if (i < retries - 1) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            continue;
+          }
+        }
 
-      if (i < retries - 1) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        if (data) {
+          setDbUser(data);
+          setLoading(false);
+          return;
+        }
+
+        if (i < retries - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
       }
+      setLoading(false);
+    } catch (err) {
+      console.error('Fatal error fetching dbUser:', err);
+      setLoading(false);
     }
   };
 
@@ -47,29 +62,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchDbUser(session.user.id);
+    let mounted = true;
+
+    const initAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+
+        if (!mounted) return;
+
+        if (error) {
+          console.error('AuthContext: Error getting session:', error);
+          setLoading(false);
+          return;
+        }
+
+        setSession(session);
+        setUser(session?.user ?? null);
+
+        if (session?.user) {
+          await fetchDbUser(session.user.id);
+        } else {
+          setLoading(false);
+        }
+      } catch (err) {
+        console.error('AuthContext: Fatal error:', err);
+        if (mounted) {
+          setLoading(false);
+        }
       }
-      setLoading(false);
-    });
+    };
+
+    initAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!mounted) return;
+
       setSession(session);
       setUser(session?.user ?? null);
+
       if (session?.user) {
         (async () => {
           await fetchDbUser(session.user.id);
         })();
       } else {
         setDbUser(null);
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => {
+      mounted = false;
       subscription.unsubscribe();
     };
   }, []);

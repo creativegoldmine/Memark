@@ -5,9 +5,9 @@ import { LoadingLogo } from '@/components/LoadingLogo';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase, supabaseUrl, Profile } from '@/lib/supabase';
+import { supabase, supabaseUrl, Profile as ProfileType } from '@/lib/supabase';
 
-export default function Profile() {
+export default function ProfileScreen() {
   const router = useRouter();
   const { theme, themeMode, setThemeMode } = useTheme();
   const { dbUser, signOut, user } = useAuth();
@@ -17,7 +17,7 @@ export default function Profile() {
   const [isAdminMode, setIsAdminMode] = useState(false);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [recategorizing, setRecategorizing] = useState(false);
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const [profile, setProfile] = useState<ProfileType | null>(null);
   const [editingBio, setEditingBio] = useState(false);
   const [bioText, setBioText] = useState('');
   const [publicItemsCount, setPublicItemsCount] = useState(0);
