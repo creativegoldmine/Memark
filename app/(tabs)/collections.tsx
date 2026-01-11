@@ -8,6 +8,24 @@ import { LogoHeader } from '@/components/LogoHeader';
 import { LoadingLogo } from '@/components/LoadingLogo';
 import { ItemCard } from '@/components/ItemCard';
 import { LinkPreviewModal } from '@/components/LinkPreviewModal';
+import { collectionIconNames, collectionIconDisplayNames } from '@/constants/theme';
+import {
+  getCollectionIcon,
+  RecipeIcon,
+  BookIcon,
+  VideoIcon,
+  MusicIcon,
+  PaletteIcon,
+  BriefcaseIcon,
+  DumbbellIcon,
+  PlaneIcon,
+  GameIcon,
+  FolderIcon,
+  LibraryIcon,
+  HeartIcon,
+  ShoppingIcon,
+  HomeIcon,
+} from '@/components/CollectionIcons';
 
 interface Folder {
   id: string;
@@ -33,7 +51,7 @@ export default function Collections() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [createModalVisible, setCreateModalVisible] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
-  const [newFolderIcon, setNewFolderIcon] = useState('📁');
+  const [newFolderIcon, setNewFolderIcon] = useState('folder');
   const [searchQuery, setSearchQuery] = useState('');
   const subscriptionRef = useRef<any>(null);
 
@@ -105,7 +123,7 @@ export default function Collections() {
 
     if (!error) {
       setNewFolderName('');
-      setNewFolderIcon('📁');
+      setNewFolderIcon('folder');
       setCreateModalVisible(false);
       fetchFolders();
     }
@@ -296,7 +314,12 @@ export default function Collections() {
                 >
                   <View style={styles.folderContent}>
                     <View style={styles.folderTop}>
-                      <Text style={styles.folderIcon}>{folder.icon}</Text>
+                      <View style={styles.folderIconContainer}>
+                        {(() => {
+                          const IconComponent = getCollectionIcon(folder.icon || folder.name);
+                          return <IconComponent size={32} color={theme.primary} />;
+                        })()}
+                      </View>
                       {!folder.is_auto_generated && viewMode === 'grid' && (
                         <TouchableOpacity onPress={() => deleteFolder(folder.id)}>
                           <Trash2 size={16} color={theme.textTertiary} />
@@ -399,18 +422,43 @@ export default function Collections() {
             </View>
 
             <View style={styles.iconPicker}>
-              {['📁', '📂', '🗂️', '📚', '💼', '🎨', '🎬', '🎮', '🏋️', '✈️'].map((emoji) => (
-                <TouchableOpacity
-                  key={emoji}
-                  style={[
-                    styles.iconOption,
-                    { backgroundColor: newFolderIcon === emoji ? theme.primary : theme.surface },
-                  ]}
-                  onPress={() => setNewFolderIcon(emoji)}
-                >
-                  <Text style={styles.iconEmoji}>{emoji}</Text>
-                </TouchableOpacity>
-              ))}
+              {collectionIconNames.map((iconName) => {
+                const IconMap: Record<string, any> = {
+                  recipe: RecipeIcon,
+                  book: BookIcon,
+                  video: VideoIcon,
+                  music: MusicIcon,
+                  art: PaletteIcon,
+                  work: BriefcaseIcon,
+                  fitness: DumbbellIcon,
+                  travel: PlaneIcon,
+                  game: GameIcon,
+                  folder: FolderIcon,
+                  library: LibraryIcon,
+                  favorite: HeartIcon,
+                  shopping: ShoppingIcon,
+                  home: HomeIcon,
+                };
+                const IconComponent = IconMap[iconName];
+                const isSelected = newFolderIcon === iconName;
+
+                return (
+                  <TouchableOpacity
+                    key={iconName}
+                    style={[
+                      styles.iconOption,
+                      {
+                        backgroundColor: isSelected ? theme.primary + '20' : theme.surface,
+                        borderColor: isSelected ? theme.primary : theme.border,
+                        borderWidth: 2,
+                      },
+                    ]}
+                    onPress={() => setNewFolderIcon(iconName)}
+                  >
+                    <IconComponent size={24} color={isSelected ? theme.primary : theme.textSecondary} />
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
             <TextInput
@@ -535,8 +583,11 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: 8,
   },
-  folderIcon: {
-    fontSize: 32,
+  folderIconContainer: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   folderInfo: {
     flex: 1,
@@ -619,9 +670,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  iconEmoji: {
-    fontSize: 24,
   },
   input: {
     padding: 16,

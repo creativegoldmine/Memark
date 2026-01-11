@@ -141,3 +141,39 @@ export const themes = {
   dark: darkTheme,
   blue: blueTheme,
 };
+
+export const collectionIconNames = [
+  'recipe',
+  'book',
+  'video',
+  'music',
+  'art',
+  'work',
+  'fitness',
+  'travel',
+  'game',
+  'folder',
+  'library',
+  'favorite',
+  'shopping',
+  'home',
+] as const;
+
+export type CollectionIconName = typeof collectionIconNames[number];
+
+export const collectionIconDisplayNames: Record<CollectionIconName, string> = {
+  recipe: 'Recipe',
+  book: 'Book',
+  video: 'Video',
+  music: 'Music',
+  art: 'Art',
+  work: 'Work',
+  fitness: 'Fitness',
+  travel: 'Travel',
+  game: 'Game',
+  folder: 'Folder',
+  library: 'Library',
+  favorite: 'Favorite',
+  shopping: 'Shopping',
+  home: 'Home',
+};
