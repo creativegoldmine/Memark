@@ -1,15 +1,21 @@
+import { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Platform } from 'react-native';
-import { Link2, Video, FileText, MessageSquare, Image as ImageIcon, CheckSquare } from 'lucide-react-native';
+import { Link2, Video, FileText, MessageSquare, Image as ImageIcon, CheckSquare, ChevronDown, ChevronUp, Star } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Item } from '@/lib/supabase';
 
 interface ItemCardProps {
   item: Item;
-  onPress: () => void;
+  onPress?: () => void;
+  viewMode?: 'grid' | 'list';
 }
 
-export function ItemCard({ item, onPress }: ItemCardProps) {
+export function ItemCard({ item, onPress, viewMode = 'list' }: ItemCardProps) {
   const { theme } = useTheme();
+  const router = useRouter();
+  const [expanded, setExpanded] = useState(false);
 
   const getIcon = () => {
     switch (item.type) {
@@ -60,10 +66,63 @@ export function ItemCard({ item, onPress }: ItemCardProps) {
     return theme.error;
   };
 
+  const handleCardPress = () => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    if (onPress) {
+      onPress();
+    } else {
+      router.push(`/item-detail?id=${item.id}`);
+    }
+  };
+
+  const toggleExpand = (e: any) => {
+    e.stopPropagation();
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    setExpanded(!expanded);
+  };
+
+  const renderScoreBar = () => {
+    if (!item.score) return null;
+    const scorePercent = Math.round(item.score);
+    const scoreColor = getScoreColor();
+
+    return (
+      <View style={styles.scoreBarContainer}>
+        <View style={styles.scoreBarHeader}>
+          <View style={styles.scoreStars}>
+            {[1, 2, 3, 4, 5].map((star) => (
+              <Star
+                key={star}
+                size={12}
+                color={scorePercent >= star * 20 ? scoreColor : theme.border}
+                fill={scorePercent >= star * 20 ? scoreColor : 'transparent'}
+              />
+            ))}
+          </View>
+          <Text style={[styles.scorePercentText, { color: scoreColor }]}>
+            {scorePercent}%
+          </Text>
+        </View>
+        <View style={[styles.scoreBar, { backgroundColor: theme.surface }]}>
+          <View
+            style={[
+              styles.scoreBarFill,
+              { width: `${scorePercent}%`, backgroundColor: scoreColor }
+            ]}
+          />
+        </View>
+      </View>
+    );
+  };
+
   return (
     <TouchableOpacity
       style={[styles.card, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
-      onPress={onPress}
+      onPress={handleCardPress}
       activeOpacity={0.7}
     >
       {item.image_preview && (
@@ -103,10 +162,33 @@ export function ItemCard({ item, onPress }: ItemCardProps) {
         </Text>
 
         {item.summary && (
-          <Text style={[styles.summary, { color: theme.textSecondary }]} numberOfLines={2}>
-            {item.summary}
-          </Text>
+          <View>
+            <Text
+              style={[styles.summary, { color: theme.textSecondary }]}
+              numberOfLines={expanded ? undefined : 2}
+            >
+              {item.summary}
+            </Text>
+            {item.summary.length > 100 && (
+              <TouchableOpacity
+                style={styles.expandButton}
+                onPress={toggleExpand}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Text style={[styles.expandText, { color: theme.primary }]}>
+                  {expanded ? 'Show less' : 'Show more'}
+                </Text>
+                {expanded ? (
+                  <ChevronUp size={14} color={theme.primary} />
+                ) : (
+                  <ChevronDown size={14} color={theme.primary} />
+                )}
+              </TouchableOpacity>
+            )}
+          </View>
         )}
+
+        {renderScoreBar()}
 
         {item.tags && item.tags.length > 0 && (
           <View style={styles.tags}>
@@ -127,14 +209,6 @@ export function ItemCard({ item, onPress }: ItemCardProps) {
           <Text style={[styles.time, { color: theme.textTertiary }]}>
             {formatDate(item.created_at)}
           </Text>
-          {item.score && !item.image_preview && (
-            <View style={styles.scoreChip}>
-              <View style={[styles.scoreIndicator, { backgroundColor: getScoreColor() }]} />
-              <Text style={[styles.scoreText, { color: theme.textSecondary }]}>
-                {Math.round(item.score)}% relevance
-              </Text>
-            </View>
-          )}
         </View>
       </View>
     </TouchableOpacity>
@@ -268,18 +342,41 @@ const styles = StyleSheet.create({
   time: {
     fontSize: 12,
   },
-  scoreChip: {
+  expandButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
+    marginTop: 6,
   },
-  scoreIndicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+  expandText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
-  scoreText: {
-    fontSize: 11,
-    fontWeight: '500',
+  scoreBarContainer: {
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  scoreBarHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  scoreStars: {
+    flexDirection: 'row',
+    gap: 3,
+  },
+  scorePercentText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  scoreBar: {
+    height: 6,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  scoreBarFill: {
+    height: '100%',
+    borderRadius: 3,
   },
 });

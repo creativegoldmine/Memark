@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Platform } from 'react-native';
 import { Flame, Plus } from 'lucide-react-native';
+import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase, Item } from '@/lib/supabase';
@@ -8,6 +10,7 @@ import { ItemCard } from '@/components/ItemCard';
 import { LinkPreviewModal } from '@/components/LinkPreviewModal';
 import { LogoHeader } from '@/components/LogoHeader';
 import { ItemCardSkeleton } from '@/components/SkeletonLoader';
+import { ViewModeToggle } from '@/components/ViewModeToggle';
 
 export default function Home() {
   const { theme, themeMode } = useTheme();
@@ -17,6 +20,7 @@ export default function Home() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [stats, setStats] = useState({
     todayCount: 0,
     reviewCount: 0,
@@ -96,13 +100,29 @@ export default function Home() {
   };
 
   const onRefresh = () => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
     setRefreshing(true);
     fetchItems();
   };
 
   const handleItemPress = (item: Item) => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
     setSelectedItem(item);
     setModalVisible(true);
+  };
+
+  const handleViewModeChange = async (mode: 'grid' | 'list') => {
+    setViewMode(mode);
+    if (user?.id) {
+      await supabase
+        .from('users')
+        .update({ view_mode: mode })
+        .eq('id', user.id);
+    }
   };
 
   const handleModalClose = () => {
@@ -202,9 +222,12 @@ export default function Home() {
             {dbUser?.name ? `Hi, ${dbUser.name.split(' ')[0]}` : 'Welcome'}
           </Text>
         </View>
-        <TouchableOpacity style={[styles.addButton, { backgroundColor: theme.primary }]}>
-          <Plus size={24} color="#FFFFFF" />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <ViewModeToggle mode={viewMode} onModeChange={handleViewModeChange} />
+          <TouchableOpacity style={[styles.addButton, { backgroundColor: theme.primary }]}>
+            <Plus size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
@@ -234,30 +257,36 @@ export default function Home() {
         </View>
 
         {todayItems.length > 0 && (
-          <View style={styles.section}>
+          <Animated.View entering={FadeIn.duration(400)} style={styles.section}>
             <Text style={[styles.sectionTitle, { color: theme.text }]}>Today's Items</Text>
-            {todayItems.map((item) => (
-              <ItemCard key={item.id} item={item} onPress={() => handleItemPress(item)} />
+            {todayItems.map((item, index) => (
+              <Animated.View key={item.id} entering={FadeInDown.delay(index * 100).duration(400)}>
+                <ItemCard item={item} onPress={() => handleItemPress(item)} viewMode={viewMode} />
+              </Animated.View>
             ))}
-          </View>
+          </Animated.View>
         )}
 
         {videoItems.length > 0 && (
-          <View style={styles.section}>
+          <Animated.View entering={FadeIn.duration(400).delay(200)} style={styles.section}>
             <Text style={[styles.sectionTitle, { color: theme.text }]}>Videos to Watch</Text>
-            {videoItems.slice(0, 3).map((item) => (
-              <ItemCard key={item.id} item={item} onPress={() => handleItemPress(item)} />
+            {videoItems.slice(0, 3).map((item, index) => (
+              <Animated.View key={item.id} entering={FadeInDown.delay(200 + index * 100).duration(400)}>
+                <ItemCard item={item} onPress={() => handleItemPress(item)} viewMode={viewMode} />
+              </Animated.View>
             ))}
-          </View>
+          </Animated.View>
         )}
 
         {articleItems.length > 0 && (
-          <View style={styles.section}>
+          <Animated.View entering={FadeIn.duration(400).delay(400)} style={styles.section}>
             <Text style={[styles.sectionTitle, { color: theme.text }]}>Articles to Read</Text>
-            {articleItems.slice(0, 3).map((item) => (
-              <ItemCard key={item.id} item={item} onPress={() => handleItemPress(item)} />
+            {articleItems.slice(0, 3).map((item, index) => (
+              <Animated.View key={item.id} entering={FadeInDown.delay(400 + index * 100).duration(400)}>
+                <ItemCard item={item} onPress={() => handleItemPress(item)} viewMode={viewMode} />
+              </Animated.View>
             ))}
-          </View>
+          </Animated.View>
         )}
 
         {items.length === 0 && (
@@ -300,6 +329,11 @@ const styles = StyleSheet.create({
   greeting: {
     fontSize: 20,
     fontWeight: '700',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   addButton: {
     width: 48,
