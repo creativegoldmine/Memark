@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { ErrorMessage } from '@/components/ErrorMessage';
+import { validateEmail, validatePassword, validatePhoneNumber, validateName, normalizePhoneNumber } from '@/utils/validators';
 
 export default function Signup() {
   const router = useRouter();
@@ -15,39 +17,64 @@ export default function Signup() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSignup = async () => {
-    if (!name || !email || !phoneNumber || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
+    setError('');
+
+    const nameValidation = validateName(name);
+    if (!nameValidation.isValid) {
+      setError(nameValidation.error || 'Invalid name');
       return;
     }
 
-    if (password.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters');
+    const emailValidation = validateEmail(email);
+    if (!emailValidation.isValid) {
+      setError(emailValidation.error || 'Invalid email');
       return;
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      Alert.alert('Error', 'Please enter a valid email address');
+    const phoneValidation = validatePhoneNumber(phoneNumber);
+    if (!phoneValidation.isValid) {
+      setError(phoneValidation.error || 'Invalid phone number');
+      return;
+    }
+
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.isValid) {
+      setError(passwordValidation.error || 'Invalid password');
       return;
     }
 
     setLoading(true);
     try {
-      const { error } = await signUp(email.toLowerCase().trim(), password, name.trim(), phoneNumber.trim());
+      const normalizedPhone = normalizePhoneNumber(phoneNumber.trim());
+      const { error: signUpError } = await signUp(
+        email.toLowerCase().trim(),
+        password,
+        name.trim(),
+        normalizedPhone
+      );
 
-      if (error) {
-        console.error('Signup error:', error);
-        Alert.alert('Signup Error', error.message || 'Failed to create account. Please try again.');
+      if (signUpError) {
+        if (signUpError.message?.includes('already registered')) {
+          setError('This email is already registered. Please sign in instead.');
+        } else if (signUpError.message?.includes('Invalid email')) {
+          setError('Please enter a valid email address.');
+        } else if (signUpError.message?.includes('password')) {
+          setError('Password must be at least 6 characters long.');
+        } else if (signUpError.message?.includes('network')) {
+          setError('Network error. Please check your connection and try again.');
+        } else {
+          setError(signUpError.message || 'Failed to create account. Please try again.');
+        }
       } else {
         setTimeout(() => {
           router.replace('/onboarding');
         }, 500);
       }
     } catch (err) {
-      console.error('Unexpected signup error:', err);
-      Alert.alert('Error', 'An unexpected error occurred. Please try again.');
+      setError('An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -67,6 +94,8 @@ export default function Signup() {
           Start organizing your digital life
         </Text>
 
+        <ErrorMessage message={error} visible={!!error} />
+
         <View style={styles.form}>
           <View style={styles.inputContainer}>
             <Text style={[styles.label, { color: theme.textSecondary }]}>Full Name</Text>
@@ -77,6 +106,7 @@ export default function Signup() {
               value={name}
               onChangeText={setName}
               autoCapitalize="words"
+              editable={!loading}
             />
           </View>
 
@@ -90,18 +120,21 @@ export default function Signup() {
               onChangeText={setEmail}
               autoCapitalize="none"
               keyboardType="email-address"
+              editable={!loading}
             />
           </View>
 
           <View style={styles.inputContainer}>
             <Text style={[styles.label, { color: theme.textSecondary }]}>Phone Number</Text>
+            <Text style={[styles.hint, { color: theme.textTertiary }]}>Required for SMS integration</Text>
             <TextInput
               style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]}
-              placeholder="+1 (555) 123-4567"
+              placeholder="+1 555 123 4567"
               placeholderTextColor={theme.textTertiary}
               value={phoneNumber}
               onChangeText={setPhoneNumber}
               keyboardType="phone-pad"
+              editable={!loading}
             />
           </View>
 
@@ -114,6 +147,7 @@ export default function Signup() {
               value={password}
               onChangeText={setPassword}
               secureTextEntry
+              editable={!loading}
             />
           </View>
 
@@ -177,6 +211,10 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '500',
+  },
+  hint: {
+    fontSize: 12,
+    marginTop: -4,
   },
   input: {
     paddingVertical: 14,

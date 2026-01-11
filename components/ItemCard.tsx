@@ -52,13 +52,33 @@ export function ItemCard({ item, onPress }: ItemCardProps) {
     return date.toLocaleDateString();
   };
 
+  const getScoreColor = () => {
+    if (!item.score) return theme.textTertiary;
+    if (item.score >= 80) return theme.success;
+    if (item.score >= 60) return theme.primary;
+    if (item.score >= 40) return theme.warning;
+    return theme.error;
+  };
+
   return (
     <TouchableOpacity
       style={[styles.card, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
       onPress={onPress}
+      activeOpacity={0.7}
     >
       {item.image_preview && (
-        <Image source={{ uri: item.image_preview }} style={styles.image} resizeMode="cover" />
+        <View style={styles.imageContainer}>
+          <Image
+            source={{ uri: item.image_preview }}
+            style={styles.image}
+            resizeMode="cover"
+          />
+          {item.score && item.score >= 70 && (
+            <View style={[styles.scoreBadge, { backgroundColor: getScoreColor() }]}>
+              <Text style={styles.scoreBadgeText}>{Math.round(item.score)}%</Text>
+            </View>
+          )}
+        </View>
       )}
 
       <View style={styles.content}>
@@ -66,7 +86,7 @@ export function ItemCard({ item, onPress }: ItemCardProps) {
           <View style={styles.iconRow}>
             {getIcon()}
             <Text style={[styles.type, { color: theme.textSecondary }]}>
-              {item.type?.charAt(0).toUpperCase() + item.type?.slice(1)}
+              {item.type?.charAt(0).toUpperCase() + item.type?.slice(1) || 'Link'}
             </Text>
           </View>
           {item.category && (
@@ -79,7 +99,7 @@ export function ItemCard({ item, onPress }: ItemCardProps) {
         </View>
 
         <Text style={[styles.title, { color: theme.text }]} numberOfLines={2}>
-          {item.title || item.raw_content}
+          {item.title || item.raw_content || 'Untitled'}
         </Text>
 
         {item.summary && (
@@ -95,6 +115,11 @@ export function ItemCard({ item, onPress }: ItemCardProps) {
                 <Text style={[styles.tagText, { color: theme.textSecondary }]}>#{tag}</Text>
               </View>
             ))}
+            {item.tags.length > 3 && (
+              <Text style={[styles.moreTagsText, { color: theme.textTertiary }]}>
+                +{item.tags.length - 3} more
+              </Text>
+            )}
           </View>
         )}
 
@@ -102,16 +127,12 @@ export function ItemCard({ item, onPress }: ItemCardProps) {
           <Text style={[styles.time, { color: theme.textTertiary }]}>
             {formatDate(item.created_at)}
           </Text>
-          {item.score && (
-            <View style={styles.scoreContainer}>
-              <View style={[styles.scoreBar, { backgroundColor: theme.border }]}>
-                <View
-                  style={[
-                    styles.scoreFill,
-                    { backgroundColor: theme.primary, width: `${item.score}%` },
-                  ]}
-                />
-              </View>
+          {item.score && !item.image_preview && (
+            <View style={styles.scoreChip}>
+              <View style={[styles.scoreIndicator, { backgroundColor: getScoreColor() }]} />
+              <Text style={[styles.scoreText, { color: theme.textSecondary }]}>
+                {Math.round(item.score)}% relevance
+              </Text>
             </View>
           )}
         </View>
@@ -135,9 +156,35 @@ const styles = StyleSheet.create({
       elevation: 5,
     }),
   },
-  image: {
+  imageContainer: {
+    position: 'relative',
     width: '100%',
     height: 160,
+  },
+  image: {
+    width: '100%',
+    height: '100%',
+  },
+  scoreBadge: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    ...(Platform.OS === 'web' ? {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+    } : {
+      elevation: 4,
+    }),
+  },
+  scoreBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   content: {
     padding: 16,
@@ -173,6 +220,7 @@ const styles = StyleSheet.create({
   categoryText: {
     fontSize: 10,
     fontWeight: '600',
+    textTransform: 'capitalize',
   },
   title: {
     fontSize: 16,
@@ -188,6 +236,7 @@ const styles = StyleSheet.create({
   tags: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    alignItems: 'center',
     gap: 6,
     marginBottom: 10,
   },
@@ -207,6 +256,10 @@ const styles = StyleSheet.create({
   tagText: {
     fontSize: 11,
   },
+  moreTagsText: {
+    fontSize: 11,
+    fontStyle: 'italic',
+  },
   footer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -215,16 +268,18 @@ const styles = StyleSheet.create({
   time: {
     fontSize: 12,
   },
-  scoreContainer: {
-    width: 60,
+  scoreChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
-  scoreBar: {
-    height: 4,
-    borderRadius: 2,
-    overflow: 'hidden',
+  scoreIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
-  scoreFill: {
-    height: '100%',
-    borderRadius: 2,
+  scoreText: {
+    fontSize: 11,
+    fontWeight: '500',
   },
 });

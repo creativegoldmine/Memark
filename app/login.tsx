@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { ErrorMessage } from '@/components/ErrorMessage';
+import { validateEmail, validatePassword } from '@/utils/validators';
 
 export default function Login() {
   const router = useRouter();
@@ -13,6 +15,7 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (session) {
@@ -21,27 +24,38 @@ export default function Login() {
   }, [session]);
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
+    setError('');
+
+    const emailValidation = validateEmail(email);
+    if (!emailValidation.isValid) {
+      setError(emailValidation.error || 'Invalid email');
+      return;
+    }
+
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.isValid) {
+      setError(passwordValidation.error || 'Invalid password');
       return;
     }
 
     setLoading(true);
     try {
-      const { error } = await signIn(email.toLowerCase().trim(), password);
+      const { error: signInError } = await signIn(email.toLowerCase().trim(), password);
 
-      if (error) {
-        console.error('Login error:', error);
-        if (error.message.includes('Invalid login credentials')) {
-          Alert.alert('Login Error', 'Invalid email or password. Please try again.');
+      if (signInError) {
+        if (signInError.message?.includes('Invalid login credentials')) {
+          setError('Invalid email or password. Please check your credentials and try again.');
+        } else if (signInError.message?.includes('Email not confirmed')) {
+          setError('Please confirm your email address before signing in.');
+        } else if (signInError.message?.includes('network')) {
+          setError('Network error. Please check your connection and try again.');
         } else {
-          Alert.alert('Login Error', error.message || 'Failed to sign in. Please try again.');
+          setError(signInError.message || 'Failed to sign in. Please try again.');
         }
         setLoading(false);
       }
     } catch (err) {
-      console.error('Unexpected login error:', err);
-      Alert.alert('Error', 'An unexpected error occurred. Please try again.');
+      setError('An unexpected error occurred. Please try again.');
       setLoading(false);
     }
   };
@@ -60,6 +74,8 @@ export default function Login() {
           Sign in to continue to MeMark
         </Text>
 
+        <ErrorMessage message={error} visible={!!error} />
+
         <View style={styles.form}>
           <View style={styles.inputContainer}>
             <Text style={[styles.label, { color: theme.textSecondary }]}>Email</Text>
@@ -71,13 +87,14 @@ export default function Login() {
               onChangeText={setEmail}
               autoCapitalize="none"
               keyboardType="email-address"
+              editable={!loading}
             />
           </View>
 
           <View style={styles.inputContainer}>
             <View style={styles.labelRow}>
               <Text style={[styles.label, { color: theme.textSecondary }]}>Password</Text>
-              <TouchableOpacity onPress={() => router.push('/forgot-password')}>
+              <TouchableOpacity onPress={() => router.push('/forgot-password')} disabled={loading}>
                 <Text style={[styles.forgotLink, { color: theme.primary }]}>Forgot?</Text>
               </TouchableOpacity>
             </View>
@@ -88,6 +105,7 @@ export default function Login() {
               value={password}
               onChangeText={setPassword}
               secureTextEntry
+              editable={!loading}
             />
           </View>
 

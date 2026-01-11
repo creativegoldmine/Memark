@@ -1,13 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import { Flame, Plus } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase, Item } from '@/lib/supabase';
 import { ItemCard } from '@/components/ItemCard';
-import { LoadingLogo } from '@/components/LoadingLogo';
 import { LinkPreviewModal } from '@/components/LinkPreviewModal';
 import { LogoHeader } from '@/components/LogoHeader';
+import { ItemCardSkeleton } from '@/components/SkeletonLoader';
 
 export default function Home() {
   const { theme, themeMode } = useTheme();
@@ -34,15 +34,47 @@ export default function Home() {
       .eq('status', 'active')
       .eq('is_archived', false)
       .order('created_at', { ascending: false })
-      .limit(20);
+      .limit(50);
 
     if (data) {
-      setItems(data);
+      const sortedItems = sortItemsIntelligently(data);
+      setItems(sortedItems);
       calculateStats(data);
     }
     setLoading(false);
     setRefreshing(false);
   }, [user?.id]);
+
+  const sortItemsIntelligently = (items: Item[]): Item[] => {
+    return items.sort((a, b) => {
+      const aReviewDate = a.next_review_date ? new Date(a.next_review_date) : null;
+      const bReviewDate = b.next_review_date ? new Date(b.next_review_date) : null;
+      const now = new Date();
+
+      const aScore = a.score || 0;
+      const bScore = b.score || 0;
+
+      const aCreatedAt = new Date(a.created_at);
+      const bCreatedAt = new Date(b.created_at);
+
+      if (aReviewDate && aReviewDate <= now && (!bReviewDate || bReviewDate > now)) {
+        return -1;
+      }
+      if (bReviewDate && bReviewDate <= now && (!aReviewDate || aReviewDate > now)) {
+        return 1;
+      }
+
+      if (aReviewDate && bReviewDate && aReviewDate <= now && bReviewDate <= now) {
+        return aReviewDate.getTime() - bReviewDate.getTime();
+      }
+
+      if (Math.abs(aScore - bScore) > 15) {
+        return bScore - aScore;
+      }
+
+      return bCreatedAt.getTime() - aCreatedAt.getTime();
+    });
+  };
 
   const calculateStats = (items: Item[]) => {
     const today = new Date();
@@ -103,7 +135,7 @@ export default function Home() {
           const newItem = payload.new as Item;
           if (newItem.status === 'active' && !newItem.is_archived) {
             setItems(prev => {
-              const updated = [newItem, ...prev].slice(0, 20);
+              const updated = sortItemsIntelligently([newItem, ...prev].slice(0, 50));
               calculateStats(updated);
               return updated;
             });
@@ -111,7 +143,9 @@ export default function Home() {
         } else if (payload.eventType === 'UPDATE') {
           const updatedItem = payload.new as Item;
           setItems(prev => {
-            const updated = prev.map(item => item.id === updatedItem.id ? updatedItem : item);
+            const updated = sortItemsIntelligently(
+              prev.map(item => item.id === updatedItem.id ? updatedItem : item)
+            );
             calculateStats(updated);
             return updated;
           });
@@ -142,9 +176,19 @@ export default function Home() {
   if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: theme.background }]}>
-        <View style={styles.centered}>
-          <LoadingLogo size={80} />
+        <LogoHeader pageTitle="HOME" />
+        <View style={[styles.subHeader, { backgroundColor: theme.cardBackground, borderBottomColor: theme.border }]}>
+          <Text style={[styles.greeting, { color: theme.text }]}>Welcome</Text>
+          <TouchableOpacity style={[styles.addButton, { backgroundColor: theme.primary }]} disabled>
+            <Plus size={24} color="#FFFFFF" />
+          </TouchableOpacity>
         </View>
+
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+          <ItemCardSkeleton />
+          <ItemCardSkeleton />
+          <ItemCardSkeleton />
+        </ScrollView>
       </View>
     );
   }
