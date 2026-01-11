@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform } from 'react-native';
-import { User, Phone, Mail, LogOut, Moon, Sun, Sparkles, Settings, MessageSquare, Copy, Upload, FileText, RefreshCw, Shield, ShieldAlert } from 'lucide-react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform, Switch, TextInput, Share } from 'react-native';
+import { User, Phone, Mail, LogOut, Moon, Sun, Sparkles, Settings, MessageSquare, Copy, Upload, FileText, RefreshCw, Shield, ShieldAlert, Globe, Lock, ExternalLink, Crown, Edit3 } from 'lucide-react-native';
 import { LoadingLogo } from '@/components/LoadingLogo';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase, supabaseUrl } from '@/lib/supabase';
+import { supabase, supabaseUrl, Profile } from '@/lib/supabase';
 
 export default function Profile() {
   const router = useRouter();
@@ -17,6 +17,12 @@ export default function Profile() {
   const [isAdminMode, setIsAdminMode] = useState(false);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [recategorizing, setRecategorizing] = useState(false);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [editingBio, setEditingBio] = useState(false);
+  const [bioText, setBioText] = useState('');
+  const [publicItemsCount, setPublicItemsCount] = useState(0);
+
+  const isPro = dbUser?.plan_type === 'pro' || dbUser?.plan_type === 'premium';
 
   useEffect(() => {
     const checkAdminStatus = async () => {
@@ -27,6 +33,115 @@ export default function Profile() {
     };
     checkAdminStatus();
   }, [dbUser]);
+
+  useEffect(() => {
+    loadProfile();
+  }, [user?.id]);
+
+  const loadProfile = async () => {
+    if (!user?.id) return;
+
+    try {
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (profileData) {
+        setProfile(profileData);
+        setBioText(profileData.bio || '');
+      }
+
+      const { count } = await supabase
+        .from('items')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('is_public', true);
+
+      setPublicItemsCount(count || 0);
+    } catch (error) {
+      console.error('Error loading profile:', error);
+    }
+  };
+
+  const handleTogglePublicProfile = async () => {
+    if (!profile) return;
+
+    if (!isPro) {
+      Alert.alert(
+        'Upgrade to Pro',
+        'Public profiles are a Pro feature. Upgrade to create your Linktree-style public profile and share your best marks!',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Learn More', onPress: () => {} },
+        ]
+      );
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ is_public: !profile.is_public })
+        .eq('user_id', user!.id);
+
+      if (error) throw error;
+
+      setProfile({ ...profile, is_public: !profile.is_public });
+
+      if (!profile.is_public) {
+        const publicUrl = `${supabaseUrl}/profile/${profile.username}`;
+        Alert.alert(
+          'Profile is now public!',
+          `Your profile is now live at:\n\n${publicUrl}`,
+          [
+            { text: 'Share', onPress: () => handleShareProfile() },
+            { text: 'OK' },
+          ]
+        );
+      }
+    } catch (error) {
+      console.error('Error toggling profile:', error);
+      Alert.alert('Error', 'Failed to update profile');
+    }
+  };
+
+  const handleSaveBio = async () => {
+    if (!profile || !user?.id) return;
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ bio: bioText })
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      setProfile({ ...profile, bio: bioText });
+      setEditingBio(false);
+      Alert.alert('Success', 'Bio updated!');
+    } catch (error) {
+      console.error('Error updating bio:', error);
+      Alert.alert('Error', 'Failed to update bio');
+    }
+  };
+
+  const handleShareProfile = async () => {
+    if (!profile) return;
+
+    const profileUrl = `${supabaseUrl}/profile/${profile.username}?ref=${user?.id}`;
+    const shareText = `Check out my Memark profile!\n\n${profile.bio || 'My curated collection of great content'}\n\n${profileUrl}`;
+
+    try {
+      await Share.share({
+        message: shareText,
+        title: 'My Memark Profile',
+      });
+    } catch (error) {
+      console.error('Share error:', error);
+    }
+  };
 
   const handleSignOut = () => {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
@@ -183,6 +298,119 @@ export default function Profile() {
             </View>
           </View>
         </View>
+
+        {profile && (
+          <View style={[styles.section, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Public Profile</Text>
+              {!isPro && (
+                <View style={[styles.proChip, { backgroundColor: theme.warning + '15' }]}>
+                  <Crown size={12} color={theme.warning} />
+                  <Text style={[styles.proText, { color: theme.warning }]}>PRO</Text>
+                </View>
+              )}
+            </View>
+
+            <View style={[styles.publicProfileCard, { backgroundColor: theme.surface }]}>
+              <View style={styles.publicProfileHeader}>
+                <View style={styles.publicProfileInfo}>
+                  {profile.is_public ? (
+                    <Globe size={20} color={theme.primary} />
+                  ) : (
+                    <Lock size={20} color={theme.textSecondary} />
+                  )}
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.publicProfileTitle, { color: theme.text }]}>
+                      {profile.is_public ? 'Profile is Public' : 'Profile is Private'}
+                    </Text>
+                    <Text style={[styles.publicProfileSubtitle, { color: theme.textSecondary }]}>
+                      @{profile.username}
+                    </Text>
+                  </View>
+                </View>
+                <Switch
+                  value={profile.is_public}
+                  onValueChange={handleTogglePublicProfile}
+                  trackColor={{ false: theme.border, true: theme.primary + '40' }}
+                  thumbColor={profile.is_public ? theme.primary : theme.textTertiary}
+                />
+              </View>
+
+              {profile.is_public && (
+                <>
+                  <View style={[styles.statRow, { borderTopColor: theme.border }]}>
+                    <Text style={[styles.statLabel, { color: theme.textSecondary }]}>
+                      Public Marks
+                    </Text>
+                    <Text style={[styles.statValue, { color: theme.primary }]}>
+                      {publicItemsCount}
+                    </Text>
+                  </View>
+
+                  <View style={styles.bioSection}>
+                    <View style={styles.bioHeader}>
+                      <Text style={[styles.bioLabel, { color: theme.textSecondary }]}>Bio</Text>
+                      <TouchableOpacity
+                        onPress={() => {
+                          if (editingBio) {
+                            handleSaveBio();
+                          } else {
+                            setEditingBio(true);
+                          }
+                        }}
+                      >
+                        <Text style={[styles.bioEditButton, { color: theme.primary }]}>
+                          {editingBio ? 'Save' : 'Edit'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                    {editingBio ? (
+                      <TextInput
+                        style={[styles.bioInput, { backgroundColor: theme.background, color: theme.text, borderColor: theme.border }]}
+                        value={bioText}
+                        onChangeText={setBioText}
+                        placeholder="Add a bio to your public profile..."
+                        placeholderTextColor={theme.textTertiary}
+                        multiline
+                        maxLength={160}
+                      />
+                    ) : (
+                      <Text style={[styles.bioText, { color: theme.text }]}>
+                        {profile.bio || 'No bio yet. Add one to personalize your profile!'}
+                      </Text>
+                    )}
+                  </View>
+
+                  <TouchableOpacity
+                    style={[styles.shareProfileButton, { backgroundColor: theme.primary }]}
+                    onPress={handleShareProfile}
+                  >
+                    <ExternalLink size={18} color="#FFFFFF" />
+                    <Text style={styles.shareProfileButtonText}>Share My Profile</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.viewProfileButton, { backgroundColor: theme.surface }]}
+                    onPress={() => router.push(`/profile/${profile.username}`)}
+                  >
+                    <Globe size={18} color={theme.primary} />
+                    <Text style={[styles.viewProfileButtonText, { color: theme.primary }]}>
+                      View Public Profile
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              )}
+            </View>
+
+            {!profile.is_public && (
+              <View style={[styles.infoBox, { backgroundColor: theme.primary + '10', borderColor: theme.primary + '30' }]}>
+                <Text style={[styles.infoBoxText, { color: theme.textSecondary }]}>
+                  Enable public profile to share your best marks Linktree-style and build your network!
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
 
         <View style={[styles.section, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
           <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>MeMark SMS</Text>
@@ -635,5 +863,123 @@ const styles = StyleSheet.create({
   },
   adminToggleDescription: {
     fontSize: 13,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  proChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  proText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  publicProfileCard: {
+    padding: 16,
+    borderRadius: 12,
+    gap: 16,
+  },
+  publicProfileHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  publicProfileInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  publicProfileTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  publicProfileSubtitle: {
+    fontSize: 14,
+  },
+  statRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 16,
+    borderTopWidth: 1,
+  },
+  statLabel: {
+    fontSize: 14,
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  bioSection: {
+    gap: 8,
+  },
+  bioHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  bioLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  bioEditButton: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  bioInput: {
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    fontSize: 14,
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  bioText: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  shareProfileButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: 14,
+    borderRadius: 10,
+  },
+  shareProfileButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  viewProfileButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: 14,
+    borderRadius: 10,
+  },
+  viewProfileButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  infoBox: {
+    padding: 16,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  infoBoxText: {
+    fontSize: 14,
+    lineHeight: 20,
   },
 });

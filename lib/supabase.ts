@@ -24,6 +24,8 @@ export interface User {
   is_superadmin?: boolean;
   active_role?: string;
   superadmin_mode_enabled_at?: string;
+  public_profile_enabled?: boolean;
+  referral_code?: string;
   created_at: string;
   updated_at: string;
 }
@@ -48,6 +50,28 @@ export interface Item {
   last_viewed_at?: string;
   view_count?: number;
   is_archived?: boolean;
+  is_public?: boolean;
+}
+
+export interface Profile {
+  user_id: string;
+  username: string;
+  bio: string;
+  avatar_url?: string;
+  is_public: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Referral {
+  id: string;
+  referrer_user_id: string;
+  referred_user_id?: string;
+  referral_code: string;
+  status: 'pending' | 'completed' | 'rewarded';
+  reward_amount: number;
+  created_at: string;
+  completed_at?: string;
 }
 
 export interface Collection {

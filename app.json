@@ -17,8 +17,40 @@
           {
             "CFBundleURLSchemes": ["memark"]
           }
-        ]
+        ],
+        "NSExtension": {
+          "NSExtensionAttributes": {
+            "NSExtensionActivationRule": {
+              "NSExtensionActivationSupportsWebURLWithMaxCount": 1,
+              "NSExtensionActivationSupportsText": true
+            }
+          }
+        }
       }
+    },
+    "android": {
+      "package": "com.memark.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundColor": "#8B5CF6"
+      },
+      "intentFilters": [
+        {
+          "action": "SEND",
+          "category": ["DEFAULT"],
+          "data": [
+            {
+              "mimeType": "text/plain"
+            },
+            {
+              "scheme": "http"
+            },
+            {
+              "scheme": "https"
+            }
+          ]
+        }
+      ]
     },
     "web": {
       "bundler": "metro",

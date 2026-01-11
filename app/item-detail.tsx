@@ -1,28 +1,53 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Platform, Share } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Platform, Share, Switch, Modal, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, Share2, ExternalLink, Maximize2, Star, Eye } from 'lucide-react-native';
+import { ArrowLeft, Share2, ExternalLink, Maximize2, Star, Eye, Globe, Lock, Crown } from 'lucide-react-native';
 import { WebView } from 'react-native-webview';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Item, supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
+import { Item, supabase, supabaseUrl, Profile } from '@/lib/supabase';
 import { LinearGradient } from 'expo-linear-gradient';
 
 export default function ItemDetail() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const { theme } = useTheme();
+  const { user } = useAuth();
   const [item, setItem] = useState<Item | null>(null);
   const [loading, setLoading] = useState(true);
   const [webViewLoading, setWebViewLoading] = useState(false);
   const [readerMode, setReaderMode] = useState(false);
   const [error, setError] = useState('');
+  const [showPublicToggle, setShowPublicToggle] = useState(false);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const itemId = params.id as string;
+  const isPro = user?.plan_type === 'pro' || user?.plan_type === 'premium';
 
   useEffect(() => {
     loadItem();
-  }, [itemId]);
+    loadUserProfile();
+  }, [itemId, user?.id]);
+
+  const loadUserProfile = async () => {
+    if (!user?.id) return;
+
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (data) {
+        setProfile(data);
+      }
+    } catch (err) {
+      console.error('Error loading profile:', err);
+    }
+  };
 
   const loadItem = async () => {
     if (!itemId) return;
@@ -70,7 +95,14 @@ export default function ItemDetail() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
 
-    const shareText = `${item.title || 'Untitled'}\n\n${item.summary || ''}\n\n${item.raw_content}\n\nTags: ${item.tags.join(', ')}`;
+    const referralLink = profile?.username
+      ? `${supabaseUrl}/profile/${profile.username}?ref=${user?.id || 'guest'}`
+      : `memark.app?ref=${user?.id || 'guest'}`;
+
+    const itemUrl = item.raw_content.startsWith('http') ? item.raw_content : '';
+    const tags = item.tags.length > 0 ? `\n\nTags: ${item.tags.join(', ')}` : '';
+
+    const shareText = `${item.title || 'Untitled'}\n\n${item.summary || ''}${itemUrl ? '\n\n' + itemUrl : ''}${tags}\n\nvia Memark ${referralLink}`;
 
     try {
       await Share.share({
@@ -79,6 +111,52 @@ export default function ItemDetail() {
       });
     } catch (err) {
       console.error('Share error:', err);
+    }
+  };
+
+  const togglePublicStatus = async () => {
+    if (!item) return;
+
+    if (!isPro) {
+      setShowUpgradeModal(true);
+      return;
+    }
+
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+
+    const newPublicStatus = !item.is_public;
+
+    try {
+      const { error } = await supabase
+        .from('items')
+        .update({ is_public: newPublicStatus })
+        .eq('id', item.id);
+
+      if (error) throw error;
+
+      setItem({ ...item, is_public: newPublicStatus });
+
+      if (newPublicStatus && profile?.is_public) {
+        const publicUrl = `${supabaseUrl}/profile/${profile.username}`;
+        Alert.alert(
+          'Item is now public!',
+          `This item is now visible on your public profile at:\n\n${publicUrl}`,
+          [{ text: 'OK' }]
+        );
+      }
+
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(
+          newPublicStatus
+            ? Haptics.NotificationFeedbackType.Success
+            : Haptics.NotificationFeedbackType.Warning
+        );
+      }
+    } catch (err) {
+      console.error('Error toggling public status:', err);
+      Alert.alert('Error', 'Failed to update public status');
     }
   };
 
@@ -260,11 +338,51 @@ export default function ItemDetail() {
                 </Text>
               </View>
             )}
+            <TouchableOpacity style={styles.headerButton} onPress={() => setShowPublicToggle(!showPublicToggle)}>
+              {item.is_public ? (
+                <Globe size={20} color={theme.primary} />
+              ) : (
+                <Lock size={20} color={theme.textSecondary} />
+              )}
+            </TouchableOpacity>
             <TouchableOpacity style={styles.headerButton} onPress={handleShare}>
               <Share2 size={20} color={theme.text} />
             </TouchableOpacity>
           </View>
         </View>
+        {showPublicToggle && (
+          <View style={[styles.publicToggleCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <View style={styles.publicToggleHeader}>
+              {item.is_public ? (
+                <Globe size={20} color={theme.primary} />
+              ) : (
+                <Lock size={20} color={theme.textSecondary} />
+              )}
+              <View style={styles.publicToggleText}>
+                <Text style={[styles.publicToggleTitle, { color: theme.text }]}>
+                  {item.is_public ? 'Public' : 'Private'}
+                </Text>
+                <Text style={[styles.publicToggleDesc, { color: theme.textSecondary }]}>
+                  {item.is_public
+                    ? 'Visible on your public profile'
+                    : 'Only visible to you'}
+                </Text>
+              </View>
+              {!isPro && (
+                <View style={[styles.proChip, { backgroundColor: theme.warning + '15' }]}>
+                  <Crown size={12} color={theme.warning} />
+                  <Text style={[styles.proText, { color: theme.warning }]}>PRO</Text>
+                </View>
+              )}
+            </View>
+            <Switch
+              value={item.is_public || false}
+              onValueChange={togglePublicStatus}
+              trackColor={{ false: theme.border, true: theme.primary + '40' }}
+              thumbColor={item.is_public ? theme.primary : theme.textTertiary}
+            />
+          </View>
+        )}
         {item.title && (
           <View style={styles.headerContent}>
             <Text style={[styles.headerTitle, { color: theme.text }]} numberOfLines={2}>
@@ -299,6 +417,65 @@ export default function ItemDetail() {
       <View style={styles.content}>
         {renderContent()}
       </View>
+
+      <Modal visible={showUpgradeModal} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.upgradeModal, { backgroundColor: theme.cardBackground }]}>
+            <LinearGradient
+              colors={[theme.primary + '15', 'transparent']}
+              style={styles.upgradeGradient}
+            />
+            <View style={styles.upgradeContent}>
+              <View style={[styles.crownCircle, { backgroundColor: theme.warning + '15' }]}>
+                <Crown size={48} color={theme.warning} />
+              </View>
+              <Text style={[styles.upgradeTitle, { color: theme.text }]}>
+                Upgrade to Pro
+              </Text>
+              <Text style={[styles.upgradeText, { color: theme.textSecondary }]}>
+                Create a public profile and share your best marks with the world. Pro users get:
+              </Text>
+              <View style={styles.upgradeFeatures}>
+                <View style={styles.upgradeFeature}>
+                  <Globe size={20} color={theme.primary} />
+                  <Text style={[styles.upgradeFeatureText, { color: theme.text }]}>
+                    Public Linktree-style profile
+                  </Text>
+                </View>
+                <View style={styles.upgradeFeature}>
+                  <Share2 size={20} color={theme.primary} />
+                  <Text style={[styles.upgradeFeatureText, { color: theme.text }]}>
+                    Share items publicly
+                  </Text>
+                </View>
+                <View style={styles.upgradeFeature}>
+                  <Star size={20} color={theme.primary} />
+                  <Text style={[styles.upgradeFeatureText, { color: theme.text }]}>
+                    Earn rewards from referrals
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                style={[styles.upgradeButton, { backgroundColor: theme.primary }]}
+                onPress={() => {
+                  setShowUpgradeModal(false);
+                  router.push('/profile');
+                }}
+              >
+                <Text style={styles.upgradeButtonText}>Upgrade Now</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => setShowUpgradeModal(false)}
+              >
+                <Text style={[styles.cancelButtonText, { color: theme.textSecondary }]}>
+                  Maybe Later
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -520,5 +697,117 @@ const styles = StyleSheet.create({
   fallbackText: {
     fontSize: 15,
     textAlign: 'center',
+  },
+  publicToggleCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    marginTop: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  publicToggleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  publicToggleText: {
+    flex: 1,
+  },
+  publicToggleTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  publicToggleDesc: {
+    fontSize: 13,
+  },
+  proChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  proText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'flex-end',
+  },
+  upgradeModal: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingBottom: 40,
+    overflow: 'hidden',
+  },
+  upgradeGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 200,
+  },
+  upgradeContent: {
+    padding: 32,
+    alignItems: 'center',
+  },
+  crownCircle: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  upgradeTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  upgradeText: {
+    fontSize: 16,
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 32,
+  },
+  upgradeFeatures: {
+    width: '100%',
+    gap: 16,
+    marginBottom: 32,
+  },
+  upgradeFeature: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  upgradeFeatureText: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  upgradeButton: {
+    width: '100%',
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  upgradeButtonText: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  cancelButton: {
+    paddingVertical: 12,
+  },
+  cancelButtonText: {
+    fontSize: 15,
+    fontWeight: '500',
   },
 });
