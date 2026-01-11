@@ -11,6 +11,7 @@ import { LinkPreviewModal } from '@/components/LinkPreviewModal';
 import { LogoHeader } from '@/components/LogoHeader';
 import { ItemCardSkeleton } from '@/components/SkeletonLoader';
 import { ViewModeToggle } from '@/components/ViewModeToggle';
+import { InAppBrowser } from '@/components/InAppBrowser';
 
 export default function Home() {
   const { theme, themeMode } = useTheme();
@@ -21,6 +22,8 @@ export default function Home() {
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+  const [browserVisible, setBrowserVisible] = useState(false);
+  const [browserUrl, setBrowserUrl] = useState('');
   const [stats, setStats] = useState({
     todayCount: 0,
     reviewCount: 0,
@@ -184,6 +187,14 @@ export default function Home() {
     };
   }, [user?.id]);
 
+  const handleOpenUrl = (url: string) => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    setBrowserUrl(url);
+    setBrowserVisible(true);
+  };
+
   const todayItems = items.filter((item) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -261,7 +272,7 @@ export default function Home() {
             <Text style={[styles.sectionTitle, { color: theme.text }]}>Today's Items</Text>
             {todayItems.map((item, index) => (
               <Animated.View key={item.id} entering={FadeInDown.delay(index * 100).duration(400)}>
-                <ItemCard item={item} onPress={() => handleItemPress(item)} viewMode={viewMode} />
+                <ItemCard item={item} onPress={() => handleItemPress(item)} onOpenUrl={handleOpenUrl} viewMode={viewMode} />
               </Animated.View>
             ))}
           </Animated.View>
@@ -272,7 +283,7 @@ export default function Home() {
             <Text style={[styles.sectionTitle, { color: theme.text }]}>Videos to Watch</Text>
             {videoItems.slice(0, 3).map((item, index) => (
               <Animated.View key={item.id} entering={FadeInDown.delay(200 + index * 100).duration(400)}>
-                <ItemCard item={item} onPress={() => handleItemPress(item)} viewMode={viewMode} />
+                <ItemCard item={item} onPress={() => handleItemPress(item)} onOpenUrl={handleOpenUrl} viewMode={viewMode} />
               </Animated.View>
             ))}
           </Animated.View>
@@ -283,7 +294,7 @@ export default function Home() {
             <Text style={[styles.sectionTitle, { color: theme.text }]}>Articles to Read</Text>
             {articleItems.slice(0, 3).map((item, index) => (
               <Animated.View key={item.id} entering={FadeInDown.delay(400 + index * 100).duration(400)}>
-                <ItemCard item={item} onPress={() => handleItemPress(item)} viewMode={viewMode} />
+                <ItemCard item={item} onPress={() => handleItemPress(item)} onOpenUrl={handleOpenUrl} viewMode={viewMode} />
               </Animated.View>
             ))}
           </Animated.View>
@@ -304,6 +315,12 @@ export default function Home() {
         item={selectedItem}
         onClose={handleModalClose}
         onUpdate={() => selectedItem && handleItemUpdate(selectedItem)}
+      />
+
+      <InAppBrowser
+        url={browserUrl}
+        visible={browserVisible}
+        onClose={() => setBrowserVisible(false)}
       />
     </View>
   );

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Platform } from 'react-native';
-import { Link2, Video, FileText, MessageSquare, Image as ImageIcon, CheckSquare, ChevronDown, ChevronUp, Star } from 'lucide-react-native';
+import { Link2, Video, FileText, MessageSquare, Image as ImageIcon, CheckSquare, ChevronDown, ChevronUp, Star, ExternalLink } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -9,10 +9,11 @@ import { Item } from '@/lib/supabase';
 interface ItemCardProps {
   item: Item;
   onPress?: () => void;
+  onOpenUrl?: (url: string) => void;
   viewMode?: 'grid' | 'list';
 }
 
-export function ItemCard({ item, onPress, viewMode = 'list' }: ItemCardProps) {
+export function ItemCard({ item, onPress, onOpenUrl, viewMode = 'list' }: ItemCardProps) {
   const { theme } = useTheme();
   const router = useRouter();
   const [expanded, setExpanded] = useState(false);
@@ -83,6 +84,25 @@ export function ItemCard({ item, onPress, viewMode = 'list' }: ItemCardProps) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
     setExpanded(!expanded);
+  };
+
+  const handleUrlPress = (e: any) => {
+    e.stopPropagation();
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    const url = item.raw_content;
+    if (url.startsWith('http') && onOpenUrl) {
+      onOpenUrl(url);
+    }
+  };
+
+  const extractUrl = () => {
+    if (item.raw_content.startsWith('http')) {
+      return item.raw_content;
+    }
+    const urlMatch = item.raw_content.match(/https?:\/\/[^\s]+/);
+    return urlMatch ? urlMatch[0] : null;
   };
 
   const renderScoreBar = () => {
@@ -176,6 +196,18 @@ export function ItemCard({ item, onPress, viewMode = 'list' }: ItemCardProps) {
             >
               {item.preview_desc || item.summary}
             </Text>
+            {expanded && extractUrl() && (
+              <TouchableOpacity
+                style={[styles.urlButton, { backgroundColor: theme.primary + '10', borderColor: theme.primary + '30' }]}
+                onPress={handleUrlPress}
+                activeOpacity={0.7}
+              >
+                <ExternalLink size={14} color={theme.primary} />
+                <Text style={[styles.urlText, { color: theme.primary }]} numberOfLines={1}>
+                  {extractUrl()}
+                </Text>
+              </TouchableOpacity>
+            )}
             {(item.preview_desc || item.summary || '').length > 100 && (
               <TouchableOpacity
                 style={styles.expandButton}
@@ -406,5 +438,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  urlButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 10,
+    marginBottom: 6,
+  },
+  urlText: {
+    fontSize: 13,
+    fontWeight: '600',
+    flex: 1,
   },
 });

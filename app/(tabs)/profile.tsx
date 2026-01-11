@@ -21,6 +21,7 @@ export default function ProfileScreen() {
   const [editingBio, setEditingBio] = useState(false);
   const [bioText, setBioText] = useState('');
   const [publicItemsCount, setPublicItemsCount] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
 
   const isPro = dbUser?.plan_type === 'pro' || dbUser?.plan_type === 'premium';
 
@@ -226,6 +227,68 @@ export default function ProfileScreen() {
     } finally {
       setSyncing(false);
     }
+  };
+
+  const handleRefreshAllData = async () => {
+    if (!user) {
+      Alert.alert('Error', 'Please log in first');
+      return;
+    }
+
+    Alert.alert(
+      'Refresh All Data',
+      'This will update previews and AI tags for all your items. This may take a few minutes.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Refresh',
+          onPress: async () => {
+            setRefreshing(true);
+            try {
+              const { data: { session } } = await supabase.auth.getSession();
+
+              if (!session) {
+                Alert.alert('Error', 'Not authenticated');
+                return;
+              }
+
+              const response = await fetch(`${supabaseUrl}/functions/v1/batch-refresh-previews`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${session.access_token}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  onlyStale: true,
+                }),
+              });
+
+              if (!response.ok) {
+                throw new Error(`HTTP error: ${response.status}`);
+              }
+
+              const data = await response.json();
+
+              if (data.success) {
+                const { total, refreshed, failed } = data.results;
+                let message = `Total items: ${total}\nRefreshed: ${refreshed}`;
+                if (failed > 0) {
+                  message += `\nFailed: ${failed}`;
+                }
+                Alert.alert('Refresh Complete', message);
+              } else {
+                Alert.alert('Refresh Failed', data.error || 'Unknown error occurred');
+              }
+            } catch (error: any) {
+              console.error('Refresh error:', error);
+              Alert.alert('Refresh Error', error.message || 'Failed to refresh data');
+            } finally {
+              setRefreshing(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleImportBookmarks = () => {
@@ -571,6 +634,26 @@ export default function ProfileScreen() {
               <Text style={[styles.settingsText, { color: theme.text }]}>AI Recategorize All</Text>
               <Text style={[styles.settingsSubtext, { color: theme.textSecondary }]}>
                 Organize all items into smart folders
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.settingsRow}
+            onPress={handleRefreshAllData}
+            disabled={refreshing}
+          >
+            <View style={[styles.infoIcon, { backgroundColor: theme.success + '20' }]}>
+              {refreshing ? (
+                <LoadingLogo size={12} />
+              ) : (
+                <RefreshCw size={18} color={theme.success} />
+              )}
+            </View>
+            <View style={styles.infoContent}>
+              <Text style={[styles.settingsText, { color: theme.text }]}>Refresh All Data</Text>
+              <Text style={[styles.settingsSubtext, { color: theme.textSecondary }]}>
+                Update previews & AI tags for all items
               </Text>
             </View>
           </TouchableOpacity>

@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase, Item } from '@/lib/supabase';
 import { ItemCard } from '@/components/ItemCard';
 import { LogoHeader } from '@/components/LogoHeader';
+import { InAppBrowser } from '@/components/InAppBrowser';
 
 const FILTER_TYPES = ['All', 'Article', 'Video', 'Note', 'Screenshot', 'Task'];
 const FILTER_CATEGORIES = ['All', 'Work', 'Personal', 'Inspiration', 'Finance', 'Learning'];
@@ -19,6 +20,13 @@ export default function Browse() {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [showFilters, setShowFilters] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [browserVisible, setBrowserVisible] = useState(false);
+  const [browserUrl, setBrowserUrl] = useState('');
+
+  const handleOpenUrl = (url: string) => {
+    setBrowserUrl(url);
+    setBrowserVisible(true);
+  };
 
   const fetchItems = useCallback(async () => {
     if (!user?.id) return;
@@ -185,7 +193,7 @@ export default function Browse() {
               {filteredItems.length} result{filteredItems.length !== 1 ? 's' : ''}
             </Text>
             {filteredItems.map((item) => (
-              <ItemCard key={item.id} item={item} onPress={() => {}} />
+              <ItemCard key={item.id} item={item} onPress={() => {}} onOpenUrl={handleOpenUrl} />
             ))}
           </>
         ) : (
@@ -204,6 +212,12 @@ export default function Browse() {
           </View>
         )}
       </ScrollView>
+
+      <InAppBrowser
+        url={browserUrl}
+        visible={browserVisible}
+        onClose={() => setBrowserVisible(false)}
+      />
     </View>
   );
 }
