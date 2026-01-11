@@ -279,6 +279,18 @@ export function ItemCard({ item, onPress, onOpenUrl, viewMode = 'list' }: ItemCa
           <Text style={[styles.time, { color: theme.textTertiary }]}>
             {formatDate(item.created_at)}
           </Text>
+          {extractUrl() && onOpenUrl && (
+            <TouchableOpacity
+              style={[styles.quickLinkButton, { backgroundColor: theme.primary + '15' }]}
+              onPress={handleUrlPress}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <ExternalLink size={14} color={theme.primary} />
+              <Text style={[styles.quickLinkText, { color: theme.primary }]}>
+                {getDomain(extractUrl()!)}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     </TouchableOpacity>
@@ -508,5 +520,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     marginBottom: 8,
+  },
+  quickLinkButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+  },
+  quickLinkText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
 });

@@ -219,10 +219,10 @@ export default function PublicProfile() {
                   onPress={() => handleItemPress(item)}
                   activeOpacity={0.7}
                 >
-                  {item.image_preview && (
+                  {(item.preview_image_url || item.image_preview) && (
                     <View style={styles.itemImageContainer}>
                       <Image
-                        source={{ uri: item.image_preview }}
+                        source={{ uri: item.preview_image_url || item.image_preview }}
                         style={styles.itemImage}
                         resizeMode="cover"
                       />
@@ -245,12 +245,12 @@ export default function PublicProfile() {
                     </View>
 
                     <Text style={[styles.itemTitle, { color: theme.text }]} numberOfLines={2}>
-                      {item.title || 'Untitled'}
+                      {item.preview_title || item.title || 'Untitled'}
                     </Text>
 
-                    {item.summary && (
+                    {(item.preview_desc || item.summary) && (
                       <Text style={[styles.itemSummary, { color: theme.textSecondary }]} numberOfLines={3}>
-                        {item.summary}
+                        {item.preview_desc || item.summary}
                       </Text>
                     )}
 
