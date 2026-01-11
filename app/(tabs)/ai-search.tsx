@@ -18,6 +18,8 @@ import { ItemCard } from '@/components/ItemCard';
 import { LogoHeader } from '@/components/LogoHeader';
 import { LoadingLogo } from '@/components/LoadingLogo';
 import { LinkPreviewModal } from '@/components/LinkPreviewModal';
+import { InAppBrowser } from '@/components/InAppBrowser';
+import * as Haptics from 'expo-haptics';
 
 interface Message {
   id: string;
@@ -40,7 +42,17 @@ export default function AISearch() {
   const [loading, setLoading] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [browserVisible, setBrowserVisible] = useState(false);
+  const [browserUrl, setBrowserUrl] = useState('');
   const scrollViewRef = useRef<ScrollView>(null);
+
+  const handleOpenUrl = (url: string) => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    setBrowserUrl(url);
+    setBrowserVisible(true);
+  };
 
   const handleSend = async () => {
     if (!input.trim() || !user || loading) return;
@@ -164,10 +176,15 @@ export default function AISearch() {
             {message.items && message.items.length > 0 && (
               <View style={styles.itemsContainer}>
                 {message.items.map((item) => (
-                  <ItemCard key={item.id} item={item} onPress={() => {
-                    setSelectedItem(item);
-                    setModalVisible(true);
-                  }} />
+                  <ItemCard
+                    key={item.id}
+                    item={item}
+                    onPress={() => {
+                      setSelectedItem(item);
+                      setModalVisible(true);
+                    }}
+                    onOpenUrl={handleOpenUrl}
+                  />
                 ))}
               </View>
             )}
@@ -209,6 +226,12 @@ export default function AISearch() {
           setSelectedItem(null);
         }}
         onUpdate={() => {}}
+      />
+
+      <InAppBrowser
+        url={browserUrl}
+        visible={browserVisible}
+        onClose={() => setBrowserVisible(false)}
       />
     </KeyboardAvoidingView>
   );
