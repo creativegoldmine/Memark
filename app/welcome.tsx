@@ -3,7 +3,6 @@ import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Sparkles, Send, Brain, Folder, Search, MessageSquare, Zap, Lock, Globe } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
-import { LogoHeader } from '@/components/LogoHeader';
 
 const { width } = Dimensions.get('window');
 
@@ -53,10 +52,6 @@ export default function Welcome() {
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.hero}>
-          <View style={styles.logoContainer}>
-            <LogoHeader size={64} showText={false} />
-          </View>
-
           <Text style={styles.appName}>MeMark</Text>
           <Text style={styles.tagline}>Your Second Brain</Text>
           <Text style={styles.heroDescription}>

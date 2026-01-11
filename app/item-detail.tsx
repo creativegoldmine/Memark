@@ -13,7 +13,7 @@ export default function ItemDetail() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const { theme } = useTheme();
-  const { user } = useAuth();
+  const { user, dbUser } = useAuth();
   const [item, setItem] = useState<Item | null>(null);
   const [loading, setLoading] = useState(true);
   const [webViewLoading, setWebViewLoading] = useState(false);
@@ -24,7 +24,7 @@ export default function ItemDetail() {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const itemId = params.id as string;
-  const isPro = user?.plan_type === 'pro' || user?.plan_type === 'premium';
+  const isPro = dbUser?.plan_type === 'pro' || dbUser?.plan_type === 'premium';
 
   useEffect(() => {
     loadItem();
@@ -79,11 +79,17 @@ export default function ItemDetail() {
   };
 
   const updateViewCount = async (id: string) => {
+    const { data: currentItem } = await supabase
+      .from('items')
+      .select('view_count')
+      .eq('id', id)
+      .maybeSingle();
+
     await supabase
       .from('items')
       .update({
         last_viewed_at: new Date().toISOString(),
-        view_count: supabase.raw('view_count + 1')
+        view_count: (currentItem?.view_count || 0) + 1
       })
       .eq('id', id);
   };

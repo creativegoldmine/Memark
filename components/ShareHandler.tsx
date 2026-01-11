@@ -11,23 +11,26 @@ export function ShareHandler() {
 
   useEffect(() => {
     const handleIncomingURL = async (event: { url: string }) => {
-      if (!user?.id) {
-        Alert.alert('Please log in', 'You need to be logged in to save shared content');
-        return;
-      }
+      try {
+        const { path, queryParams } = Linking.parse(event.url);
 
-      const { path, queryParams } = Linking.parse(event.url);
+        if (!path) return;
 
-      if (path === 'share') {
-        const content = queryParams?.content as string;
-        const type = queryParams?.type as string;
-        const title = queryParams?.title as string;
+        if (path === 'share') {
+          if (!user?.id) {
+            Alert.alert('Please log in', 'You need to be logged in to save shared content');
+            return;
+          }
 
-        if (content) {
-          try {
+          const content = queryParams?.content as string;
+          const type = queryParams?.type as string;
+          const title = queryParams?.title as string;
+
+          if (content) {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) {
-              throw new Error('No active session');
+              Alert.alert('Error', 'No active session');
+              return;
             }
 
             const response = await fetch(
@@ -61,19 +64,14 @@ export function ShareHandler() {
                 ]
               );
             } else {
-              throw new Error(result.error || 'Failed to save');
+              Alert.alert('Error', result.error || 'Failed to save');
             }
-          } catch (error) {
-            console.error('Error saving shared content:', error);
-            Alert.alert('Error', 'Failed to save shared content');
           }
         }
-      }
 
-      if (path === 'profile' && queryParams?.ref) {
-        const referrerId = queryParams.ref as string;
-        if (referrerId && referrerId !== user.id) {
-          try {
+        if (path === 'profile' && queryParams?.ref && user?.id) {
+          const referrerId = queryParams.ref as string;
+          if (referrerId && referrerId !== user.id) {
             await fetch(
               `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/track-referral`,
               {
@@ -88,10 +86,10 @@ export function ShareHandler() {
                 }),
               }
             );
-          } catch (error) {
-            console.error('Error tracking referral:', error);
           }
         }
+      } catch (error) {
+        console.error('Error handling incoming URL:', error);
       }
     };
 
@@ -101,12 +99,14 @@ export function ShareHandler() {
       if (url) {
         handleIncomingURL({ url });
       }
+    }).catch((error) => {
+      console.error('Error getting initial URL:', error);
     });
 
     return () => {
       subscription.remove();
     };
-  }, [user?.id]);
+  }, [user?.id, router]);
 
   return null;
 }
