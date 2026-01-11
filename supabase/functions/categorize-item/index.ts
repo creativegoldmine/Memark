@@ -24,10 +24,14 @@ Deno.serve(async (req: Request) => {
 
     let metadata = null;
     let ogMetadata = null;
+    let embedData = null;
     const urlMatch = content.match(/https?:\/\/[^\s]+/);
 
     if (urlMatch) {
-      metadata = await fetchLinkMetadata(urlMatch[0]);
+      const url = urlMatch[0];
+
+      embedData = await fetchEmbedData(url);
+      metadata = await fetchLinkMetadata(url);
       ogMetadata = metadata?.ogData || null;
     }
 
@@ -38,6 +42,10 @@ Deno.serve(async (req: Request) => {
     let category = userMetadata?.contentType || 'General';
     let imagePreview = metadata?.image || null;
     let score = 70;
+
+    let previewTitle = embedData?.title || metadata?.title || title;
+    let previewDesc = embedData?.description || metadata?.description || summary;
+    let previewImageUrl = embedData?.thumbnail_url || metadata?.image || imagePreview;
 
     if (openaiApiKey) {
       const aiResult = await categorizeWithAI(openaiApiKey, content, metadata, userMetadata);
@@ -59,7 +67,16 @@ Deno.serve(async (req: Request) => {
       category,
       image_preview: imagePreview,
       score,
+      preview_title: previewTitle,
+      preview_desc: previewDesc,
+      preview_image_url: previewImageUrl,
+      preview_fetched_at: new Date().toISOString(),
     };
+
+    if (embedData) {
+      updateData.embed_type = embedData.type;
+      updateData.embed_html = embedData.html;
+    }
 
     if (ogMetadata) {
       updateData.og_title = ogMetadata.og_title;
@@ -113,7 +130,21 @@ Deno.serve(async (req: Request) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, type, title, summary, tags, category, score }),
+      JSON.stringify({
+        success: true,
+        type,
+        title,
+        summary,
+        tags,
+        category,
+        score,
+        preview: {
+          title: previewTitle,
+          description: previewDesc,
+          image: previewImageUrl,
+          embedType: embedData?.type,
+        }
+      }),
       {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -134,6 +165,109 @@ Deno.serve(async (req: Request) => {
     );
   }
 });
+
+async function fetchEmbedData(url: string) {
+  try {
+    if (url.includes('twitter.com') || url.includes('x.com')) {
+      const oEmbedUrl = `https://publish.twitter.com/oembed?url=${encodeURIComponent(url)}&omit_script=true`;
+      const response = await fetch(oEmbedUrl);
+
+      if (response.ok) {
+        const data = await response.json();
+        return {
+          type: 'twitter',
+          html: data.html,
+          title: extractTextFromHTML(data.html),
+          author: data.author_name,
+          thumbnail_url: extractImageFromTwitterEmbed(data.html),
+          description: extractTextFromHTML(data.html).substring(0, 200),
+        };
+      }
+    }
+
+    if (url.includes('youtube.com') || url.includes('youtu.be')) {
+      const videoId = extractYouTubeVideoId(url);
+      if (videoId) {
+        const oEmbedUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`;
+        const response = await fetch(oEmbedUrl);
+
+        if (response.ok) {
+          const data = await response.json();
+          return {
+            type: 'youtube',
+            html: data.html,
+            title: data.title,
+            author: data.author_name,
+            thumbnail_url: data.thumbnail_url || `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+            description: data.title,
+          };
+        }
+      }
+    }
+
+    if (url.includes('instagram.com')) {
+      const oEmbedUrl = `https://graph.facebook.com/v12.0/instagram_oembed?url=${encodeURIComponent(url)}&access_token=YOUR_TOKEN`;
+      return {
+        type: 'instagram',
+        title: 'Instagram Post',
+        description: 'View on Instagram',
+      };
+    }
+
+    if (url.includes('tiktok.com')) {
+      const oEmbedUrl = `https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`;
+      const response = await fetch(oEmbedUrl);
+
+      if (response.ok) {
+        const data = await response.json();
+        return {
+          type: 'tiktok',
+          html: data.html,
+          title: data.title,
+          author: data.author_name,
+          thumbnail_url: data.thumbnail_url,
+          description: data.title,
+        };
+      }
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error fetching embed data:', error);
+    return null;
+  }
+}
+
+function extractYouTubeVideoId(url: string): string | null {
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/,
+    /youtube\.com\/embed\/([^&\s]+)/,
+  ];
+
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match) return match[1];
+  }
+
+  return null;
+}
+
+function extractTextFromHTML(html: string): string {
+  return html
+    .replace(/<[^>]*>/g, '')
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&nbsp;/g, ' ')
+    .trim()
+    .substring(0, 200);
+}
+
+function extractImageFromTwitterEmbed(html: string): string | null {
+  const match = html.match(/https:\/\/pbs\.twimg\.com\/[^\s"']+/);
+  return match ? match[0] : null;
+}
 
 async function fetchLinkMetadata(url: string) {
   try {

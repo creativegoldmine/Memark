@@ -51,6 +51,20 @@ export interface Item {
   view_count?: number;
   is_archived?: boolean;
   is_public?: boolean;
+  preview_title?: string;
+  preview_desc?: string;
+  preview_image_url?: string;
+  preview_fetched_at?: string;
+  embed_type?: string;
+  embed_html?: string;
+  og_title?: string;
+  og_description?: string;
+  og_image?: string;
+  og_site_name?: string;
+  og_url?: string;
+  og_type?: string;
+  og_author?: string;
+  og_published_time?: string;
 }
 
 export interface Profile {

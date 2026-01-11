@@ -29,42 +29,58 @@ export function ShareHandler() {
           if (content) {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) {
-              Alert.alert('Error', 'No active session');
+              Alert.alert('Please log in', 'You need to be logged in to save shared content');
+              router.push('/login');
               return;
             }
 
-            const response = await fetch(
-              `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/share-to-memark`,
-              {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  Authorization: `Bearer ${session.access_token}`,
-                },
-                body: JSON.stringify({
-                  content,
-                  type,
-                  title,
-                }),
-              }
-            );
-
-            const result = await response.json();
-
-            if (result.success) {
-              Alert.alert(
-                'Saved!',
-                'Content has been saved to your Memark',
-                [
-                  {
-                    text: 'View',
-                    onPress: () => router.push(`/item-detail?id=${result.item.id}`),
+            try {
+              const response = await fetch(
+                `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/share-to-memark`,
+                {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${session.access_token}`,
                   },
-                  { text: 'OK' },
-                ]
+                  body: JSON.stringify({
+                    content,
+                    type,
+                    title,
+                  }),
+                }
               );
-            } else {
-              Alert.alert('Error', result.error || 'Failed to save');
+
+              if (!response.ok) {
+                throw new Error(`HTTP error: ${response.status}`);
+              }
+
+              const result = await response.json();
+
+              if (result.success) {
+                if (Platform.OS !== 'web') {
+                  await import('expo-haptics').then((Haptics) =>
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+                  );
+                }
+
+                Alert.alert(
+                  'Saved!',
+                  result.preview ? `${result.preview.title || 'Content'} saved with preview` : 'Content saved to your Memark',
+                  [
+                    {
+                      text: 'View',
+                      onPress: () => router.push(`/item-detail?id=${result.item.id}`),
+                    },
+                    { text: 'OK' },
+                  ]
+                );
+              } else {
+                Alert.alert('Error', result.error || 'Failed to save');
+              }
+            } catch (error) {
+              console.error('Share error:', error);
+              Alert.alert('Error', 'Failed to save content. Please try again.');
             }
           }
         }

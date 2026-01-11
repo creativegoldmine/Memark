@@ -125,16 +125,23 @@ export function ItemCard({ item, onPress, viewMode = 'list' }: ItemCardProps) {
       onPress={handleCardPress}
       activeOpacity={0.7}
     >
-      {item.image_preview && (
+      {(item.preview_image_url || item.image_preview) && (
         <View style={styles.imageContainer}>
           <Image
-            source={{ uri: item.image_preview }}
+            source={{ uri: item.preview_image_url || item.image_preview }}
             style={styles.image}
             resizeMode="cover"
           />
           {item.score && item.score >= 70 && (
             <View style={[styles.scoreBadge, { backgroundColor: getScoreColor() }]}>
               <Text style={styles.scoreBadgeText}>{Math.round(item.score)}%</Text>
+            </View>
+          )}
+          {item.embed_type && (
+            <View style={[styles.embedBadge, { backgroundColor: theme.primary }]}>
+              <Text style={styles.embedBadgeText}>
+                {item.embed_type === 'youtube' ? '▶' : item.embed_type === 'twitter' ? '𝕏' : '🔗'}
+              </Text>
             </View>
           )}
         </View>
@@ -158,18 +165,18 @@ export function ItemCard({ item, onPress, viewMode = 'list' }: ItemCardProps) {
         </View>
 
         <Text style={[styles.title, { color: theme.text }]} numberOfLines={2}>
-          {item.title || item.raw_content || 'Untitled'}
+          {item.preview_title || item.title || item.raw_content || 'Untitled'}
         </Text>
 
-        {item.summary && (
+        {(item.preview_desc || item.summary) && (
           <View>
             <Text
               style={[styles.summary, { color: theme.textSecondary }]}
               numberOfLines={expanded ? undefined : 2}
             >
-              {item.summary}
+              {item.preview_desc || item.summary}
             </Text>
-            {item.summary.length > 100 && (
+            {(item.preview_desc || item.summary || '').length > 100 && (
               <TouchableOpacity
                 style={styles.expandButton}
                 onPress={toggleExpand}
@@ -378,5 +385,26 @@ const styles = StyleSheet.create({
   scoreBarFill: {
     height: '100%',
     borderRadius: 3,
+  },
+  embedBadge: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    ...(Platform.OS === 'web' ? {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+    } : {
+      elevation: 4,
+    }),
+  },
+  embedBadgeText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });
