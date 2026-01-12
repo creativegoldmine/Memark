@@ -75,6 +75,7 @@ Deno.serve(async (req: Request) => {
 
     if (metadata?.videoUrl) {
       updateData.video_url = metadata.videoUrl;
+      updateData.type = 'video';
     }
 
     if (embedData) {
@@ -102,35 +103,16 @@ Deno.serve(async (req: Request) => {
 
     if (item) {
       await supabase.from('ai_event_log').insert({
-        user_id: item.user_id,
+        user_id: userId,
         item_id: itemId,
-        action_type: 'categorize',
-        ai_output: {
+        event_type: 'categorize',
+        metadata: {
           type,
-          title,
-          summary,
-          tags,
           category,
           score,
+          hasVideo: !!metadata?.videoUrl,
         },
       });
-
-      await autoAssignToCollections(supabase, userId, itemId, category, type, tags);
-
-      try {
-        await fetch(`${supabaseUrl}/functions/v1/auto-folder-categorize`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            itemId,
-            userId,
-          }),
-        });
-      } catch (folderError) {
-        console.error('Folder categorization failed:', folderError);
-      }
     }
 
     return new Response(
@@ -148,21 +130,16 @@ Deno.serve(async (req: Request) => {
           image: previewImageUrl,
           embedType: embedData?.type,
           videoUrl: metadata?.videoUrl,
-        }
+        },
       }),
       {
-        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );
-  } catch (error) {
-    console.error('Error categorizing item:', error);
+  } catch (error: any) {
+    console.error('Error in categorize-item:', error);
     return new Response(
-      JSON.stringify({
-        error: 'Internal server error',
-        message: error.message,
-        stack: error.stack
-      }),
+      JSON.stringify({ error: error.message }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -171,67 +148,91 @@ Deno.serve(async (req: Request) => {
   }
 });
 
+async function fetchLinkMetadata(url: string) {
+  try {
+    let finalUrl = url;
+
+    if (url.includes('x.com') || url.includes('twitter.com')) {
+      finalUrl = url.replace('x.com', 'fxtwitter.com').replace('twitter.com', 'fxtwitter.com');
+    }
+
+    const response = await fetch(finalUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; Memark/1.0; +http://memark.app)',
+      },
+    });
+
+    if (!response.ok) return null;
+
+    const html = await response.text();
+    const ogData: any = {};
+    let videoUrl = null;
+
+    const ogTagRegex = /<meta\s+property=["']og:([^"']+)["']\s+content=["']([^"']+)["']/gi;
+    let match;
+    while ((match = ogTagRegex.exec(html)) !== null) {
+      const [, property, content] = match;
+      ogData[`og_${property.replace(':', '_')}`] = content;
+    }
+
+    const videoMatch = html.match(/<meta\s+property=["']og:video["']\s+content=["']([^"']+)["']/i);
+    if (videoMatch) {
+      videoUrl = videoMatch[1];
+    }
+
+    const videoSecureMatch = html.match(/<meta\s+property=["']og:video:secure_url["']\s+content=["']([^"']+)["']/i);
+    if (videoSecureMatch) {
+      videoUrl = videoSecureMatch[1];
+    }
+
+    if (!videoUrl) {
+      const twitterPlayerMatch = html.match(/<meta\s+property=["']twitter:player:stream["']\s+content=["']([^"']+)["']/i);
+      if (twitterPlayerMatch) {
+        videoUrl = twitterPlayerMatch[1];
+      }
+    }
+
+    const titleMatch = html.match(/<title>([^<]+)<\/title>/i);
+    const descMatch = html.match(/<meta\s+name=["']description["']\s+content=["']([^"']+)["']/i);
+    const imageMatch = html.match(/<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/i);
+
+    return {
+      title: ogData.og_title || (titleMatch && titleMatch[1]) || '',
+      description: ogData.og_description || (descMatch && descMatch[1]) || '',
+      image: ogData.og_image || (imageMatch && imageMatch[1]) || null,
+      videoUrl: videoUrl || ogData.og_video || ogData.og_video_secure_url || null,
+      ogData,
+    };
+  } catch (error) {
+    console.error('Error fetching metadata:', error);
+    return null;
+  }
+}
+
 async function fetchEmbedData(url: string) {
   try {
-    if (url.includes('twitter.com') || url.includes('x.com')) {
-      const oEmbedUrl = `https://publish.twitter.com/oembed?url=${encodeURIComponent(url)}&omit_script=true`;
-      const response = await fetch(oEmbedUrl);
-
-      if (response.ok) {
-        const data = await response.json();
+    if (url.includes('youtube.com') || url.includes('youtu.be')) {
+      const videoId = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/ ]{11})/)?.[1];
+      if (videoId) {
         return {
-          type: 'twitter',
-          html: data.html,
-          title: extractTextFromHTML(data.html),
-          author: data.author_name,
-          thumbnail_url: extractImageFromTwitterEmbed(data.html),
-          description: extractTextFromHTML(data.html).substring(0, 200),
+          type: 'youtube',
+          html: `<iframe src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen></iframe>`,
+          title: `YouTube Video: ${videoId}`,
+          description: '',
+          thumbnail_url: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
         };
       }
     }
 
-    if (url.includes('youtube.com') || url.includes('youtu.be')) {
-      const videoId = extractYouTubeVideoId(url);
-      if (videoId) {
-        const oEmbedUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`;
-        const response = await fetch(oEmbedUrl);
-
-        if (response.ok) {
-          const data = await response.json();
-          return {
-            type: 'youtube',
-            html: data.html,
-            title: data.title,
-            author: data.author_name,
-            thumbnail_url: data.thumbnail_url || `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
-            description: data.title,
-          };
-        }
-      }
-    }
-
-    if (url.includes('instagram.com')) {
-      const oEmbedUrl = `https://graph.facebook.com/v12.0/instagram_oembed?url=${encodeURIComponent(url)}&access_token=YOUR_TOKEN`;
-      return {
-        type: 'instagram',
-        title: 'Instagram Post',
-        description: 'View on Instagram',
-      };
-    }
-
-    if (url.includes('tiktok.com')) {
-      const oEmbedUrl = `https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`;
-      const response = await fetch(oEmbedUrl);
-
-      if (response.ok) {
-        const data = await response.json();
+    if (url.includes('x.com') || url.includes('twitter.com')) {
+      const tweetId = url.match(/status\/(\d+)/)?.[1];
+      if (tweetId) {
         return {
-          type: 'tiktok',
-          html: data.html,
-          title: data.title,
-          author: data.author_name,
-          thumbnail_url: data.thumbnail_url,
-          description: data.title,
+          type: 'twitter',
+          html: '',
+          title: '',
+          description: '',
+          thumbnail_url: null,
         };
       }
     }
@@ -243,270 +244,42 @@ async function fetchEmbedData(url: string) {
   }
 }
 
-function extractYouTubeVideoId(url: string): string | null {
-  const patterns = [
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/,
-    /youtube\.com\/embed\/([^&\s]+)/,
-  ];
-
-  for (const pattern of patterns) {
-    const match = url.match(pattern);
-    if (match) return match[1];
-  }
-
-  return null;
-}
-
-function extractTextFromHTML(html: string): string {
-  return html
-    .replace(/<[^>]*>/g, '')
-    .replace(/&quot;/g, '"')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&nbsp;/g, ' ')
-    .trim()
-    .substring(0, 200);
-}
-
-function extractImageFromTwitterEmbed(html: string): string | null {
-  const match = html.match(/https:\/\/pbs\.twimg\.com\/[^\s"']+/);
-  return match ? match[0] : null;
-}
-
-async function fetchLinkMetadata(url: string) {
+async function categorizeWithAI(apiKey: string, content: string, metadata: any, userMetadata: any) {
   try {
-    if (url.includes('twitter.com') || url.includes('x.com')) {
-      const statusMatch = url.match(/status\/(\d+)/);
-      const usernameMatch = url.match(/(?:twitter\.com|x\.com)\/([^\/]+)/);
-
-      if (statusMatch && usernameMatch) {
-        const statusId = statusMatch[1];
-        const username = usernameMatch[1];
-        const fxApiUrl = `https://api.fxtwitter.com/${username}/status/${statusId}`;
-
-        try {
-          const fxResponse = await fetch(fxApiUrl);
-          if (fxResponse.ok) {
-            const fxData = await fxResponse.json();
-            const tweet = fxData.tweet;
-
-            let mediaImage = null;
-            let mediaVideo = null;
-
-            if (tweet.media) {
-              if (tweet.media.videos && tweet.media.videos.length > 0) {
-                const video = tweet.media.videos[0];
-                mediaImage = video.thumbnail_url;
-                mediaVideo = video.url;
-              } else if (tweet.media.photos && tweet.media.photos.length > 0) {
-                mediaImage = tweet.media.photos[0].url;
-              } else if (tweet.media.all && tweet.media.all.length > 0) {
-                const firstMedia = tweet.media.all[0];
-                mediaImage = firstMedia.thumbnail_url || firstMedia.url;
-                if (firstMedia.type === 'video') {
-                  mediaVideo = firstMedia.url;
-                }
-              }
-            }
-
-            return {
-              title: `${tweet.author.name} (@${tweet.author.screen_name}) on X`,
-              description: tweet.text || '',
-              image: mediaImage || tweet.author.avatar_url,
-              videoUrl: mediaVideo,
-              ogData: {
-                og_title: `${tweet.author.name} on X`,
-                og_description: tweet.text || '',
-                og_image: mediaImage || tweet.author.avatar_url,
-                og_site_name: 'X (formerly Twitter)',
-                og_url: url,
-                og_type: mediaVideo ? 'video' : 'article',
-                og_author: `${tweet.author.name} (@${tweet.author.screen_name})`,
-                og_published_time: tweet.created_at || null,
-              },
-            };
-          }
-        } catch (fxError) {
-          console.error('fxtwitter API error:', fxError);
-        }
-      }
-
-      const twitterOembedUrl = `https://publish.twitter.com/oembed?url=${encodeURIComponent(url)}`;
-      const twitterResponse = await fetch(twitterOembedUrl);
-
-      if (twitterResponse.ok) {
-        const twitterData = await twitterResponse.json();
-        const textContent = extractTextFromHTML(twitterData.html || '');
-        const imageUrl = extractImageFromTwitterEmbed(twitterData.html || '');
-
-        return {
-          title: twitterData.author_name ? `${twitterData.author_name} on X` : 'Post on X',
-          description: textContent,
-          image: imageUrl,
-          ogData: {
-            og_title: twitterData.author_name ? `${twitterData.author_name} on X` : 'Post on X',
-            og_description: textContent,
-            og_image: imageUrl,
-            og_site_name: 'X (formerly Twitter)',
-            og_url: url,
-            og_type: 'article',
-            og_author: twitterData.author_name || '',
-            og_published_time: null,
-          },
-        };
-      }
-    }
-
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-      },
-      redirect: 'follow',
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error: ${response.status}`);
-    }
-
-    const html = await response.text();
-
-    const ogTitle = html.match(/<meta\s+property=["']og:title["']\s+content=["']([^"']+)["']/i)?.[1];
-    const ogDescription = html.match(/<meta\s+property=["']og:description["']\s+content=["']([^"']+)["']/i)?.[1];
-    const ogImage = html.match(/<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/i)?.[1];
-    const ogSiteName = html.match(/<meta\s+property=["']og:site_name["']\s+content=["']([^"']+)["']/i)?.[1];
-    const ogUrl = html.match(/<meta\s+property=["']og:url["']\s+content=["']([^"']+)["']/i)?.[1];
-    const ogType = html.match(/<meta\s+property=["']og:type["']\s+content=["']([^"']+)["']/i)?.[1];
-    const ogAuthor = html.match(/<meta\s+property=["'](?:og:author|article:author)["']\s+content=["']([^"']+)["']/i)?.[1];
-    const ogPublishedTime = html.match(/<meta\s+property=["']article:published_time["']\s+content=["']([^"']+)["']/i)?.[1];
-
-    const twitterTitle = html.match(/<meta\s+name=["']twitter:title["']\s+content=["']([^"']+)["']/i)?.[1];
-    const twitterDescription = html.match(/<meta\s+name=["']twitter:description["']\s+content=["']([^"']+)["']/i)?.[1];
-    const twitterImage = html.match(/<meta\s+name=["']twitter:image["']\s+content=["']([^"']+)["']/i)?.[1];
-
-    const htmlTitle = html.match(/<title>([^<]+)<\/title>/i)?.[1];
-    const metaDescription = html.match(/<meta\s+name=["']description["']\s+content=["']([^"']+)["']/i)?.[1];
-
-    return {
-      title: ogTitle || twitterTitle || htmlTitle,
-      description: ogDescription || twitterDescription || metaDescription,
-      image: ogImage || twitterImage,
-      ogData: {
-        og_title: ogTitle || twitterTitle || htmlTitle,
-        og_description: ogDescription || twitterDescription || metaDescription,
-        og_image: ogImage || twitterImage,
-        og_site_name: ogSiteName,
-        og_url: ogUrl || url,
-        og_type: ogType,
-        og_author: ogAuthor,
-        og_published_time: ogPublishedTime,
-      },
-    };
-  } catch (error) {
-    console.error('Error fetching metadata:', error);
-    return null;
-  }
-}
-
-async function categorizeWithAI(apiKey: string, content: string, metadata: any, userMetadata?: any) {
-  try {
-    const userContext = userMetadata ? `
-
-User provided context:
-- Notes: ${userMetadata.userNotes || 'None'}
-- Suggested content type: ${userMetadata.contentType || 'Not specified'}
-- Priority: ${userMetadata.priority || 'medium'}
-- Importance: ${userMetadata.importance || 'normal'}
-- Needs review: ${userMetadata.needsReview ? 'Yes' : 'No'}
-
-Please consider this user context when categorizing. If the user specified a content type or mentioned where to place it, strongly prioritize that information.` : '';
-
-    const prompt = `Analyze this content and create a DESCRIPTIVE summary that tells the user WHAT this specific content is about.
+    const prompt = `Analyze this content and provide a JSON response with: type (text/link/article/video/note/screenshot), title, summary, tags (array), category, score (1-100 relevance).
 
 Content: ${content}
-${metadata ? `\nMetadata: Title: ${metadata.title}\nDescription: ${metadata.description}` : ''}${userContext}
-
-CRITICAL SUMMARY RULES:
-- DO NOT use generic phrases like "TikTok designed to uplift" or "video about coding"
-- DO describe the ACTUAL SPECIFIC CONTENT: "Tutorial on React hooks useState and useEffect"
-- DO tell them WHAT they'll find: "Trump's speech on immigration policy", "Recipe for chocolate cake", "Analysis of Apple's Q4 earnings"
-- BE SPECIFIC about names, topics, subjects, techniques, people mentioned
-
-CATEGORY LOGIC - Think about WHY someone saved this and HOW they'll use it:
-- Educational content to learn from? → Education/Tutorial/Learning
-- Coding/development content? → Development/Programming
-- Inspirational/vibe content for creative work? → Inspiration/Creative
-- News about specific people/topics? → News-Politics, News-Tech, News-Celebrity
-- Business strategy/growth? → Business/Strategy
-- Social/cultural commentary? → Social/Culture
-- Entertainment with no functional value? → Entertainment (use sparingly)
-
-Provide a JSON response with:
-- type: "article", "video", "text", "link", "image", or "note"
-- title: Specific, descriptive title telling WHAT this is (max 60 chars)
-- summary: Describe the ACTUAL CONTENT SPECIFICS - what topics, people, concepts are covered (max 200 chars)
-- tags: Array of 5-10 SPECIFIC tags that describe actual topics/concepts/people/techniques mentioned (e.g., "react-hooks", "typescript", "trump-immigration", "marketing-funnel", "chocolate-baking", "openai-api")
-- category: ONE category from [Development, Programming, Tutorial, Education, Learning, Business, Strategy, News-Politics, News-Tech, News-Celebrity, Inspiration, Creative, Design, Health, Fitness, Social, Culture, Finance, Career, Personal-Growth, Entertainment] (prioritize user's suggested content type if provided)
-- score: Relevance score 1-100 (boost if user marked important)`;
+Metadata: ${JSON.stringify(metadata || {})}
+User context: ${JSON.stringify(userMetadata || {})}`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: 'You are a content categorization assistant. Always respond with valid JSON.' },
-          { role: 'user', content: prompt },
-        ],
-        response_format: { type: 'json_object' },
-        temperature: 0.3,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.7,
       }),
     });
 
-    if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status}`);
-    }
+    if (!response.ok) return null;
 
     const data = await response.json();
-    return JSON.parse(data.choices[0].message.content);
-  } catch (error) {
-    console.error('AI categorization error:', error);
+    const result = data.choices[0]?.message?.content;
+
+    if (!result) return null;
+
+    const jsonMatch = result.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      return JSON.parse(jsonMatch[0]);
+    }
+
     return null;
-  }
-}
-
-async function autoAssignToCollections(
-  supabase: any,
-  userId: string,
-  itemId: string,
-  category: string,
-  type: string,
-  tags: string[]
-) {
-  const { data: collections } = await supabase
-    .from('collections')
-    .select('id, name')
-    .eq('user_id', userId);
-
-  if (!collections || collections.length === 0) return;
-
-  const matchingCollections = collections.filter((col: any) => {
-    const colName = col.name.toLowerCase();
-    const categoryMatch = colName.includes(category.toLowerCase());
-    const typeMatch = colName.includes(type.toLowerCase());
-    const tagMatch = tags.some((tag) => colName.includes(tag.toLowerCase()));
-    return categoryMatch || typeMatch || tagMatch;
-  });
-
-  for (const collection of matchingCollections) {
-    await supabase.from('collection_items').insert({
-      collection_id: collection.id,
-      item_id: itemId,
-    }).select();
+  } catch (error) {
+    console.error('Error in AI categorization:', error);
+    return null;
   }
 }
