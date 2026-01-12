@@ -73,6 +73,10 @@ Deno.serve(async (req: Request) => {
       preview_fetched_at: new Date().toISOString(),
     };
 
+    if (metadata?.videoUrl) {
+      updateData.video_url = metadata.videoUrl;
+    }
+
     if (embedData) {
       updateData.embed_type = embedData.type;
       updateData.embed_html = embedData.html;
@@ -143,6 +147,7 @@ Deno.serve(async (req: Request) => {
           description: previewDesc,
           image: previewImageUrl,
           embedType: embedData?.type,
+          videoUrl: metadata?.videoUrl,
         }
       }),
       {
@@ -272,6 +277,61 @@ function extractImageFromTwitterEmbed(html: string): string | null {
 async function fetchLinkMetadata(url: string) {
   try {
     if (url.includes('twitter.com') || url.includes('x.com')) {
+      const statusMatch = url.match(/status\/(\d+)/);
+      const usernameMatch = url.match(/(?:twitter\.com|x\.com)\/([^\/]+)/);
+
+      if (statusMatch && usernameMatch) {
+        const statusId = statusMatch[1];
+        const username = usernameMatch[1];
+        const fxApiUrl = `https://api.fxtwitter.com/${username}/status/${statusId}`;
+
+        try {
+          const fxResponse = await fetch(fxApiUrl);
+          if (fxResponse.ok) {
+            const fxData = await fxResponse.json();
+            const tweet = fxData.tweet;
+
+            let mediaImage = null;
+            let mediaVideo = null;
+
+            if (tweet.media) {
+              if (tweet.media.videos && tweet.media.videos.length > 0) {
+                const video = tweet.media.videos[0];
+                mediaImage = video.thumbnail_url;
+                mediaVideo = video.url;
+              } else if (tweet.media.photos && tweet.media.photos.length > 0) {
+                mediaImage = tweet.media.photos[0].url;
+              } else if (tweet.media.all && tweet.media.all.length > 0) {
+                const firstMedia = tweet.media.all[0];
+                mediaImage = firstMedia.thumbnail_url || firstMedia.url;
+                if (firstMedia.type === 'video') {
+                  mediaVideo = firstMedia.url;
+                }
+              }
+            }
+
+            return {
+              title: `${tweet.author.name} (@${tweet.author.screen_name}) on X`,
+              description: tweet.text || '',
+              image: mediaImage || tweet.author.avatar_url,
+              videoUrl: mediaVideo,
+              ogData: {
+                og_title: `${tweet.author.name} on X`,
+                og_description: tweet.text || '',
+                og_image: mediaImage || tweet.author.avatar_url,
+                og_site_name: 'X (formerly Twitter)',
+                og_url: url,
+                og_type: mediaVideo ? 'video' : 'article',
+                og_author: `${tweet.author.name} (@${tweet.author.screen_name})`,
+                og_published_time: tweet.created_at || null,
+              },
+            };
+          }
+        } catch (fxError) {
+          console.error('fxtwitter API error:', fxError);
+        }
+      }
+
       const twitterOembedUrl = `https://publish.twitter.com/oembed?url=${encodeURIComponent(url)}`;
       const twitterResponse = await fetch(twitterOembedUrl);
 

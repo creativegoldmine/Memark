@@ -160,7 +160,12 @@ export function ItemCard({ item, onPress, onOpenUrl, viewMode = 'list' }: ItemCa
               <Text style={styles.scoreBadgeText}>{Math.round(item.score)}%</Text>
             </View>
           )}
-          {item.embed_type && (
+          {item.video_url && (
+            <View style={[styles.videoBadge, { backgroundColor: 'rgba(0, 0, 0, 0.7)' }]}>
+              <Text style={styles.videoBadgeText}>▶</Text>
+            </View>
+          )}
+          {item.embed_type && !item.video_url && (
             <View style={[styles.embedBadge, { backgroundColor: theme.primary }]}>
               <Text style={styles.embedBadgeText}>
                 {item.embed_type === 'youtube' ? '▶' : item.embed_type === 'twitter' ? '𝕏' : '🔗'}
@@ -488,6 +493,31 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  videoBadge: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: [{ translateX: -30 }, { translateY: -30 }],
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...(Platform.OS === 'web' ? {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+    } : {
+      elevation: 8,
+    }),
+  },
+  videoBadgeText: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginLeft: 4,
   },
   urlButton: {
     flexDirection: 'row',
