@@ -222,6 +222,18 @@ export default function Collections() {
     }
   };
 
+  const groupedFolders = useMemo(() => {
+    const grouped: Record<string, Folder[]> = {};
+    folders.forEach((folder) => {
+      const category = folder.is_auto_generated ? 'Smart Folders' : 'My Collections';
+      if (!grouped[category]) {
+        grouped[category] = [];
+      }
+      grouped[category].push(folder);
+    });
+    return grouped;
+  }, [folders]);
+
   const filteredFolders = useMemo(() => {
     if (!searchQuery) return folders;
     const query = searchQuery.toLowerCase();
@@ -327,7 +339,7 @@ export default function Collections() {
                   : 'Try adjusting your search'}
               </Text>
             </View>
-          ) : (
+          ) : searchQuery ? (
             <View style={viewMode === 'grid' ? styles.foldersGrid : styles.foldersList}>
               {filteredFolders.map((folder) => (
                 <TouchableOpacity
@@ -375,6 +387,63 @@ export default function Collections() {
                     <ChevronRight size={20} color={theme.textTertiary} />
                   )}
                 </TouchableOpacity>
+              ))}
+            </View>
+          ) : (
+            <View>
+              {Object.entries(groupedFolders).map(([category, categoryFolders]) => (
+                <View key={category} style={styles.categorySection}>
+                  <Text style={[styles.categoryTitle, { color: theme.textSecondary }]}>{category}</Text>
+                  <View style={viewMode === 'grid' ? styles.foldersGrid : styles.foldersList}>
+                    {categoryFolders.map((folder) => (
+                      <TouchableOpacity
+                        key={folder.id}
+                        style={[
+                          viewMode === 'grid' ? styles.folderCardGrid : styles.folderCardList,
+                          { backgroundColor: theme.cardBackground, borderColor: theme.border }
+                        ]}
+                        onPress={() => handleFolderPress(folder)}
+                      >
+                        <View style={styles.folderContent}>
+                          <View style={styles.folderTop}>
+                            <View style={styles.folderIconContainer}>
+                              {(() => {
+                                const IconComponent = getCollectionIcon(folder.icon || folder.name);
+                                return <IconComponent size={32} color={theme.primary} />;
+                              })()}
+                            </View>
+                            {!folder.is_auto_generated && viewMode === 'grid' && (
+                              <TouchableOpacity onPress={() => deleteFolder(folder.id)}>
+                                <Trash2 size={16} color={theme.textTertiary} />
+                              </TouchableOpacity>
+                            )}
+                          </View>
+                          <View style={styles.folderInfo}>
+                            <Text style={[styles.folderName, { color: theme.text }]} numberOfLines={1}>
+                              {folder.name}
+                            </Text>
+                            <Text style={[styles.folderCount, { color: theme.textSecondary }]}>
+                              {folder.itemCount} items
+                            </Text>
+                            {folder.is_auto_generated && (
+                              <View style={[styles.autoTag, { backgroundColor: theme.surface }]}>
+                                <Text style={[styles.autoTagText, { color: theme.textTertiary }]}>Auto</Text>
+                              </View>
+                            )}
+                          </View>
+                        </View>
+                        {viewMode === 'list' && !folder.is_auto_generated && (
+                          <TouchableOpacity onPress={() => deleteFolder(folder.id)}>
+                            <Trash2 size={16} color={theme.textTertiary} />
+                          </TouchableOpacity>
+                        )}
+                        {viewMode === 'list' && folder.is_auto_generated && (
+                          <ChevronRight size={20} color={theme.textTertiary} />
+                        )}
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
               ))}
             </View>
           )
@@ -719,5 +788,15 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  categorySection: {
+    marginBottom: 32,
+  },
+  categoryTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    marginBottom: 16,
+    letterSpacing: 1,
   },
 });

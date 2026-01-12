@@ -16,7 +16,7 @@ interface ItemCardProps {
 export function ItemCard({ item, onPress, onOpenUrl, viewMode = 'list' }: ItemCardProps) {
   const { theme } = useTheme();
   const router = useRouter();
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
 
   const getIcon = () => {
     switch (item.type) {
@@ -67,15 +67,11 @@ export function ItemCard({ item, onPress, onOpenUrl, viewMode = 'list' }: ItemCa
     return theme.error;
   };
 
-  const handleCardPress = () => {
+  const handleCardPress = (e: any) => {
     if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-    if (onPress) {
-      onPress();
-    } else {
-      router.push(`/item-detail?id=${item.id}`);
-    }
+    setExpanded(!expanded);
   };
 
   const toggleExpand = (e: any) => {
@@ -149,10 +145,8 @@ export function ItemCard({ item, onPress, onOpenUrl, viewMode = 'list' }: ItemCa
   };
 
   return (
-    <TouchableOpacity
+    <View
       style={[styles.card, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
-      onPress={handleCardPress}
-      activeOpacity={0.7}
     >
       {(item.preview_image_url || item.image_preview) && (
         <View style={styles.imageContainer}>
@@ -176,7 +170,7 @@ export function ItemCard({ item, onPress, onOpenUrl, viewMode = 'list' }: ItemCa
         </View>
       )}
 
-      <View style={styles.content}>
+      <TouchableOpacity style={styles.content} onPress={handleCardPress} activeOpacity={0.9}>
         <View style={styles.header}>
           <View style={styles.iconRow}>
             {getIcon()}
@@ -193,7 +187,7 @@ export function ItemCard({ item, onPress, onOpenUrl, viewMode = 'list' }: ItemCa
           )}
         </View>
 
-        <Text style={[styles.title, { color: theme.text }]} numberOfLines={2}>
+        <Text style={[styles.title, { color: theme.text }]} numberOfLines={expanded ? undefined : 2}>
           {item.preview_title || item.title || item.raw_content || 'Untitled'}
         </Text>
 
@@ -292,8 +286,8 @@ export function ItemCard({ item, onPress, onOpenUrl, viewMode = 'list' }: ItemCa
             </TouchableOpacity>
           )}
         </View>
-      </View>
-    </TouchableOpacity>
+      </TouchableOpacity>
+    </View>
   );
 }
 

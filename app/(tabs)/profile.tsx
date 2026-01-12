@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase, supabaseUrl, Profile as ProfileType } from '@/lib/supabase';
+import { UpgradeModal } from '@/components/UpgradeModal';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -22,6 +23,7 @@ export default function ProfileScreen() {
   const [bioText, setBioText] = useState('');
   const [publicItemsCount, setPublicItemsCount] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  const [upgradeModalVisible, setUpgradeModalVisible] = useState(false);
 
   const isPro = dbUser?.plan_type === 'pro' || dbUser?.plan_type === 'premium';
 
@@ -70,14 +72,7 @@ export default function ProfileScreen() {
     if (!profile) return;
 
     if (!isPro) {
-      Alert.alert(
-        'Upgrade to Pro',
-        'Public profiles are a Pro feature. Upgrade to create your Linktree-style public profile and share your best marks!',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Learn More', onPress: () => {} },
-        ]
-      );
+      setUpgradeModalVisible(true);
       return;
     }
 
@@ -715,6 +710,12 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      <UpgradeModal
+        visible={upgradeModalVisible}
+        onClose={() => setUpgradeModalVisible(false)}
+        feature="Public Profiles"
+      />
     </View>
   );
 }
