@@ -1,12 +1,14 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity, RefreshControl, Platform } from 'react-native';
 import { Search as SearchIcon, Filter, X } from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase, Item } from '@/lib/supabase';
 import { ItemCard } from '@/components/ItemCard';
 import { LogoHeader } from '@/components/LogoHeader';
 import { InAppBrowser } from '@/components/InAppBrowser';
+import { LinkPreviewModal } from '@/components/LinkPreviewModal';
 
 const FILTER_TYPES = ['All', 'Article', 'Video', 'Note', 'Screenshot', 'Task'];
 const FILTER_CATEGORIES = ['All', 'Work', 'Personal', 'Inspiration', 'Finance', 'Learning'];
@@ -22,10 +24,27 @@ export default function Browse() {
   const [refreshing, setRefreshing] = useState(false);
   const [browserVisible, setBrowserVisible] = useState(false);
   const [browserUrl, setBrowserUrl] = useState('');
+  const [selectedItem, setSelectedItem] = useState<Item | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
 
   const handleOpenUrl = (url: string) => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
     setBrowserUrl(url);
     setBrowserVisible(true);
+  };
+
+  const handleItemPress = (item: Item) => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    setSelectedItem(item);
+    setModalVisible(true);
+  };
+
+  const handleItemUpdate = (updatedItem: Item) => {
+    setItems(prev => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
   };
 
   const fetchItems = useCallback(async () => {
@@ -193,7 +212,7 @@ export default function Browse() {
               {filteredItems.length} result{filteredItems.length !== 1 ? 's' : ''}
             </Text>
             {filteredItems.map((item) => (
-              <ItemCard key={item.id} item={item} onPress={() => {}} onOpenUrl={handleOpenUrl} />
+              <ItemCard key={item.id} item={item} onPress={() => handleItemPress(item)} onOpenUrl={handleOpenUrl} />
             ))}
           </>
         ) : (
@@ -217,6 +236,16 @@ export default function Browse() {
         url={browserUrl}
         visible={browserVisible}
         onClose={() => setBrowserVisible(false)}
+      />
+
+      <LinkPreviewModal
+        visible={modalVisible}
+        item={selectedItem}
+        onClose={() => {
+          setModalVisible(false);
+          setSelectedItem(null);
+        }}
+        onUpdate={() => selectedItem && handleItemUpdate(selectedItem)}
       />
     </View>
   );
