@@ -57,6 +57,7 @@ export interface Item {
   preview_fetched_at?: string;
   embed_type?: string;
   embed_html?: string;
+  video_url?: string;
   og_title?: string;
   og_description?: string;
   og_image?: string;
