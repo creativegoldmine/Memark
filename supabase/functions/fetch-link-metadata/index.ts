@@ -73,6 +73,30 @@ function extractMetadata(html: string, url: string): Metadata {
   return metadata;
 }
 
+async function fetchTwitterEmbed(url: string): Promise<Metadata | null> {
+  try {
+    const twitterOembedUrl = `https://publish.twitter.com/oembed?url=${encodeURIComponent(url)}`;
+    const response = await fetch(twitterOembedUrl);
+
+    if (!response.ok) return null;
+
+    const data = await response.json();
+
+    return {
+      og_title: data.author_name ? `${data.author_name} on X` : 'Post on X',
+      og_description: data.html?.replace(/<[^>]*>/g, '').substring(0, 200) || '',
+      og_image: data.thumbnail_url || data.author_image || '',
+      og_site_name: 'X (formerly Twitter)',
+      og_url: url,
+      og_type: 'article',
+      og_author: data.author_name || '',
+    };
+  } catch (error) {
+    console.error('Twitter embed error:', error);
+    return null;
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, {
@@ -92,6 +116,18 @@ Deno.serve(async (req: Request) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         }
       );
+    }
+
+    if (url.includes('twitter.com') || url.includes('x.com')) {
+      const twitterMetadata = await fetchTwitterEmbed(url);
+      if (twitterMetadata) {
+        return new Response(
+          JSON.stringify({ success: true, metadata: twitterMetadata }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
     }
 
     const response = await fetch(url, {
