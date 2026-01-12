@@ -148,10 +148,10 @@ export function ItemCard({ item, onPress, onOpenUrl, viewMode = 'list' }: ItemCa
     <View
       style={[styles.card, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
     >
-      {(item.preview_image_url || item.image_preview) && (
+      {(item.og_image || item.preview_image_url || item.image_preview) && (
         <View style={styles.imageContainer}>
           <Image
-            source={{ uri: item.preview_image_url || item.image_preview }}
+            source={{ uri: item.og_image || item.preview_image_url || item.image_preview }}
             style={styles.image}
             resizeMode="cover"
           />
@@ -187,17 +187,23 @@ export function ItemCard({ item, onPress, onOpenUrl, viewMode = 'list' }: ItemCa
           )}
         </View>
 
+        {item.og_site_name && (
+          <Text style={[styles.siteName, { color: theme.textTertiary }]}>
+            {item.og_site_name}
+          </Text>
+        )}
+
         <Text style={[styles.title, { color: theme.text }]} numberOfLines={expanded ? undefined : 2}>
-          {item.preview_title || item.title || item.raw_content || 'Untitled'}
+          {item.og_title || item.preview_title || item.title || item.raw_content || 'Untitled'}
         </Text>
 
-        {(item.preview_desc || item.summary) && (
+        {(item.og_description || item.preview_desc || item.summary) && (
           <View>
             <Text
               style={[styles.summary, { color: theme.textSecondary }]}
-              numberOfLines={expanded ? undefined : 2}
+              numberOfLines={expanded ? undefined : 3}
             >
-              {item.preview_desc || item.summary}
+              {item.og_description || item.preview_desc || item.summary}
             </Text>
 
             {expanded && (
@@ -371,6 +377,13 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
     textTransform: 'capitalize',
+  },
+  siteName: {
+    fontSize: 11,
+    fontWeight: '500',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   title: {
     fontSize: 16,

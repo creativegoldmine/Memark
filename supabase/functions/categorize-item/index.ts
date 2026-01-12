@@ -271,6 +271,33 @@ function extractImageFromTwitterEmbed(html: string): string | null {
 
 async function fetchLinkMetadata(url: string) {
   try {
+    if (url.includes('twitter.com') || url.includes('x.com')) {
+      const twitterOembedUrl = `https://publish.twitter.com/oembed?url=${encodeURIComponent(url)}`;
+      const twitterResponse = await fetch(twitterOembedUrl);
+
+      if (twitterResponse.ok) {
+        const twitterData = await twitterResponse.json();
+        const textContent = extractTextFromHTML(twitterData.html || '');
+        const imageUrl = extractImageFromTwitterEmbed(twitterData.html || '');
+
+        return {
+          title: twitterData.author_name ? `${twitterData.author_name} on X` : 'Post on X',
+          description: textContent,
+          image: imageUrl,
+          ogData: {
+            og_title: twitterData.author_name ? `${twitterData.author_name} on X` : 'Post on X',
+            og_description: textContent,
+            og_image: imageUrl,
+            og_site_name: 'X (formerly Twitter)',
+            og_url: url,
+            og_type: 'article',
+            og_author: twitterData.author_name || '',
+            og_published_time: null,
+          },
+        };
+      }
+    }
+
     const response = await fetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
