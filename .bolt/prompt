@@ -1,0 +1,61 @@
+Memark Knowledge Section Instructions
+App Overview
+Memark is a SAAS personal knowledge vault app that lets users capture links, notes, screenshots, PDFs, and voice memos via SMS text or share-sheet from other apps. Powered by AI, it auto-categorizes, summarizes, tags, scores relevance, and schedules spaced repetition reminders/digests to ensure users actually revisit their saves (fixing the "90% never go back" problem). Core flow: Inbound via Twilio (shared number for trial/all users — strict sender phone = user ID to prevent leaks; upgrade to dedicated unique number for premium privacy/throughput). Outbound sharing: Export to X threads, Notion pages, or social with referrals for virality. Platforms: iOS/Android (Expo/React Native) + web app (Next.js). Monetization: Subscriptions via Stripe ($9.99/mo shared/basic: 1k items/basic AI/search; $19.99/mo dedicated/unlimited: unique number, unlimited items, advanced AI agents/reminders/exports; $29.99/mo enterprise: teams/custom). Security: Supabase RLS, Twilio Verify for phone spoofing prevention on signup, row-level isolation (user sees only own data).
+Key Features (Build Sequentially for Cohesiveness)
+
+Capture/Inbound: SMS to Twilio number (shared for basic, dedicated for pro) — webhook parses sender phone as strict ID, creates item, triggers AI pipeline. Share-sheet integration (Expo: "Share to Memark" from browser/apps → save with previews/AI).
+AI Magic: Auto-categorize/tag/summarize/score (OpenAI/Grok API). Spaced repetition feed/reminders (daily digests: "Revisit these?"). Semantic search with pgvector.
+UI/UX: Clean Notion-like minimalism (purple #8B5CF6 primary, #EC4899 accents, white space, Inter/SF Pro fonts). ItemCard: Expandable with clickable URL, previews (title/desc/image/badge), haptics on tap/open. Collections: Purple line SVGs (replace multi-color — e.g., fork for recipes). Navigation: Bottom tabs (Feed, Collections, Search, Profile, Settings) — consistent icons/transitions.
+In-App Browser: Mobile: Expo WebView like X (stay in app, reader mode toggle, share from browser, haptics). Web: Iframe/overlay popup (same page, close button).
+Sharing/Network Effect: Inbound share-sheet saves privately with previews. Outbound: Export item/collection to X thread/Notion with referral ("via Memark [ref link]").
+Linktree Profiles: Opt-in pro feature — ProfileScreen (/profile/[username]): Linktree-style list of public marks with previews. Toggle per item in ItemDetail (upgrade modal if not pro).
+Settings/Admin: "Refresh All Previews" button (batch re-fetch for existing links). Upgrade banners/modals. Future admin dashboard for power users.
+Subscriptions/Money: Stripe integration — plan checks (basic vs pro vs enterprise), trial flow (shared number), annual discounts (20% off).
+
+Basic Needs for Award-Winning App (Industry Standards)
+
+Cohesiveness: Unified design system (theme.ts with colors/fonts/spacing). Consistent branding (purple palette, logo/icon across all screens/platforms). All features tie back to core "anti-forget" vault (e.g., AI reminders in feed, previews in cards/profiles).
+Consistency: UI patterns (e.g., expandable cards everywhere, haptics on all interactions, dark/light modes). Code style: TypeScript, ESLint, component reuse (e.g., PreviewCard for feed/profiles).
+Easy Navigation: Intuitive bottom tabs, swipe gestures (Reanimated for smooth), global search bar. Accessibility: WCAG 2.1 (contrast ratios, screen reader support, keyboard nav).
+Industry Standards:
+Performance: Fast load (skeletons on fetch, lazy images, Supabase caching). Offline support (AsyncStorage for recent saves).
+Security: Strict phone-ID (webhook/sender check), RLS, encryption for sensitive data, GDPR compliance.
+Scalability: Supabase Pro ($25/mo at 50k MAU), Twilio throughput upgrades.
+Monetization: Stripe Checkout/webhooks, trial (14 days shared), analytics (Mixpanel for churn/usage).
+Testing: E2E (Detox/Cypress), unit (Jest), security audits (RLS tests).
+Polish: Haptics/animations (Reanimated/Framer), responsive web (Next.js), PWA support.
+
+
+Build iteratively: Start with core capture/AI/feed → add previews/browser → sharing/profiles → subscriptions/security. Ensure every change renders visually in preview (clear cache after). Use Cursor for fixes if Bolt lags. Aim for premium feel: Cohesive, consistent, easy — Memark owns the self-save space! 🚀  
+
+
+Scaling, Architecture, Design & UX Guidelines
+Scaling Principles (Lean for 1M Users as Solo Founder)
+Build Memark to auto-scale from 0 to 1M users without manual ops—focus on serverless, low-cost, monitorable stack. Start small (free tiers for MVP), optimize for high read/write (1M saves/month = ~30k/day). Key:
+
+User Growth Handling: Supabase Pro ($25/mo base, auto-scales to 100k MAU included, then ~$0.003/MAU). Twilio toll-free/shared number for trial (3 MPS throughput, cheap $2/mo + $0.01/msg; upgrade to dedicated long-code for pro users at $1-2/extra/mo, charge premium).
+Cost Control: Monitor via Supabase dashboard (usage alerts for DB/storage ~8GB included, egress 250GB). AI credits (OpenAI/Grok) ~$0.01/query—cap per user in basic tier. Total at 1M users: ~$5k/mo (scale with revenue from $9.99/19.99 tiers).
+Performance: Lazy load previews/images (CDN via Supabase storage), cache AI categorizations (Supabase edge functions with TTL). Offline support (AsyncStorage for recent items). Rate limit Twilio to prevent spam (strict phone-ID rule).
+Monitoring/Lean Ops: Use Supabase logs + Stripe dashboards (webhooks for plans). Add Mixpanel for usage (free tier to 100k events/mo). No dedicated ops—automate alerts (email/SMS via Twilio for critical thresholds).
+Future-Proof: Design for 1M from start (row-level security everywhere, batch jobs for refreshes). If hits 1M, swap to AWS Lambda for custom scale (but keep Supabase for DB).
+
+Architecture (Lean, Serverless, Cross-Platform)
+Minimal stack for solo build/maintenance: Expo/React Native (mobile + web code share 80%), Supabase (DB/auth/storage/realtime/edge functions), Twilio (SMS). No custom servers—everything serverless.
+
+Frontend: Expo/React Native for iOS/Android (haptics, share-sheet), Next.js for web (SSR for SEO, PWA support). Shared components (ItemCard, ProfileScreen) for consistency.
+Backend: Supabase Postgres (items/profiles/users tables, RLS strict per user), edge functions (categorize-item for AI/previews, batch_refresh_previews, webhook for Twilio).
+Integration Flow: Inbound SMS/share → webhook (strict phone-ID lookup) → save item → AI + preview fetch → realtime update feed (Supabase subscriptions).
+Data Model: Users (phone primary ID, plan_type), Items (user_id, type, preview_title/desc/image/url), Profiles (user_id, public_marks array, opt-in).
+Security/Compliance: Twilio Verify on signup, RLS (auth.uid() = user_id), encrypt sensitive (notes). GDPR ready (user data export/delete in Settings).
+Deployment: Expo EAS for mobile builds (free for dev, $29/mo pro), Vercel for web (free for MVP, scales auto). GitHub Actions for CI/CD.
+
+Design & UX (Award-Winning, Cohesive, Consistent)
+Minimal Notion-like vibe: Purple palette (#8B5CF6 primary, #EC4899 accents, white/black neutrals), ample white space, Inter/SF Pro fonts, subtle shadows/gradients for depth. Everything consistent (icons/buttons/animations across platforms), easy nav (bottom tabs + swipe gestures), industry standards (responsive, accessible, performant).
+
+Cohesiveness: Unified theme.ts (colors/fonts/spacing/haptics). All screens tie to "vault" metaphor (secure, organized, revisit-focused).
+Consistency: Standard patterns (expandable ItemCard for previews/links, haptics on every interaction: tap/open/share/refresh). Dark/light modes auto-switch. Icons: Custom purple line SVGs (replace all multi-color — fork for recipes, etc.).
+Easy Navigation: Bottom tabs (Feed, Collections, Search, Profile, Settings) — Framer Motion/Reanimated for smooth transitions. Global search bar, back gestures, keyboard shortcuts on web.
+UX Standards: WCAG 2.1 access (contrast 4.5:1, screen reader labels, voiceover for haptics). Fast load (skeletons + lazy images). Haptics/feedback on all actions. Offline mode (view recent items). Personalization (pro custom themes/icons).
+Visual Polish: Award-winning minimalism (no clutter, 3D M logo variants for splash). Previews/badges in cards (𝕏 for X, ▶ for YouTube). Browser: Stay in app (mobile WebView, web iframe/overlay).
+
+Build lean: Prioritize core (capture/AI/feed) → add sharing/profiles → monetize. Test visuals in Expo preview after every change (expo start --clear). This sets Memark for 1M users as one-person SAAS! 🚀2.2sExpert
