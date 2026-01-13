@@ -145,7 +145,7 @@ export default function AISearch() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={100}
     >
-      <LogoHeader pageTitle="AI SEARCH" />
+      <LogoHeader />
 
       <ScrollView
         ref={scrollViewRef}

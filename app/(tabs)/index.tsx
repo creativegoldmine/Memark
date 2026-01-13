@@ -207,7 +207,7 @@ export default function Home() {
   if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: theme.background }]}>
-        <LogoHeader pageTitle="HOME" />
+        <LogoHeader />
         <View style={[styles.subHeader, { backgroundColor: theme.cardBackground, borderBottomColor: theme.border }]}>
           <Text style={[styles.greeting, { color: theme.text }]}>Welcome</Text>
           <TouchableOpacity style={[styles.addButton, { backgroundColor: theme.primary }]} disabled>
@@ -226,7 +226,7 @@ export default function Home() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <LogoHeader pageTitle="HOME" />
+      <LogoHeader />
       <View style={[styles.subHeader, { backgroundColor: theme.cardBackground, borderBottomColor: theme.border }]}>
         <View>
           <Text style={[styles.greeting, { color: theme.text }]}>

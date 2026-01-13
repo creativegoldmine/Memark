@@ -148,32 +148,42 @@ export function ItemCard({ item, onPress, onOpenUrl, viewMode = 'list' }: ItemCa
     <View
       style={[styles.card, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
     >
-      {(item.og_image || item.preview_image_url || item.image_preview) && (
-        <View style={styles.imageContainer}>
+      <View style={styles.imageContainer}>
+        {(item.og_image || item.preview_image_url || item.image_preview) ? (
           <Image
             source={{ uri: item.og_image || item.preview_image_url || item.image_preview }}
             style={styles.image}
             resizeMode="cover"
           />
-          {item.score && item.score >= 70 && (
-            <View style={[styles.scoreBadge, { backgroundColor: getScoreColor() }]}>
-              <Text style={styles.scoreBadgeText}>{Math.round(item.score)}%</Text>
+        ) : (
+          <View style={[styles.logoFallback, { backgroundColor: theme.primary + '10' }]}>
+            <Image
+              source={require('@/assets/images/copy_of_memark_(2).png')}
+              style={styles.fallbackImage}
+              resizeMode="contain"
+            />
+          </View>
+        )}
+        {item.score && item.score >= 70 && (
+          <View style={[styles.scoreBadge, { backgroundColor: getScoreColor() }]}>
+            <Text style={styles.scoreBadgeText}>{Math.round(item.score)}%</Text>
+          </View>
+        )}
+        {item.video_url && (
+          <View style={styles.videoBadge}>
+            <View style={styles.playButton}>
+              <Text style={styles.playIcon}>▶</Text>
             </View>
-          )}
-          {item.video_url && (
-            <View style={[styles.videoBadge, { backgroundColor: 'rgba(0, 0, 0, 0.7)' }]}>
-              <Text style={styles.videoBadgeText}>▶</Text>
-            </View>
-          )}
-          {item.embed_type && !item.video_url && (
-            <View style={[styles.embedBadge, { backgroundColor: theme.primary }]}>
-              <Text style={styles.embedBadgeText}>
-                {item.embed_type === 'youtube' ? '▶' : item.embed_type === 'twitter' ? '𝕏' : '🔗'}
-              </Text>
-            </View>
-          )}
-        </View>
-      )}
+          </View>
+        )}
+        {item.embed_type && !item.video_url && (
+          <View style={[styles.embedBadge, { backgroundColor: theme.primary }]}>
+            <Text style={styles.embedBadgeText}>
+              {item.embed_type === 'youtube' ? '▶' : item.embed_type === 'twitter' ? '𝕏' : '🔗'}
+            </Text>
+          </View>
+        )}
+      </View>
 
       <TouchableOpacity style={styles.content} onPress={handleCardPress} activeOpacity={0.9}>
         <View style={styles.header}>
@@ -325,6 +335,17 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     height: '100%',
+  },
+  logoFallback: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fallbackImage: {
+    width: 80,
+    height: 80,
+    opacity: 0.4,
   },
   scoreBadge: {
     position: 'absolute',
@@ -498,26 +519,33 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: '50%',
     left: '50%',
-    transform: [{ translateX: -30 }, { translateY: -30 }],
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    transform: [{ translateX: -40 }, { translateY: -40 }],
+    width: 80,
+    height: 80,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  playButton: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
     justifyContent: 'center',
     alignItems: 'center',
     ...(Platform.OS === 'web' ? {
       shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.3,
-      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.4,
+      shadowRadius: 12,
     } : {
-      elevation: 8,
+      elevation: 12,
     }),
   },
-  videoBadgeText: {
-    fontSize: 24,
+  playIcon: {
+    fontSize: 32,
     fontWeight: '700',
-    color: '#FFFFFF',
-    marginLeft: 4,
+    color: '#8B5CF6',
+    marginLeft: 6,
   },
   urlButton: {
     flexDirection: 'row',

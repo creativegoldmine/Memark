@@ -1,34 +1,25 @@
-import { View, Text, StyleSheet, Platform } from 'react-native';
+import { View, Image, StyleSheet, Platform } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 
-interface LogoHeaderProps {
-  pageTitle: string;
-}
-
-export function LogoHeader({ pageTitle }: LogoHeaderProps) {
+export function LogoHeader() {
   const { theme } = useTheme();
 
   return (
     <View style={[styles.header, { backgroundColor: theme.cardBackground, borderBottomColor: theme.border }]}>
       <View style={styles.logoContainer}>
-        <View style={styles.logoWrapper}>
-          <Text style={[styles.logoText, { color: theme.primary }]}>MeMark</Text>
-          {Platform.OS === 'web' && (
-            <View style={[styles.logoShadow, {
-              shadowColor: theme.primary,
-              backgroundColor: theme.primary + '10',
-            }]} />
-          )}
-        </View>
+        <Image
+          source={require('@/assets/images/copy_of_memark_(1).png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
       </View>
-      <Text style={[styles.pageTitle, { color: theme.textSecondary }]}>{pageTitle}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   header: {
-    paddingTop: 40,
+    paddingTop: 50,
     paddingBottom: 16,
     paddingHorizontal: 20,
     borderBottomWidth: 1,
@@ -44,36 +35,10 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     alignItems: 'center',
-    marginBottom: 10,
+    justifyContent: 'center',
   },
-  logoWrapper: {
-    position: 'relative',
-  },
-  logoText: {
-    fontSize: 42,
-    fontWeight: '800',
-    letterSpacing: -1.5,
-    ...(Platform.OS === 'web' ? {
-      textShadowColor: 'rgba(0, 0, 0, 0.15)',
-      textShadowOffset: { width: 0, height: 3 },
-      textShadowRadius: 6,
-    } : {}),
-  },
-  logoShadow: {
-    position: 'absolute',
-    bottom: -6,
-    left: 0,
-    right: 0,
-    height: 6,
-    borderRadius: 3,
-    opacity: 0.3,
-    zIndex: -1,
-  },
-  pageTitle: {
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 1.5,
-    opacity: 0.7,
+  logo: {
+    width: 140,
+    height: 32,
   },
 });

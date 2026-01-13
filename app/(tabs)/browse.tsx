@@ -106,7 +106,7 @@ export default function Browse() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <LogoHeader pageTitle="BROWSE" />
+      <LogoHeader />
 
       <View style={styles.searchContainer}>
         <View style={[styles.searchBar, { backgroundColor: theme.surface, borderColor: theme.border }]}>

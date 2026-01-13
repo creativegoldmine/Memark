@@ -266,7 +266,7 @@ export default function Collections() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <LogoHeader pageTitle="COLLECTIONS" />
+      <LogoHeader />
 
       <View style={[styles.header, { borderBottomColor: theme.border }]}>
         <Text style={[styles.headerText, { color: theme.text }]}>
