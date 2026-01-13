@@ -232,6 +232,12 @@ export default function Home() {
           <Text style={[styles.greeting, { color: theme.text }]}>
             {dbUser?.name ? `Hi, ${dbUser.name.split(' ')[0]}` : 'Welcome'}
           </Text>
+          <Animated.Text
+            entering={FadeIn.duration(600).delay(200)}
+            style={[styles.subgreeting, { color: theme.textSecondary }]}
+          >
+            Your personal knowledge vault
+          </Animated.Text>
         </View>
         <View style={styles.headerActions}>
           <ViewModeToggle mode={viewMode} onModeChange={handleViewModeChange} />
@@ -346,6 +352,11 @@ const styles = StyleSheet.create({
   greeting: {
     fontSize: 20,
     fontWeight: '700',
+  },
+  subgreeting: {
+    fontSize: 13,
+    fontWeight: '500',
+    marginTop: 2,
   },
   headerActions: {
     flexDirection: 'row',
