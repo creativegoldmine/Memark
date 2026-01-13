@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform, Switch, TextInput, Share } from 'react-native';
 import { User, Phone, Mail, LogOut, Moon, Sun, Sparkles, Settings, MessageSquare, Copy, Upload, FileText, RefreshCw, Shield, ShieldAlert, Globe, Lock, ExternalLink, Crown, Edit3 } from 'lucide-react-native';
 import { LoadingLogo } from '@/components/LoadingLogo';
+import { LogoHeader } from '@/components/LogoHeader';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -313,12 +314,9 @@ export default function ProfileScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <View style={[styles.header, { backgroundColor: theme.cardBackground, borderBottomColor: theme.border }]}>
-        <TouchableOpacity onPress={handleAdminAccess} activeOpacity={1} style={styles.logoContainer}>
-          <Text style={[styles.logoText, { color: theme.primary }]}>MeMark</Text>
-        </TouchableOpacity>
-        <Text style={[styles.pageTitle, { color: theme.textSecondary }]}>Settings</Text>
-      </View>
+      <TouchableOpacity onPress={handleAdminAccess} activeOpacity={1}>
+        <LogoHeader />
+      </TouchableOpacity>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         <View style={[styles.profileCard, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
@@ -723,45 +721,6 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  header: {
-    paddingTop: 40,
-    paddingBottom: 12,
-    paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    alignItems: 'center',
-    ...(Platform.OS === 'web' ? {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.08,
-      shadowRadius: 12,
-    } : {
-      elevation: 4,
-    }),
-  },
-  logoContainer: {
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  logoText: {
-    fontSize: 32,
-    fontWeight: '800',
-    letterSpacing: -1,
-    ...(Platform.OS === 'web' ? {
-      textShadowColor: 'rgba(0, 0, 0, 0.15)',
-      textShadowOffset: { width: 0, height: 3 },
-      textShadowRadius: 6,
-    } : {}),
-  },
-  pageTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
   },
   scrollView: {
     flex: 1,

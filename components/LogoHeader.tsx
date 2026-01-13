@@ -20,7 +20,7 @@ export function LogoHeader() {
 const styles = StyleSheet.create({
   header: {
     paddingTop: 50,
-    paddingBottom: 16,
+    paddingBottom: 12,
     paddingHorizontal: 20,
     borderBottomWidth: 1,
     alignItems: 'center',
@@ -38,7 +38,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   logo: {
-    width: 140,
-    height: 32,
+    width: 220,
+    height: 50,
   },
 });
