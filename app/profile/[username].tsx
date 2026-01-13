@@ -219,16 +219,24 @@ export default function PublicProfile() {
                   onPress={() => handleItemPress(item)}
                   activeOpacity={0.7}
                 >
-                  {(item.preview_image_url || item.image_preview) && (
+                  {(item.og_image || item.preview_image_url || item.image_preview) ? (
                     <View style={styles.itemImageContainer}>
                       <Image
-                        source={{ uri: item.preview_image_url || item.image_preview }}
+                        source={{ uri: item.og_image || item.preview_image_url || item.image_preview }}
                         style={styles.itemImage}
                         resizeMode="cover"
                       />
                       <LinearGradient
                         colors={['transparent', 'rgba(0,0,0,0.6)']}
                         style={styles.imageGradient}
+                      />
+                    </View>
+                  ) : (
+                    <View style={[styles.itemImageContainer, { backgroundColor: theme.primary + '10', justifyContent: 'center', alignItems: 'center' }]}>
+                      <Image
+                        source={require('@/assets/images/copy_of_memark_(3).png')}
+                        style={{ width: 120, height: 120, opacity: 0.4 }}
+                        resizeMode="contain"
                       />
                     </View>
                   )}

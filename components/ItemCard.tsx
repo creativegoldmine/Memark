@@ -158,7 +158,7 @@ export function ItemCard({ item, onPress, onOpenUrl, viewMode = 'list' }: ItemCa
         ) : (
           <View style={[styles.logoFallback, { backgroundColor: theme.primary + '10' }]}>
             <Image
-              source={require('@/assets/images/copy_of_memark.png')}
+              source={require('@/assets/images/copy_of_memark_(3).png')}
               style={styles.fallbackImage}
               resizeMode="contain"
             />
