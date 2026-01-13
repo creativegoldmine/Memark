@@ -19,8 +19,8 @@ export function LogoHeader() {
 
 const styles = StyleSheet.create({
   header: {
-    paddingTop: 40,
-    paddingBottom: 4,
+    paddingTop: 10,
+    paddingBottom: 2,
     paddingHorizontal: 20,
     borderBottomWidth: 1,
     alignItems: 'center',
