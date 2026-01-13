@@ -6,7 +6,7 @@ interface LoadingLogoProps {
   size?: number;
 }
 
-export function LoadingLogo({ size = 60 }: LoadingLogoProps) {
+export function LoadingLogo({ size = 120 }: LoadingLogoProps) {
   const { theme } = useTheme();
   const spinValue = useRef(new Animated.Value(0)).current;
 
@@ -31,7 +31,7 @@ export function LoadingLogo({ size = 60 }: LoadingLogoProps) {
   return (
     <View style={styles.container}>
       <Animated.Image
-        source={require('@/assets/images/copy_of_memark_(2).png')}
+        source={require('@/assets/images/copy_of_memark.png')}
         style={[
           {
             width: size,

@@ -8,7 +8,7 @@ export function LogoHeader() {
     <View style={[styles.header, { backgroundColor: theme.cardBackground, borderBottomColor: theme.border }]}>
       <View style={styles.logoContainer}>
         <Image
-          source={require('@/assets/images/copy_of_memark_(1).png')}
+          source={require('@/assets/images/copy_of_memark.png')}
           style={styles.logo}
           resizeMode="contain"
         />
@@ -38,7 +38,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   logo: {
-    width: 600,
-    height: 136,
+    width: 800,
+    height: 180,
   },
 });

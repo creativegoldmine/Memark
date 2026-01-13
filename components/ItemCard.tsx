@@ -158,7 +158,7 @@ export function ItemCard({ item, onPress, onOpenUrl, viewMode = 'list' }: ItemCa
         ) : (
           <View style={[styles.logoFallback, { backgroundColor: theme.primary + '10' }]}>
             <Image
-              source={require('@/assets/images/copy_of_memark_(2).png')}
+              source={require('@/assets/images/copy_of_memark.png')}
               style={styles.fallbackImage}
               resizeMode="contain"
             />
@@ -343,8 +343,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   fallbackImage: {
-    width: 80,
-    height: 80,
+    width: 160,
+    height: 160,
     opacity: 0.4,
   },
   scoreBadge: {
