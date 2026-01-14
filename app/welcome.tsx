@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Sparkles, Send, Brain, Folder, Search, MessageSquare, Zap, Lock, Globe } from 'lucide-react-native';
+import { Sparkles, Send, Brain, Folder, Search, MessageSquare, Zap, Lock, Globe, Check } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 
 const { width } = Dimensions.get('window');
@@ -45,23 +45,18 @@ export default function Welcome() {
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={[theme.primary, theme.primaryDark]}
-        style={styles.heroGradient}
-      />
+      <View style={styles.heroBackground} />
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.hero}>
           <View style={styles.logoContainer}>
-            <View style={styles.logoBackground}>
-              <Image
-                source={require('@/assets/images/copy_of_memark.png')}
-                style={styles.heroLogo}
-                resizeMode="contain"
-              />
-            </View>
+            <Image
+              source={require('@/assets/images/copy_of_memark.png')}
+              style={styles.heroLogo}
+              resizeMode="contain"
+            />
           </View>
-          <Text style={styles.heroDescription}>
+          <Text style={[styles.heroDescription, { color: theme.text }]}>
             Send, save, and actually review your ideas.
             Never lose a link, article, or thought again.
           </Text>
@@ -83,9 +78,9 @@ export default function Welcome() {
                 <Text style={styles.stepNumberText}>1</Text>
               </View>
               <View style={styles.stepContent}>
-                <Text style={[styles.stepTitle, { color: theme.text }]}>Send Anything</Text>
+                <Text style={[styles.stepTitle, { color: theme.text }]}>Sign Up Free</Text>
                 <Text style={[styles.stepDescription, { color: theme.textSecondary }]}>
-                  Text a link, paste a URL, or save directly from your browser
+                  Create your account in seconds and get your personal phone number
                 </Text>
               </View>
             </View>
@@ -95,9 +90,9 @@ export default function Welcome() {
                 <Text style={styles.stepNumberText}>2</Text>
               </View>
               <View style={styles.stepContent}>
-                <Text style={[styles.stepTitle, { color: theme.text }]}>AI Organizes</Text>
+                <Text style={[styles.stepTitle, { color: theme.text }]}>Send Anything</Text>
                 <Text style={[styles.stepDescription, { color: theme.textSecondary }]}>
-                  Smart AI automatically categorizes and tags your content
+                  Text links, paste URLs, or save directly from your browser
                 </Text>
               </View>
             </View>
@@ -107,9 +102,9 @@ export default function Welcome() {
                 <Text style={styles.stepNumberText}>3</Text>
               </View>
               <View style={styles.stepContent}>
-                <Text style={[styles.stepTitle, { color: theme.text }]}>Find Instantly</Text>
+                <Text style={[styles.stepTitle, { color: theme.text }]}>AI Organizes & Recall</Text>
                 <Text style={[styles.stepDescription, { color: theme.textSecondary }]}>
-                  Search naturally or browse collections to rediscover anything
+                  Auto-categorization and smart search to find anything instantly
                 </Text>
               </View>
             </View>
@@ -143,6 +138,122 @@ export default function Welcome() {
                 </View>
               );
             })}
+          </View>
+        </View>
+
+        <View style={[styles.section, { backgroundColor: theme.background }]}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>
+              Simple Pricing
+            </Text>
+            <Text style={[styles.sectionSubtitle, { color: theme.textSecondary }]}>
+              Choose the plan that fits your needs
+            </Text>
+          </View>
+
+          <View style={styles.pricingGrid}>
+            <View style={[styles.pricingCard, { backgroundColor: theme.cardBackground }]}>
+              <Text style={[styles.pricingPlanName, { color: theme.text }]}>Basic</Text>
+              <View style={styles.pricingPriceContainer}>
+                <Text style={[styles.pricingPrice, { color: theme.primary }]}>$9.99</Text>
+                <Text style={[styles.pricingPeriod, { color: theme.textSecondary }]}>/month</Text>
+              </View>
+              <View style={styles.pricingFeaturesList}>
+                <View style={styles.pricingFeature}>
+                  <Check size={20} color={theme.success} strokeWidth={2} />
+                  <Text style={[styles.pricingFeatureText, { color: theme.text }]}>1,000 items</Text>
+                </View>
+                <View style={styles.pricingFeature}>
+                  <Check size={20} color={theme.success} strokeWidth={2} />
+                  <Text style={[styles.pricingFeatureText, { color: theme.text }]}>Shared SMS number</Text>
+                </View>
+                <View style={styles.pricingFeature}>
+                  <Check size={20} color={theme.success} strokeWidth={2} />
+                  <Text style={[styles.pricingFeatureText, { color: theme.text }]}>Basic AI features</Text>
+                </View>
+                <View style={styles.pricingFeature}>
+                  <Check size={20} color={theme.success} strokeWidth={2} />
+                  <Text style={[styles.pricingFeatureText, { color: theme.text }]}>Smart search</Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                style={[styles.pricingButton, { backgroundColor: theme.primary }]}
+                onPress={() => router.push('/signup')}
+              >
+                <Text style={styles.pricingButtonText}>Start Free Trial</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={[styles.pricingCard, styles.pricingCardFeatured, { backgroundColor: theme.primary }]}>
+              <View style={styles.featuredBadge}>
+                <Text style={styles.featuredBadgeText}>POPULAR</Text>
+              </View>
+              <Text style={styles.pricingPlanNameFeatured}>Pro</Text>
+              <View style={styles.pricingPriceContainer}>
+                <Text style={styles.pricingPriceFeatured}>$19.99</Text>
+                <Text style={styles.pricingPeriodFeatured}>/month</Text>
+              </View>
+              <View style={styles.pricingFeaturesList}>
+                <View style={styles.pricingFeature}>
+                  <Check size={20} color="#FFFFFF" strokeWidth={2} />
+                  <Text style={styles.pricingFeatureTextFeatured}>Unlimited items</Text>
+                </View>
+                <View style={styles.pricingFeature}>
+                  <Check size={20} color="#FFFFFF" strokeWidth={2} />
+                  <Text style={styles.pricingFeatureTextFeatured}>Dedicated SMS number</Text>
+                </View>
+                <View style={styles.pricingFeature}>
+                  <Check size={20} color="#FFFFFF" strokeWidth={2} />
+                  <Text style={styles.pricingFeatureTextFeatured}>Advanced AI agents</Text>
+                </View>
+                <View style={styles.pricingFeature}>
+                  <Check size={20} color="#FFFFFF" strokeWidth={2} />
+                  <Text style={styles.pricingFeatureTextFeatured}>Smart reminders</Text>
+                </View>
+                <View style={styles.pricingFeature}>
+                  <Check size={20} color="#FFFFFF" strokeWidth={2} />
+                  <Text style={styles.pricingFeatureTextFeatured}>Export to X & Notion</Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                style={styles.pricingButtonFeatured}
+                onPress={() => router.push('/signup')}
+              >
+                <Text style={[styles.pricingButtonTextFeatured, { color: theme.primary }]}>Start Free Trial</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={[styles.pricingCard, { backgroundColor: theme.cardBackground }]}>
+              <Text style={[styles.pricingPlanName, { color: theme.text }]}>Enterprise</Text>
+              <View style={styles.pricingPriceContainer}>
+                <Text style={[styles.pricingPrice, { color: theme.primary }]}>$29.99</Text>
+                <Text style={[styles.pricingPeriod, { color: theme.textSecondary }]}>/month</Text>
+              </View>
+              <View style={styles.pricingFeaturesList}>
+                <View style={styles.pricingFeature}>
+                  <Check size={20} color={theme.success} strokeWidth={2} />
+                  <Text style={[styles.pricingFeatureText, { color: theme.text }]}>Everything in Pro</Text>
+                </View>
+                <View style={styles.pricingFeature}>
+                  <Check size={20} color={theme.success} strokeWidth={2} />
+                  <Text style={[styles.pricingFeatureText, { color: theme.text }]}>Team collaboration</Text>
+                </View>
+                <View style={styles.pricingFeature}>
+                  <Check size={20} color={theme.success} strokeWidth={2} />
+                  <Text style={[styles.pricingFeatureText, { color: theme.text }]}>Custom integrations</Text>
+                </View>
+                <View style={styles.pricingFeature}>
+                  <Check size={20} color={theme.success} strokeWidth={2} />
+                  <Text style={[styles.pricingFeatureText, { color: theme.text }]}>Priority support</Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                style={[styles.pricingButton, { backgroundColor: theme.primary }]}
+                onPress={() => router.push('/signup')}
+              >
+                <Text style={styles.pricingButtonText}>Start Free Trial</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
 
@@ -188,12 +299,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  heroGradient: {
+  heroBackground: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     height: 500,
+    backgroundColor: '#FFFFFF',
   },
   scrollView: {
     flex: 1,
@@ -208,27 +320,16 @@ const styles = StyleSheet.create({
     marginBottom: 32,
     alignItems: 'center',
   },
-  logoBackground: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    paddingHorizontal: 32,
-    paddingVertical: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 5,
-  },
   heroLogo: {
-    width: 320,
-    height: 72,
+    width: 380,
+    height: 85,
   },
   heroDescription: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 18,
     textAlign: 'center',
-    lineHeight: 24,
-    maxWidth: 400,
+    lineHeight: 26,
+    maxWidth: 500,
+    fontWeight: '500',
   },
   section: {
     paddingVertical: 48,
@@ -351,6 +452,108 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: 'rgba(255, 255, 255, 0.9)',
+  },
+  pricingGrid: {
+    gap: 20,
+  },
+  pricingCard: {
+    padding: 28,
+    borderRadius: 20,
+    gap: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  pricingCardFeatured: {
+    borderWidth: 3,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    transform: [{ scale: 1.02 }],
+  },
+  featuredBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+  },
+  featuredBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1,
+  },
+  pricingPlanName: {
+    fontSize: 22,
+    fontWeight: '700',
+  },
+  pricingPlanNameFeatured: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  pricingPriceContainer: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
+  },
+  pricingPrice: {
+    fontSize: 40,
+    fontWeight: '800',
+  },
+  pricingPriceFeatured: {
+    fontSize: 40,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  pricingPeriod: {
+    fontSize: 16,
+  },
+  pricingPeriodFeatured: {
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.9)',
+  },
+  pricingFeaturesList: {
+    gap: 12,
+  },
+  pricingFeature: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  pricingFeatureText: {
+    fontSize: 15,
+    flex: 1,
+  },
+  pricingFeatureTextFeatured: {
+    fontSize: 15,
+    flex: 1,
+    color: '#FFFFFF',
+  },
+  pricingButton: {
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  pricingButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  pricingButtonFeatured: {
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  pricingButtonTextFeatured: {
+    fontSize: 16,
+    fontWeight: '600',
   },
   footer: {
     paddingVertical: 32,
