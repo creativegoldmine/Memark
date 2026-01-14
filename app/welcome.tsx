@@ -286,8 +286,34 @@ export default function Welcome() {
         </View>
 
         <View style={styles.footer}>
-          <Text style={[styles.footerText, { color: theme.textTertiary }]}>
-            MeMark © 2024
+          <Image
+            source={require('@/assets/images/copy_of_memark.png')}
+            style={styles.footerLogo}
+            resizeMode="contain"
+          />
+
+          <View style={styles.footerLinks}>
+            <TouchableOpacity>
+              <Text style={[styles.footerLink, { color: theme.textSecondary }]}>
+                Terms of Service
+              </Text>
+            </TouchableOpacity>
+            <Text style={[styles.footerDivider, { color: theme.textTertiary }]}>•</Text>
+            <TouchableOpacity>
+              <Text style={[styles.footerLink, { color: theme.textSecondary }]}>
+                Privacy Policy
+              </Text>
+            </TouchableOpacity>
+            <Text style={[styles.footerDivider, { color: theme.textTertiary }]}>•</Text>
+            <TouchableOpacity>
+              <Text style={[styles.footerLink, { color: theme.textSecondary }]}>
+                Contact
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <Text style={[styles.footerCopyright, { color: theme.textTertiary }]}>
+            © 2024 MeMark. All rights reserved.
           </Text>
         </View>
       </ScrollView>
@@ -556,10 +582,32 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   footer: {
-    paddingVertical: 32,
+    paddingVertical: 48,
+    paddingHorizontal: 24,
     alignItems: 'center',
+    gap: 24,
   },
-  footerText: {
+  footerLogo: {
+    width: 180,
+    height: 40,
+    marginBottom: 8,
+  },
+  footerLinks: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  footerLink: {
     fontSize: 14,
+    fontWeight: '500',
+  },
+  footerDivider: {
+    fontSize: 14,
+  },
+  footerCopyright: {
+    fontSize: 13,
+    marginTop: 8,
   },
 });
