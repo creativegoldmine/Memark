@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Sparkles, Send, Brain, Folder, Search, MessageSquare, Zap, Lock, Globe } from 'lucide-react-native';
@@ -52,8 +52,13 @@ export default function Welcome() {
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.hero}>
-          <Text style={styles.appName}>MeMark</Text>
-          <Text style={styles.tagline}>Your Second Brain</Text>
+          <View style={styles.logoContainer}>
+            <Image
+              source={require('@/assets/images/copy_of_memark.png')}
+              style={styles.heroLogo}
+              resizeMode="contain"
+            />
+          </View>
           <Text style={styles.heroDescription}>
             Send, save, and actually review your ideas.
             Never lose a link, article, or thought again.
@@ -198,19 +203,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   logoContainer: {
-    marginBottom: 24,
+    marginBottom: 32,
+    alignItems: 'center',
   },
-  appName: {
-    fontSize: 48,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: 8,
-  },
-  tagline: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.95)',
-    marginBottom: 16,
+  heroLogo: {
+    width: 400,
+    height: 90,
   },
   heroDescription: {
     fontSize: 16,
