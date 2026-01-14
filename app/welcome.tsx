@@ -56,7 +56,7 @@ export default function Welcome() {
               resizeMode="contain"
             />
           </View>
-          <Text style={[styles.heroDescription, { color: theme.text }]}>
+          <Text style={[styles.heroDescription, { color: '#FFFFFF' }]}>
             Send, save, and actually review your ideas.
             Never lose a link, article, or thought again.
           </Text>
@@ -345,6 +345,10 @@ const styles = StyleSheet.create({
   logoContainer: {
     marginBottom: 32,
     alignItems: 'center',
+    backgroundColor: '#000000',
+    paddingVertical: 24,
+    paddingHorizontal: 32,
+    borderRadius: 16,
   },
   heroLogo: {
     width: 380,
