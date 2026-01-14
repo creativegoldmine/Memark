@@ -53,11 +53,13 @@ export default function Welcome() {
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.hero}>
           <View style={styles.logoContainer}>
-            <Image
-              source={require('@/assets/images/copy_of_memark.png')}
-              style={styles.heroLogo}
-              resizeMode="contain"
-            />
+            <View style={styles.logoBackground}>
+              <Image
+                source={require('@/assets/images/copy_of_memark.png')}
+                style={styles.heroLogo}
+                resizeMode="contain"
+              />
+            </View>
           </View>
           <Text style={styles.heroDescription}>
             Send, save, and actually review your ideas.
@@ -206,9 +208,20 @@ const styles = StyleSheet.create({
     marginBottom: 32,
     alignItems: 'center',
   },
+  logoBackground: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    paddingHorizontal: 32,
+    paddingVertical: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 5,
+  },
   heroLogo: {
-    width: 400,
-    height: 90,
+    width: 320,
+    height: 72,
   },
   heroDescription: {
     fontSize: 16,
