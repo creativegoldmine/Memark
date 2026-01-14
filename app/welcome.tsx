@@ -479,16 +479,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   logoContainer: {
-    backgroundColor: '#000000',
     paddingVertical: 20,
     paddingHorizontal: 28,
     borderRadius: 20,
     marginBottom: 40,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 12,
   },
   heroLogo: {
     width: 320,
@@ -895,7 +889,6 @@ const styles = StyleSheet.create({
     gap: 24,
   },
   footerLogoContainer: {
-    backgroundColor: '#000000',
     paddingVertical: 16,
     paddingHorizontal: 24,
     borderRadius: 12,
