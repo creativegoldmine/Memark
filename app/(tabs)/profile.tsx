@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform, Switch, TextInput, Share } from 'react-native';
-import { User, Phone, Mail, LogOut, Moon, Sun, Sparkles, Settings, MessageSquare, Copy, Upload, FileText, RefreshCw, Shield, ShieldAlert, Globe, Lock, ExternalLink, Crown, Edit3 } from 'lucide-react-native';
+import { User, Phone, Mail, LogOut, Moon, Sun, Sparkles, Settings, MessageSquare, Copy, Upload, FileText, RefreshCw, Shield, ShieldAlert, Globe, Lock, ExternalLink, Crown, Edit3, Bell } from 'lucide-react-native';
 import { LoadingLogo } from '@/components/LoadingLogo';
 import { LogoHeader } from '@/components/LogoHeader';
 import { useRouter } from 'expo-router';
@@ -25,6 +25,7 @@ export default function ProfileScreen() {
   const [publicItemsCount, setPublicItemsCount] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [upgradeModalVisible, setUpgradeModalVisible] = useState(false);
+  const [notificationPrefs, setNotificationPrefs] = useState<any>(null);
 
   const isPro = dbUser?.plan_type === 'pro' || dbUser?.plan_type === 'premium';
 
@@ -40,6 +41,7 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     loadProfile();
+    loadNotificationPreferences();
   }, [user?.id]);
 
   const loadProfile = async () => {
@@ -66,6 +68,54 @@ export default function ProfileScreen() {
       setPublicItemsCount(count || 0);
     } catch (error) {
       console.error('Error loading profile:', error);
+    }
+  };
+
+  const loadNotificationPreferences = async () => {
+    if (!user?.id) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('notification_preferences')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error loading notification preferences:', error);
+        return;
+      }
+
+      if (data) {
+        setNotificationPrefs(data);
+      } else {
+        const { data: newPrefs } = await supabase
+          .from('notification_preferences')
+          .insert({ user_id: user.id })
+          .select()
+          .single();
+        setNotificationPrefs(newPrefs);
+      }
+    } catch (error) {
+      console.error('Error loading notification preferences:', error);
+    }
+  };
+
+  const updateNotificationPreference = async (field: string, value: any) => {
+    if (!user?.id) return;
+
+    try {
+      const { error } = await supabase
+        .from('notification_preferences')
+        .update({ [field]: value })
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      setNotificationPrefs((prev: any) => ({ ...prev, [field]: value }));
+    } catch (error) {
+      console.error('Error updating notification preference:', error);
+      Alert.alert('Error', 'Failed to update notification settings');
     }
   };
 
@@ -500,6 +550,92 @@ export default function ProfileScreen() {
             </Text>
           </TouchableOpacity>
         </View>
+
+        {notificationPrefs && (
+          <View style={[styles.section, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+            <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Notifications</Text>
+
+            <View style={[styles.notificationRow, { borderBottomColor: theme.border }]}>
+              <View style={styles.notificationLeft}>
+                <View style={[styles.infoIcon, { backgroundColor: theme.surface }]}>
+                  <Bell size={18} color={theme.primary} />
+                </View>
+                <View style={styles.notificationText}>
+                  <Text style={[styles.notificationTitle, { color: theme.text }]}>Push Notifications</Text>
+                  <Text style={[styles.notificationSubtitle, { color: theme.textSecondary }]}>
+                    Receive push notifications on this device
+                  </Text>
+                </View>
+              </View>
+              <Switch
+                value={notificationPrefs.enable_push_notifications}
+                onValueChange={(value) => updateNotificationPreference('enable_push_notifications', value)}
+                trackColor={{ false: theme.border, true: theme.primary + '40' }}
+                thumbColor={notificationPrefs.enable_push_notifications ? theme.primary : theme.textTertiary}
+              />
+            </View>
+
+            <View style={[styles.notificationRow, { borderBottomColor: theme.border }]}>
+              <View style={styles.notificationLeft}>
+                <Text style={[styles.notificationLabel, { color: theme.text }]}>Review Reminders</Text>
+                <Text style={[styles.notificationHint, { color: theme.textSecondary }]}>
+                  Get reminded to revisit saved items
+                </Text>
+              </View>
+              <Switch
+                value={notificationPrefs.enable_review_reminders}
+                onValueChange={(value) => updateNotificationPreference('enable_review_reminders', value)}
+                trackColor={{ false: theme.border, true: theme.primary + '40' }}
+                thumbColor={notificationPrefs.enable_review_reminders ? theme.primary : theme.textTertiary}
+              />
+            </View>
+
+            <View style={[styles.notificationRow, { borderBottomColor: theme.border }]}>
+              <View style={styles.notificationLeft}>
+                <Text style={[styles.notificationLabel, { color: theme.text }]}>Daily Digest</Text>
+                <Text style={[styles.notificationHint, { color: theme.textSecondary }]}>
+                  Daily summary of your saved items
+                </Text>
+              </View>
+              <Switch
+                value={notificationPrefs.enable_daily_digest}
+                onValueChange={(value) => updateNotificationPreference('enable_daily_digest', value)}
+                trackColor={{ false: theme.border, true: theme.primary + '40' }}
+                thumbColor={notificationPrefs.enable_daily_digest ? theme.primary : theme.textTertiary}
+              />
+            </View>
+
+            <View style={[styles.notificationRow, { borderBottomColor: theme.border }]}>
+              <View style={styles.notificationLeft}>
+                <Text style={[styles.notificationLabel, { color: theme.text }]}>Weekly Digest</Text>
+                <Text style={[styles.notificationHint, { color: theme.textSecondary }]}>
+                  Weekly roundup of your activity
+                </Text>
+              </View>
+              <Switch
+                value={notificationPrefs.enable_weekly_digest}
+                onValueChange={(value) => updateNotificationPreference('enable_weekly_digest', value)}
+                trackColor={{ false: theme.border, true: theme.primary + '40' }}
+                thumbColor={notificationPrefs.enable_weekly_digest ? theme.primary : theme.textTertiary}
+              />
+            </View>
+
+            <View style={[styles.notificationRow, { borderBottomWidth: 0 }]}>
+              <View style={styles.notificationLeft}>
+                <Text style={[styles.notificationLabel, { color: theme.text }]}>Collection Updates</Text>
+                <Text style={[styles.notificationHint, { color: theme.textSecondary }]}>
+                  Get notified when collections grow
+                </Text>
+              </View>
+              <Switch
+                value={notificationPrefs.enable_collection_updates}
+                onValueChange={(value) => updateNotificationPreference('enable_collection_updates', value)}
+                trackColor={{ false: theme.border, true: theme.primary + '40' }}
+                thumbColor={notificationPrefs.enable_collection_updates ? theme.primary : theme.textTertiary}
+              />
+            </View>
+          </View>
+        )}
 
         <View style={[styles.section, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
           <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Theme</Text>
@@ -1024,5 +1160,36 @@ const styles = StyleSheet.create({
   infoBoxText: {
     fontSize: 14,
     lineHeight: 20,
+  },
+  notificationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  notificationLeft: {
+    flex: 1,
+  },
+  notificationText: {
+    flex: 1,
+  },
+  notificationTitle: {
+    fontSize: 15,
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  notificationSubtitle: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  notificationLabel: {
+    fontSize: 15,
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  notificationHint: {
+    fontSize: 13,
+    lineHeight: 18,
   },
 });

@@ -5,6 +5,7 @@ import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { ShareHandler } from '@/components/ShareHandler';
+import { NotificationSetup } from '@/components/NotificationSetup';
 import { ErrorBoundary } from 'react-error-boundary';
 
 function ErrorFallback({ error, resetErrorBoundary }: { error: Error; resetErrorBoundary: () => void }) {
@@ -31,6 +32,7 @@ export default function RootLayout() {
       <ThemeProvider>
         <AuthProvider>
           <ShareHandler />
+          <NotificationSetup />
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="index" />
             <Stack.Screen name="welcome" />

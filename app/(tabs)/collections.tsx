@@ -10,6 +10,7 @@ import { LoadingLogo } from '@/components/LoadingLogo';
 import { ItemCard } from '@/components/ItemCard';
 import { LinkPreviewModal } from '@/components/LinkPreviewModal';
 import { InAppBrowser } from '@/components/InAppBrowser';
+import { SmartFolderSuggestions } from '@/components/SmartFolderSuggestions';
 import { collectionIconNames, collectionIconDisplayNames } from '@/constants/theme';
 import {
   getCollectionIcon,
@@ -267,6 +268,8 @@ export default function Collections() {
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <LogoHeader />
+
+      {!selectedFolder && <SmartFolderSuggestions />}
 
       <View style={[styles.header, { borderBottomColor: theme.border }]}>
         <Text style={[styles.headerText, { color: theme.text }]}>

@@ -1,11 +1,21 @@
 import { View, Image, StyleSheet, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/contexts/ThemeContext';
+import { NotificationCenter } from '@/components/NotificationCenter';
 
 export function LogoHeader() {
   const { theme, themeMode } = useTheme();
+  const insets = useSafeAreaInsets();
 
   return (
-    <View style={[styles.header, { backgroundColor: theme.cardBackground, borderBottomColor: theme.border }]}>
+    <View style={[
+      styles.header,
+      {
+        backgroundColor: theme.cardBackground,
+        borderBottomColor: theme.border,
+        paddingTop: Math.max(insets.top + 8, 8)
+      }
+    ]}>
       <View style={styles.logoContainer}>
         <Image
           source={require('@/assets/images/copy_of_memark.png')}
@@ -15,6 +25,9 @@ export function LogoHeader() {
           ]}
           resizeMode="contain"
         />
+      </View>
+      <View style={styles.notificationContainer}>
+        <NotificationCenter />
       </View>
     </View>
   );
@@ -43,5 +56,10 @@ const styles = StyleSheet.create({
   logo: {
     width: 560,
     height: 126,
+  },
+  notificationContainer: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
   },
 });
