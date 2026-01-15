@@ -8,12 +8,16 @@ import { ShareHandler } from '@/components/ShareHandler';
 import { ErrorBoundary } from 'react-error-boundary';
 
 function ErrorFallback({ error, resetErrorBoundary }: { error: Error; resetErrorBoundary: () => void }) {
+  console.error('App Error:', error);
+  console.error('Error Stack:', error.stack);
+
   return (
     <View style={styles.errorContainer}>
-      <Text style={styles.errorTitle}>Something went wrong</Text>
+      <Text style={styles.errorTitle}>App Error</Text>
       <Text style={styles.errorMessage}>{error.message}</Text>
+      <Text style={styles.errorStack}>{error.stack?.substring(0, 200)}</Text>
       <TouchableOpacity style={styles.errorButton} onPress={resetErrorBoundary}>
-        <Text style={styles.errorButtonText}>Try Again</Text>
+        <Text style={styles.errorButtonText}>Retry</Text>
       </TouchableOpacity>
     </View>
   );
@@ -60,9 +64,17 @@ const styles = StyleSheet.create({
   },
   errorMessage: {
     fontSize: 16,
-    marginBottom: 24,
+    marginBottom: 12,
     color: '#742A2A',
     textAlign: 'center',
+    fontWeight: '600',
+  },
+  errorStack: {
+    fontSize: 12,
+    marginBottom: 24,
+    color: '#9B2C2C',
+    textAlign: 'center',
+    fontFamily: 'monospace',
   },
   errorButton: {
     paddingVertical: 12,
