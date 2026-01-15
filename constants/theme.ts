@@ -90,35 +90,35 @@ export const darkTheme = {
   },
 };
 
-export const blueTheme = {
-  background: '#0A1628',
-  surface: '#132F4C',
-  surfaceSecondary: '#1E4976',
-  text: '#E3F2FD',
-  textSecondary: '#90CAF9',
-  textTertiary: '#42A5F5',
-  primary: '#2196F3',
-  primaryLight: '#42A5F5',
-  primaryDark: '#1976D2',
-  accent: '#00BCD4',
+export const purpleTheme = {
+  background: '#1A0B2E',
+  surface: '#2D1B4E',
+  surfaceSecondary: '#3F2A5F',
+  text: '#F3E8FF',
+  textSecondary: '#D8B4FE',
+  textTertiary: '#C084FC',
+  primary: '#A78BFA',
+  primaryLight: '#C4B5FD',
+  primaryDark: '#8B5CF6',
+  accent: '#EC4899',
   success: '#10B981',
   warning: '#F59E0B',
-  error: '#EF5350',
-  border: '#1E4976',
-  borderLight: '#264A6E',
-  cardBackground: '#132F4C',
-  cardBackgroundHover: '#1E4976',
-  overlay: 'rgba(33, 150, 243, 0.2)',
+  error: '#F87171',
+  border: '#3F2A5F',
+  borderLight: '#4C3570',
+  cardBackground: '#2D1B4E',
+  cardBackgroundHover: '#3F2A5F',
+  overlay: 'rgba(139, 92, 246, 0.2)',
   statusBar: 'light' as const,
   gradient: {
-    primary: ['#2196F3', '#42A5F5'],
-    accent: ['#00BCD4', '#26C6DA'],
-    subtle: ['#132F4C', '#0A1628'],
+    primary: ['#8B5CF6', '#A78BFA'],
+    accent: ['#EC4899', '#F472B6'],
+    subtle: ['#2D1B4E', '#1A0B2E'],
   },
   shadow: {
-    sm: 'rgba(33, 150, 243, 0.1)',
-    md: 'rgba(33, 150, 243, 0.2)',
-    lg: 'rgba(33, 150, 243, 0.3)',
+    sm: 'rgba(139, 92, 246, 0.1)',
+    md: 'rgba(139, 92, 246, 0.2)',
+    lg: 'rgba(139, 92, 246, 0.3)',
   },
   spacing: {
     xs: 4,
@@ -182,12 +182,12 @@ export type Theme = {
   };
 };
 
-export type ThemeMode = 'light' | 'dark' | 'blue';
+export type ThemeMode = 'light' | 'dark' | 'purple';
 
 export const themes = {
   light: lightTheme,
   dark: darkTheme,
-  blue: blueTheme,
+  purple: purpleTheme,
 };
 
 export const collectionIconNames = [

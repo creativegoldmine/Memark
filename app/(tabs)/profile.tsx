@@ -309,7 +309,7 @@ export default function ProfileScreen() {
   const themeOptions = [
     { mode: 'light', label: 'Light', icon: Sun },
     { mode: 'dark', label: 'Dark', icon: Moon },
-    { mode: 'blue', label: 'Ocean Blue', icon: Sparkles },
+    { mode: 'purple', label: 'Purple', icon: Sparkles },
   ];
 
   return (

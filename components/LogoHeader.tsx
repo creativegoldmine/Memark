@@ -2,14 +2,17 @@ import { View, Image, StyleSheet, Platform } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 
 export function LogoHeader() {
-  const { theme } = useTheme();
+  const { theme, themeMode } = useTheme();
 
   return (
     <View style={[styles.header, { backgroundColor: theme.cardBackground, borderBottomColor: theme.border }]}>
       <View style={styles.logoContainer}>
         <Image
           source={require('@/assets/images/copy_of_memark.png')}
-          style={styles.logo}
+          style={[
+            styles.logo,
+            themeMode === 'purple' && { tintColor: '#FFFFFF' }
+          ]}
           resizeMode="contain"
         />
       </View>
