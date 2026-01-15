@@ -15,37 +15,37 @@ export default function Welcome() {
       icon: Send,
       title: 'Text to Save',
       description: 'Send links and ideas via SMS. Instantly saved and organized by AI.',
-      gradient: ['#EC4899', '#8B5CF6'],
+      gradient: ['#EC4899', '#8B5CF6'] as const,
     },
     {
       icon: Sparkles,
       title: 'AI Organization',
       description: 'Smart categorization that understands context and intent.',
-      gradient: ['#8B5CF6', '#3B82F6'],
+      gradient: ['#8B5CF6', '#3B82F6'] as const,
     },
     {
       icon: Brain,
       title: 'AI Recall',
       description: 'Ask questions naturally and find anything in seconds.',
-      gradient: ['#3B82F6', '#06B6D4'],
+      gradient: ['#3B82F6', '#06B6D4'] as const,
     },
     {
       icon: Folder,
       title: 'Smart Collections',
       description: 'Auto-organized collections that match how you think.',
-      gradient: ['#06B6D4', '#10B981'],
+      gradient: ['#06B6D4', '#10B981'] as const,
     },
     {
       icon: Globe,
       title: 'Rich Previews',
       description: 'Beautiful previews with images, titles, and summaries.',
-      gradient: ['#10B981', '#84CC16'],
+      gradient: ['#10B981', '#84CC16'] as const,
     },
     {
       icon: Lock,
       title: 'Private & Secure',
       description: 'Bank-level encryption. Your data belongs to you.',
-      gradient: ['#F59E0B', '#EC4899'],
+      gradient: ['#F59E0B', '#EC4899'] as const,
     },
   ];
 

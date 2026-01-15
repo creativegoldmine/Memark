@@ -17,6 +17,7 @@ export const lightTheme = {
   cardBackground: '#FFFFFF',
   cardBackgroundHover: '#FAFAFA',
   overlay: 'rgba(0, 0, 0, 0.5)',
+  statusBar: 'dark' as const,
   gradient: {
     primary: ['#8B5CF6', '#A78BFA'],
     accent: ['#EC4899', '#F472B6'],
@@ -62,6 +63,7 @@ export const darkTheme = {
   cardBackground: '#1A1A1A',
   cardBackgroundHover: '#2A2A2A',
   overlay: 'rgba(0, 0, 0, 0.7)',
+  statusBar: 'light' as const,
   gradient: {
     primary: ['#8B5CF6', '#A78BFA'],
     accent: ['#EC4899', '#F472B6'],
@@ -107,6 +109,7 @@ export const blueTheme = {
   cardBackground: '#132F4C',
   cardBackgroundHover: '#1E4976',
   overlay: 'rgba(33, 150, 243, 0.2)',
+  statusBar: 'light' as const,
   gradient: {
     primary: ['#2196F3', '#42A5F5'],
     accent: ['#00BCD4', '#26C6DA'],
@@ -133,7 +136,52 @@ export const blueTheme = {
   },
 };
 
-export type Theme = typeof lightTheme;
+export type Theme = {
+  background: string;
+  surface: string;
+  surfaceSecondary: string;
+  text: string;
+  textSecondary: string;
+  textTertiary: string;
+  primary: string;
+  primaryLight: string;
+  primaryDark: string;
+  accent: string;
+  success: string;
+  warning: string;
+  error: string;
+  border: string;
+  borderLight: string;
+  cardBackground: string;
+  cardBackgroundHover: string;
+  overlay: string;
+  statusBar: 'light' | 'dark' | 'auto';
+  gradient: {
+    primary: readonly string[];
+    accent: readonly string[];
+    subtle: readonly string[];
+  };
+  shadow: {
+    sm: string;
+    md: string;
+    lg: string;
+  };
+  spacing: {
+    xs: number;
+    sm: number;
+    md: number;
+    lg: number;
+    xl: number;
+    xxl: number;
+  };
+  radius: {
+    sm: number;
+    md: number;
+    lg: number;
+    xl: number;
+  };
+};
+
 export type ThemeMode = 'light' | 'dark' | 'blue';
 
 export const themes = {
