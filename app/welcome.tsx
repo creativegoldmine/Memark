@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Image, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Sparkles, Send, Brain, Folder, Search, Lock, Globe, Check, ArrowRight, Star, Users, Zap, TrendingUp } from 'lucide-react-native';
@@ -441,15 +441,15 @@ export default function Welcome() {
           </View>
 
           <View style={styles.footerLinks}>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/terms')}>
               <Text style={[styles.footerLink, { color: theme.textSecondary }]}>Terms</Text>
             </TouchableOpacity>
             <Text style={[styles.footerDivider, { color: theme.textTertiary }]}>•</Text>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/privacy')}>
               <Text style={[styles.footerLink, { color: theme.textSecondary }]}>Privacy</Text>
             </TouchableOpacity>
             <Text style={[styles.footerDivider, { color: theme.textTertiary }]}>•</Text>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/contact')}>
               <Text style={[styles.footerLink, { color: theme.textSecondary }]}>Contact</Text>
             </TouchableOpacity>
           </View>
@@ -483,10 +483,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 28,
     borderRadius: 20,
     marginBottom: 40,
+    alignItems: 'center',
   },
   heroLogo: {
-    width: 320,
-    height: 72,
+    width: Platform.select({
+      web: 800,
+      default: Math.min(800, Dimensions.get('window').width - 80),
+    }),
+    height: Platform.select({
+      web: 180,
+      default: Math.min(180, (Dimensions.get('window').width - 80) * 0.225),
+    }),
+    maxWidth: '100%',
   },
   heroTitle: {
     fontSize: 42,

@@ -169,17 +169,29 @@ export function ItemCard({ item, onPress, onOpenUrl, viewMode = 'list' }: ItemCa
             <Text style={styles.scoreBadgeText}>{Math.round(item.score)}%</Text>
           </View>
         )}
-        {item.video_url && (
+        {(item.video_url || (item as any).platform_type === 'youtube' || (item as any).platform_type === 'vimeo') && (
           <View style={styles.videoBadge}>
             <View style={styles.playButton}>
               <Text style={styles.playIcon}>▶</Text>
             </View>
+            {(item as any).content_duration && (
+              <View style={[styles.durationBadge, { backgroundColor: 'rgba(0, 0, 0, 0.75)' }]}>
+                <Text style={styles.durationText}>{(item as any).content_duration}</Text>
+              </View>
+            )}
           </View>
         )}
-        {item.embed_type && !item.video_url && (
+        {((item as any).platform_type || item.embed_type) && !item.video_url && (item as any).platform_type !== 'youtube' && (item as any).platform_type !== 'vimeo' && (
           <View style={[styles.embedBadge, { backgroundColor: theme.primary }]}>
             <Text style={styles.embedBadgeText}>
-              {item.embed_type === 'youtube' ? '▶' : item.embed_type === 'twitter' ? '𝕏' : '🔗'}
+              {(item as any).platform_type === 'twitter' || item.embed_type === 'twitter' ? '𝕏' :
+               (item as any).platform_type === 'instagram' ? '📷' :
+               (item as any).platform_type === 'tiktok' ? '🎵' :
+               (item as any).platform_type === 'reddit' ? '🤖' :
+               (item as any).platform_type === 'linkedin' ? '💼' :
+               (item as any).platform_type === 'github' ? '💻' :
+               (item as any).platform_type === 'medium' ? 'M' :
+               item.embed_type === 'youtube' ? '▶' : '🔗'}
             </Text>
           </View>
         )}
@@ -202,9 +214,9 @@ export function ItemCard({ item, onPress, onOpenUrl, viewMode = 'list' }: ItemCa
           )}
         </View>
 
-        {item.og_site_name && (
+        {(item.og_site_name || (item as any).author_name) && (
           <Text style={[styles.siteName, { color: theme.textTertiary }]}>
-            {item.og_site_name}
+            {(item as any).author_name ? `${(item as any).author_name}${item.og_site_name ? ` • ${item.og_site_name}` : ''}` : item.og_site_name}
           </Text>
         )}
 
@@ -546,6 +558,19 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#8B5CF6',
     marginLeft: 6,
+  },
+  durationBadge: {
+    position: 'absolute',
+    bottom: -60,
+    right: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  durationText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   urlButton: {
     flexDirection: 'row',
