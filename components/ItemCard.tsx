@@ -195,6 +195,16 @@ export function ItemCard({ item, onPress, onOpenUrl, viewMode = 'list' }: ItemCa
             </Text>
           </View>
         )}
+        {(item as any).media_count > 1 && (
+          <View style={[styles.mediaCountBadge, { backgroundColor: 'rgba(0, 0, 0, 0.75)' }]}>
+            <Text style={styles.mediaCountText}>1/{(item as any).media_count}</Text>
+          </View>
+        )}
+        {(item as any).is_thread && (
+          <View style={[styles.threadBadge, { backgroundColor: theme.primary }]}>
+            <Text style={styles.threadBadgeText}>🧵 Thread</Text>
+          </View>
+        )}
       </View>
 
       <TouchableOpacity style={styles.content} onPress={handleCardPress} activeOpacity={0.9}>
@@ -524,6 +534,48 @@ const styles = StyleSheet.create({
   },
   embedBadgeText: {
     fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  mediaCountBadge: {
+    position: 'absolute',
+    bottom: 12,
+    right: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    ...(Platform.OS === 'web' ? {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.3,
+      shadowRadius: 4,
+    } : {
+      elevation: 4,
+    }),
+  },
+  mediaCountText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  threadBadge: {
+    position: 'absolute',
+    bottom: 12,
+    left: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    ...(Platform.OS === 'web' ? {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+    } : {
+      elevation: 4,
+    }),
+  },
+  threadBadgeText: {
+    fontSize: 11,
     fontWeight: '700',
     color: '#FFFFFF',
   },

@@ -47,6 +47,48 @@ Deno.serve(async (req: Request) => {
     let previewDesc = embedData?.description || metadata?.description || summary;
     let previewImageUrl = embedData?.thumbnail_url || metadata?.image || imagePreview;
 
+    const isTwitter = urlMatch && (urlMatch[0].includes('x.com') || urlMatch[0].includes('twitter.com'));
+    let additionalImages: string[] = [];
+    let mediaCount = 0;
+    let isThread = false;
+    let threadPreview = null;
+    let threadLength = null;
+    let authorName = null;
+    let authorAvatar = null;
+    let platformType = null;
+
+    if (isTwitter && metadata) {
+      additionalImages = metadata.additionalImages || [];
+      const allImages = [previewImageUrl, ...additionalImages].filter(Boolean);
+      mediaCount = allImages.length + (metadata.videoUrl ? 1 : 0);
+
+      if (metadata.authorName) {
+        authorName = metadata.authorName;
+      }
+      if (metadata.authorAvatar) {
+        authorAvatar = metadata.authorAvatar;
+      }
+
+      platformType = 'twitter';
+
+      const threadPatterns = [
+        /\b\d+\/\d+\b/,
+        /thread:/i,
+        /🧵/,
+        /\(thread\)/i,
+      ];
+      const tweetText = previewDesc || summary || '';
+      isThread = threadPatterns.some(pattern => pattern.test(tweetText));
+
+      if (isThread) {
+        threadPreview = tweetText.substring(0, 500);
+        const threadMatch = tweetText.match(/\b(\d+)\/(\d+)\b/);
+        if (threadMatch) {
+          threadLength = parseInt(threadMatch[2], 10);
+        }
+      }
+    }
+
     if (openaiApiKey) {
       const aiResult = await categorizeWithAI(openaiApiKey, content, metadata, userMetadata);
       if (aiResult) {
@@ -72,6 +114,29 @@ Deno.serve(async (req: Request) => {
       preview_image_url: previewImageUrl,
       preview_fetched_at: new Date().toISOString(),
     };
+
+    if (isTwitter) {
+      if (additionalImages.length > 0) {
+        updateData.additional_images = additionalImages;
+      }
+      if (mediaCount > 0) {
+        updateData.media_count = mediaCount;
+      }
+      if (isThread) {
+        updateData.is_thread = isThread;
+        updateData.thread_preview = threadPreview;
+        updateData.thread_length = threadLength;
+      }
+      if (authorName) {
+        updateData.author_name = authorName;
+      }
+      if (authorAvatar) {
+        updateData.author_avatar = authorAvatar;
+      }
+      if (platformType) {
+        updateData.platform_type = platformType;
+      }
+    }
 
     if (metadata?.videoUrl) {
       updateData.video_url = metadata.videoUrl;
@@ -151,8 +216,9 @@ Deno.serve(async (req: Request) => {
 async function fetchLinkMetadata(url: string) {
   try {
     let finalUrl = url;
+    const isTwitter = url.includes('x.com') || url.includes('twitter.com');
 
-    if (url.includes('x.com') || url.includes('twitter.com')) {
+    if (isTwitter) {
       finalUrl = url.replace('x.com', 'fxtwitter.com').replace('twitter.com', 'fxtwitter.com');
     }
 
@@ -167,12 +233,39 @@ async function fetchLinkMetadata(url: string) {
     const html = await response.text();
     const ogData: any = {};
     let videoUrl = null;
+    let additionalImages: string[] = [];
+    let authorName = null;
+    let authorAvatar = null;
 
     const ogTagRegex = /<meta\s+property=["']og:([^"']+)["']\s+content=["']([^"']+)["']/gi;
     let match;
     while ((match = ogTagRegex.exec(html)) !== null) {
       const [, property, content] = match;
       ogData[`og_${property.replace(':', '_')}`] = content;
+    }
+
+    if (isTwitter) {
+      const twitterImageRegex = /<meta\s+(?:property|name)=["']twitter:image:?(\d*)["']\s+content=["']([^"']+)["']/gi;
+      const imageUrls: string[] = [];
+      while ((match = twitterImageRegex.exec(html)) !== null) {
+        const imageUrl = match[2];
+        if (imageUrl && !imageUrls.includes(imageUrl)) {
+          imageUrls.push(imageUrl);
+        }
+      }
+      if (imageUrls.length > 1) {
+        additionalImages = imageUrls.slice(1);
+      }
+
+      const authorMatch = html.match(/<meta\s+(?:property|name)=["'](?:twitter:creator|og:site_name)["']\s+content=["']([^"']+)["']/i);
+      if (authorMatch) {
+        authorName = authorMatch[1].replace('@', '').trim();
+      }
+
+      const avatarMatch = html.match(/<meta\s+property=["']twitter:creator:image["']\s+content=["']([^"']+)["']/i);
+      if (avatarMatch) {
+        authorAvatar = avatarMatch[1];
+      }
     }
 
     const videoMatch = html.match(/<meta\s+property=["']og:video["']\s+content=["']([^"']+)["']/i);
@@ -196,12 +289,23 @@ async function fetchLinkMetadata(url: string) {
     const descMatch = html.match(/<meta\s+name=["']description["']\s+content=["']([^"']+)["']/i);
     const imageMatch = html.match(/<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/i);
 
+    let description = ogData.og_description || (descMatch && descMatch[1]) || '';
+    description = description
+      .replace(/&amp;/g, '&')
+      .replace(/&quot;/g, '"')
+      .replace(/&apos;/g, "'")
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>');
+
     return {
       title: ogData.og_title || (titleMatch && titleMatch[1]) || '',
-      description: ogData.og_description || (descMatch && descMatch[1]) || '',
+      description,
       image: ogData.og_image || (imageMatch && imageMatch[1]) || null,
       videoUrl: videoUrl || ogData.og_video || ogData.og_video_secure_url || null,
       ogData,
+      additionalImages,
+      authorName,
+      authorAvatar,
     };
   } catch (error) {
     console.error('Error fetching metadata:', error);
@@ -227,6 +331,24 @@ async function fetchEmbedData(url: string) {
     if (url.includes('x.com') || url.includes('twitter.com')) {
       const tweetId = url.match(/status\/(\d+)/)?.[1];
       if (tweetId) {
+        try {
+          const oembedUrl = `https://publish.twitter.com/oembed?url=${encodeURIComponent(url)}`;
+          const response = await fetch(oembedUrl);
+          if (response.ok) {
+            const data = await response.json();
+            const htmlText = data.html?.replace(/<[^>]*>/g, '').substring(0, 280) || '';
+            return {
+              type: 'twitter',
+              html: data.html || '',
+              title: data.author_name ? `${data.author_name} on X` : 'Post on X',
+              description: htmlText,
+              thumbnail_url: null,
+            };
+          }
+        } catch (e) {
+          console.error('Twitter oEmbed failed:', e);
+        }
+
         return {
           type: 'twitter',
           html: '',

@@ -165,6 +165,73 @@ async function fetchYouTubeData(url: string): Promise<Metadata | null> {
 
 async function fetchTwitterEmbed(url: string): Promise<Metadata | null> {
   try {
+    const fxUrl = url.replace('twitter.com', 'fxtwitter.com').replace('x.com', 'fxtwitter.com');
+
+    const response = await fetch(fxUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; MeMarkBot/1.0)',
+      },
+    });
+
+    if (!response.ok) {
+      return await fetchTwitterOembed(url);
+    }
+
+    const html = await response.text();
+    const metadata = extractMetadata(html, url);
+
+    const imageUrls: string[] = [];
+    const twitterImageRegex = /<meta\s+(?:property|name)=["']twitter:image:?(\d*)["']\s+content=["']([^"']+)["']/gi;
+    let match;
+    while ((match = twitterImageRegex.exec(html)) !== null) {
+      const imageUrl = match[2];
+      if (imageUrl && !imageUrls.includes(imageUrl)) {
+        imageUrls.push(imageUrl);
+      }
+    }
+
+    if (imageUrls.length > 0 && !metadata.og_image) {
+      metadata.og_image = imageUrls[0];
+    }
+
+    const videoMatch = html.match(/<meta\s+property=["']og:video(?::secure_url)?["']\s+content=["']([^"']+)["']/i);
+    const videoUrl = videoMatch ? videoMatch[1] : '';
+
+    let tweetText = metadata.og_description || '';
+    tweetText = tweetText
+      .replace(/&amp;/g, '&')
+      .replace(/&quot;/g, '"')
+      .replace(/&apos;/g, "'")
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>');
+
+    const authorMatch = html.match(/<meta\s+(?:property|name)=["'](?:twitter:creator|og:site_name)["']\s+content=["']([^"']+)["']/i);
+    const authorName = authorMatch ? authorMatch[1].replace('@', '').trim() : '';
+
+    const avatarMatch = html.match(/<meta\s+property=["']twitter:creator:image["']\s+content=["']([^"']+)["']/i);
+    const authorAvatar = avatarMatch ? avatarMatch[1] : '';
+
+    return {
+      og_title: metadata.og_title || (authorName ? `${authorName} on X` : 'Post on X'),
+      og_description: tweetText,
+      og_image: metadata.og_image || '',
+      og_site_name: 'X (formerly Twitter)',
+      og_url: url,
+      og_type: videoUrl ? 'video' : 'article',
+      og_author: authorName,
+      author_name: authorName,
+      author_avatar: authorAvatar,
+      platform_type: 'twitter',
+      embed_html: '',
+    };
+  } catch (error) {
+    console.error('Twitter fxtwitter error:', error);
+    return await fetchTwitterOembed(url);
+  }
+}
+
+async function fetchTwitterOembed(url: string): Promise<Metadata | null> {
+  try {
     const twitterOembedUrl = `https://publish.twitter.com/oembed?url=${encodeURIComponent(url)}`;
     const response = await fetch(twitterOembedUrl);
 
@@ -172,12 +239,12 @@ async function fetchTwitterEmbed(url: string): Promise<Metadata | null> {
 
     const data = await response.json();
 
-    const htmlText = data.html?.replace(/<[^>]*>/g, '').substring(0, 200) || '';
+    const htmlText = data.html?.replace(/<[^>]*>/g, '').substring(0, 280) || '';
 
     return {
       og_title: data.author_name ? `${data.author_name} on X` : 'Post on X',
       og_description: htmlText,
-      og_image: data.thumbnail_url || '',
+      og_image: '',
       og_site_name: 'X (formerly Twitter)',
       og_url: url,
       og_type: 'article',
@@ -188,7 +255,7 @@ async function fetchTwitterEmbed(url: string): Promise<Metadata | null> {
       embed_html: data.html || '',
     };
   } catch (error) {
-    console.error('Twitter embed error:', error);
+    console.error('Twitter oEmbed fallback error:', error);
     return null;
   }
 }
