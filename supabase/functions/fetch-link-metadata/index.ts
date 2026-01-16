@@ -17,6 +17,7 @@ interface Metadata {
   author_avatar?: string;
   platform_type?: string;
   embed_html?: string;
+  embed_metadata?: any;
   content_duration?: string;
   published_date?: string;
 }
@@ -36,6 +37,12 @@ function detectPlatform(url: string): string | null {
   if (urlLower.includes('tiktok.com')) {
     return 'tiktok';
   }
+  if (urlLower.includes('facebook.com') || urlLower.includes('fb.com')) {
+    return 'facebook';
+  }
+  if (urlLower.includes('vimeo.com')) {
+    return 'vimeo';
+  }
   if (urlLower.includes('reddit.com')) {
     return 'reddit';
   }
@@ -47,9 +54,6 @@ function detectPlatform(url: string): string | null {
   }
   if (urlLower.includes('github.com')) {
     return 'github';
-  }
-  if (urlLower.includes('vimeo.com')) {
-    return 'vimeo';
   }
 
   return null;
@@ -155,7 +159,20 @@ async function fetchYouTubeData(url: string): Promise<Metadata | null> {
       author_name: data.author_name || '',
       author_avatar: '',
       platform_type: 'youtube',
-      embed_html: data.html || '',
+      embed_html: `<iframe width="${data.width || 560}" height="${data.height || 315}" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`,
+      embed_metadata: {
+        video_id: videoId,
+        title: data.title,
+        author_name: data.author_name,
+        author_url: data.author_url,
+        thumbnail_url: data.thumbnail_url,
+        width: data.width,
+        height: data.height,
+        type: data.type,
+        provider_name: data.provider_name,
+        provider_url: data.provider_url,
+        version: data.version,
+      },
     };
   } catch (error) {
     console.error('YouTube embed error:', error);
@@ -165,68 +182,49 @@ async function fetchYouTubeData(url: string): Promise<Metadata | null> {
 
 async function fetchTwitterEmbed(url: string): Promise<Metadata | null> {
   try {
-    const fxUrl = url.replace('twitter.com', 'fxtwitter.com').replace('x.com', 'fxtwitter.com');
+    const oembedData = await fetchTwitterOembed(url);
+    if (oembedData && oembedData.embed_html) {
+      const fxUrl = url.replace('twitter.com', 'fxtwitter.com').replace('x.com', 'fxtwitter.com');
 
-    const response = await fetch(fxUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; MeMarkBot/1.0)',
-      },
-    });
+      try {
+        const fxResponse = await fetch(fxUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (compatible; MeMarkBot/1.0)',
+          },
+        });
 
-    if (!response.ok) {
-      return await fetchTwitterOembed(url);
-    }
+        if (fxResponse.ok) {
+          const html = await fxResponse.text();
+          const imageUrls: string[] = [];
+          const twitterImageRegex = /<meta\s+(?:property|name)=["']twitter:image:?(\d*)["']\s+content=["']([^"']+)["']/gi;
+          let match;
+          while ((match = twitterImageRegex.exec(html)) !== null) {
+            const imageUrl = match[2];
+            if (imageUrl && !imageUrls.includes(imageUrl)) {
+              imageUrls.push(imageUrl);
+            }
+          }
 
-    const html = await response.text();
-    const metadata = extractMetadata(html, url);
+          if (imageUrls.length > 0) {
+            oembedData.og_image = imageUrls[0];
+          }
 
-    const imageUrls: string[] = [];
-    const twitterImageRegex = /<meta\s+(?:property|name)=["']twitter:image:?(\d*)["']\s+content=["']([^"']+)["']/gi;
-    let match;
-    while ((match = twitterImageRegex.exec(html)) !== null) {
-      const imageUrl = match[2];
-      if (imageUrl && !imageUrls.includes(imageUrl)) {
-        imageUrls.push(imageUrl);
+          const videoMatch = html.match(/<meta\s+property=["']og:video(?::secure_url)?["']\s+content=["']([^"']+)["']/i);
+          if (videoMatch) {
+            oembedData.og_type = 'video';
+          }
+        }
+      } catch (fxError) {
+        console.log('fxtwitter enrichment failed, using oEmbed data only:', fxError);
       }
+
+      return oembedData;
     }
 
-    if (imageUrls.length > 0 && !metadata.og_image) {
-      metadata.og_image = imageUrls[0];
-    }
-
-    const videoMatch = html.match(/<meta\s+property=["']og:video(?::secure_url)?["']\s+content=["']([^"']+)["']/i);
-    const videoUrl = videoMatch ? videoMatch[1] : '';
-
-    let tweetText = metadata.og_description || '';
-    tweetText = tweetText
-      .replace(/&amp;/g, '&')
-      .replace(/&quot;/g, '"')
-      .replace(/&apos;/g, "'")
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>');
-
-    const authorMatch = html.match(/<meta\s+(?:property|name)=["'](?:twitter:creator|og:site_name)["']\s+content=["']([^"']+)["']/i);
-    const authorName = authorMatch ? authorMatch[1].replace('@', '').trim() : '';
-
-    const avatarMatch = html.match(/<meta\s+property=["']twitter:creator:image["']\s+content=["']([^"']+)["']/i);
-    const authorAvatar = avatarMatch ? avatarMatch[1] : '';
-
-    return {
-      og_title: metadata.og_title || (authorName ? `${authorName} on X` : 'Post on X'),
-      og_description: tweetText,
-      og_image: metadata.og_image || '',
-      og_site_name: 'X (formerly Twitter)',
-      og_url: url,
-      og_type: videoUrl ? 'video' : 'article',
-      og_author: authorName,
-      author_name: authorName,
-      author_avatar: authorAvatar,
-      platform_type: 'twitter',
-      embed_html: '',
-    };
-  } catch (error) {
-    console.error('Twitter fxtwitter error:', error);
     return await fetchTwitterOembed(url);
+  } catch (error) {
+    console.error('Twitter embed error:', error);
+    return null;
   }
 }
 
@@ -253,6 +251,19 @@ async function fetchTwitterOembed(url: string): Promise<Metadata | null> {
       author_avatar: '',
       platform_type: 'twitter',
       embed_html: data.html || '',
+      embed_metadata: {
+        url: data.url,
+        author_name: data.author_name,
+        author_url: data.author_url,
+        html: data.html,
+        width: data.width,
+        height: data.height,
+        type: data.type,
+        cache_age: data.cache_age,
+        provider_name: data.provider_name,
+        provider_url: data.provider_url,
+        version: data.version,
+      },
     };
   } catch (error) {
     console.error('Twitter oEmbed fallback error:', error);
@@ -262,7 +273,7 @@ async function fetchTwitterOembed(url: string): Promise<Metadata | null> {
 
 async function fetchInstagramData(url: string): Promise<Metadata | null> {
   try {
-    const oembedUrl = `https://graph.facebook.com/v12.0/instagram_oembed?url=${encodeURIComponent(url)}&access_token=INSTAGRAM_ACCESS_TOKEN`;
+    const oembedUrl = `https://graph.facebook.com/v18.0/instagram_oembed?url=${encodeURIComponent(url)}&omitscript=true`;
 
     const response = await fetch(oembedUrl);
     if (!response.ok) return null;
@@ -280,6 +291,17 @@ async function fetchInstagramData(url: string): Promise<Metadata | null> {
       author_avatar: '',
       platform_type: 'instagram',
       embed_html: data.html || '',
+      embed_metadata: {
+        author_name: data.author_name,
+        author_url: data.author_url,
+        thumbnail_url: data.thumbnail_url,
+        width: data.width,
+        height: data.height,
+        type: data.type,
+        provider_name: data.provider_name,
+        provider_url: data.provider_url,
+        version: data.version,
+      },
     };
   } catch (error) {
     console.error('Instagram embed error:', error);
@@ -307,6 +329,20 @@ async function fetchTikTokData(url: string): Promise<Metadata | null> {
       author_avatar: '',
       platform_type: 'tiktok',
       embed_html: data.html || '',
+      embed_metadata: {
+        title: data.title,
+        author_name: data.author_name,
+        author_url: data.author_url,
+        thumbnail_url: data.thumbnail_url,
+        thumbnail_width: data.thumbnail_width,
+        thumbnail_height: data.thumbnail_height,
+        width: data.width,
+        height: data.height,
+        type: data.type,
+        provider_name: data.provider_name,
+        provider_url: data.provider_url,
+        version: data.version,
+      },
     };
   } catch (error) {
     console.error('TikTok embed error:', error);
@@ -343,9 +379,63 @@ async function fetchVimeoData(url: string): Promise<Metadata | null> {
       platform_type: 'vimeo',
       embed_html: data.html || '',
       content_duration: durationString,
+      embed_metadata: {
+        video_id: data.video_id,
+        title: data.title,
+        description: data.description,
+        author_name: data.author_name,
+        author_url: data.author_url,
+        thumbnail_url: data.thumbnail_url,
+        thumbnail_width: data.thumbnail_width,
+        thumbnail_height: data.thumbnail_height,
+        duration: data.duration,
+        width: data.width,
+        height: data.height,
+        type: data.type,
+        provider_name: data.provider_name,
+        provider_url: data.provider_url,
+        version: data.version,
+      },
     };
   } catch (error) {
     console.error('Vimeo embed error:', error);
+    return null;
+  }
+}
+
+async function fetchFacebookData(url: string): Promise<Metadata | null> {
+  try {
+    const oembedUrl = `https://www.facebook.com/plugins/post/oembed.json/?url=${encodeURIComponent(url)}`;
+
+    const response = await fetch(oembedUrl);
+    if (!response.ok) return null;
+
+    const data = await response.json();
+
+    return {
+      og_title: 'Facebook Post',
+      og_description: '',
+      og_image: '',
+      og_site_name: 'Facebook',
+      og_url: url,
+      og_type: 'article',
+      author_name: data.author_name || '',
+      author_avatar: '',
+      platform_type: 'facebook',
+      embed_html: data.html || '',
+      embed_metadata: {
+        author_name: data.author_name,
+        author_url: data.author_url,
+        width: data.width,
+        height: data.height,
+        type: data.type,
+        provider_name: data.provider_name,
+        provider_url: data.provider_url,
+        version: data.version,
+      },
+    };
+  } catch (error) {
+    console.error('Facebook embed error:', error);
     return null;
   }
 }
@@ -426,6 +516,18 @@ Deno.serve(async (req: Request) => {
       if (vimeoData) {
         return new Response(
           JSON.stringify({ success: true, metadata: vimeoData }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
+    }
+
+    if (platform === 'facebook') {
+      const facebookData = await fetchFacebookData(url);
+      if (facebookData) {
+        return new Response(
+          JSON.stringify({ success: true, metadata: facebookData }),
           {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           }

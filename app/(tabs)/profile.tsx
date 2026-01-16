@@ -25,6 +25,7 @@ export default function ProfileScreen() {
   const [publicItemsCount, setPublicItemsCount] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshingTwitter, setRefreshingTwitter] = useState(false);
+  const [refreshingAllEmbeds, setRefreshingAllEmbeds] = useState(false);
   const [upgradeModalVisible, setUpgradeModalVisible] = useState(false);
   const [notificationPrefs, setNotificationPrefs] = useState<any>(null);
 
@@ -331,6 +332,68 @@ export default function ProfileScreen() {
               Alert.alert('Refresh Error', error.message || 'Failed to refresh data');
             } finally {
               setRefreshing(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleRefreshAllEmbeds = async () => {
+    if (!user) {
+      Alert.alert('Error', 'Please log in first');
+      return;
+    }
+
+    Alert.alert(
+      'Refresh All Social Embeds',
+      'This will re-fetch native embeds for Twitter, Instagram, YouTube, TikTok, Vimeo, and Facebook posts. This may take a few moments.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Refresh All',
+          onPress: async () => {
+            setRefreshingAllEmbeds(true);
+            try {
+              const { data: { session } } = await supabase.auth.getSession();
+
+              if (!session) {
+                Alert.alert('Error', 'Not authenticated');
+                return;
+              }
+
+              const response = await fetch(`${supabaseUrl}/functions/v1/batch-refresh-previews`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${session.access_token}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  userId: user.id,
+                  limit: 100,
+                  platforms: ['twitter', 'instagram', 'youtube', 'tiktok', 'vimeo', 'facebook'],
+                }),
+              });
+
+              if (!response.ok) {
+                throw new Error(`HTTP error: ${response.status}`);
+              }
+
+              const data = await response.json();
+
+              if (data.success) {
+                Alert.alert(
+                  'Refresh Complete',
+                  `Processed ${data.processed || 0} items\nUpdated ${data.updated || 0} with native embeds\n\nPlatforms: Twitter, Instagram, YouTube, TikTok, Vimeo, Facebook`
+                );
+              } else {
+                Alert.alert('Refresh Failed', data.error || 'Unknown error occurred');
+              }
+            } catch (error: any) {
+              console.error('Embed refresh error:', error);
+              Alert.alert('Refresh Error', error.message || 'Failed to refresh embeds');
+            } finally {
+              setRefreshingAllEmbeds(false);
             }
           },
         },
@@ -851,6 +914,26 @@ export default function ProfileScreen() {
 
           <TouchableOpacity
             style={styles.settingsRow}
+            onPress={handleRefreshAllEmbeds}
+            disabled={refreshingAllEmbeds}
+          >
+            <View style={[styles.infoIcon, { backgroundColor: theme.primary + '20' }]}>
+              {refreshingAllEmbeds ? (
+                <LoadingLogo size={12} />
+              ) : (
+                <RefreshCw size={18} color={theme.primary} />
+              )}
+            </View>
+            <View style={styles.infoContent}>
+              <Text style={[styles.settingsText, { color: theme.text }]}>Refresh All Social Embeds</Text>
+              <Text style={[styles.settingsSubtext, { color: theme.textSecondary }]}>
+                Update native embeds for Twitter, Instagram, YouTube, TikTok, Facebook, Vimeo
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.settingsRow}
             onPress={handleRefreshTwitterPreviews}
             disabled={refreshingTwitter}
           >
@@ -864,7 +947,7 @@ export default function ProfileScreen() {
             <View style={styles.infoContent}>
               <Text style={[styles.settingsText, { color: theme.text }]}>Refresh X/Twitter Previews</Text>
               <Text style={[styles.settingsSubtext, { color: theme.textSecondary }]}>
-                Update images & content for X posts
+                Update images & content for X posts (legacy)
               </Text>
             </View>
           </TouchableOpacity>

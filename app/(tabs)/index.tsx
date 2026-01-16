@@ -7,6 +7,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase, Item } from '@/lib/supabase';
 import { ItemCard } from '@/components/ItemCard';
+import { SocialEmbedCard } from '@/components/SocialEmbedCard';
 import { LinkPreviewModal } from '@/components/LinkPreviewModal';
 import { LogoHeader } from '@/components/LogoHeader';
 import { ItemCardSkeleton } from '@/components/SkeletonLoader';
@@ -135,6 +136,32 @@ export default function Home() {
 
   const handleItemUpdate = (updatedItem: Item) => {
     setItems(prev => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
+  };
+
+  const renderItemCard = (item: Item, onPress: () => void, onOpenUrl: (url: string) => void, viewMode: 'grid' | 'list') => {
+    const platformType = (item as any).platform_type;
+    const embedHtml = (item as any).embed_html;
+    const shouldUseSocialEmbed = platformType && embedHtml && ['youtube', 'twitter', 'instagram', 'tiktok', 'vimeo', 'facebook'].includes(platformType);
+
+    if (shouldUseSocialEmbed) {
+      return (
+        <SocialEmbedCard
+          item={item}
+          onPress={onPress}
+          onOpenUrl={onOpenUrl}
+          viewMode={viewMode}
+        />
+      );
+    }
+
+    return (
+      <ItemCard
+        item={item}
+        onPress={onPress}
+        onOpenUrl={onOpenUrl}
+        viewMode={viewMode}
+      />
+    );
   };
 
   useEffect(() => {
@@ -278,7 +305,7 @@ export default function Home() {
             <Text style={[styles.sectionTitle, { color: theme.text }]}>Today's Items</Text>
             {todayItems.map((item, index) => (
               <Animated.View key={item.id} entering={FadeInDown.delay(index * 100).duration(400)}>
-                <ItemCard item={item} onPress={() => handleItemPress(item)} onOpenUrl={handleOpenUrl} viewMode={viewMode} />
+                {renderItemCard(item, () => handleItemPress(item), handleOpenUrl, viewMode)}
               </Animated.View>
             ))}
           </Animated.View>
@@ -289,7 +316,7 @@ export default function Home() {
             <Text style={[styles.sectionTitle, { color: theme.text }]}>Videos to Watch</Text>
             {videoItems.slice(0, 3).map((item, index) => (
               <Animated.View key={item.id} entering={FadeInDown.delay(200 + index * 100).duration(400)}>
-                <ItemCard item={item} onPress={() => handleItemPress(item)} onOpenUrl={handleOpenUrl} viewMode={viewMode} />
+                {renderItemCard(item, () => handleItemPress(item), handleOpenUrl, viewMode)}
               </Animated.View>
             ))}
           </Animated.View>
@@ -300,7 +327,7 @@ export default function Home() {
             <Text style={[styles.sectionTitle, { color: theme.text }]}>Articles to Read</Text>
             {articleItems.slice(0, 3).map((item, index) => (
               <Animated.View key={item.id} entering={FadeInDown.delay(400 + index * 100).duration(400)}>
-                <ItemCard item={item} onPress={() => handleItemPress(item)} onOpenUrl={handleOpenUrl} viewMode={viewMode} />
+                {renderItemCard(item, () => handleItemPress(item), handleOpenUrl, viewMode)}
               </Animated.View>
             ))}
           </Animated.View>

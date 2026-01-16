@@ -30,9 +30,31 @@ Deno.serve(async (req: Request) => {
     if (urlMatch) {
       const url = urlMatch[0];
 
-      embedData = await fetchEmbedData(url);
-      metadata = await fetchLinkMetadata(url);
-      ogMetadata = metadata?.ogData || null;
+      const metadataResult = await fetchLinkMetadataFromEdgeFunction(supabaseUrl, supabaseServiceKey, url);
+      if (metadataResult) {
+        metadata = metadataResult;
+        ogMetadata = {
+          og_title: metadataResult.og_title,
+          og_description: metadataResult.og_description,
+          og_image: metadataResult.og_image,
+          og_site_name: metadataResult.og_site_name,
+          og_url: metadataResult.og_url,
+          og_type: metadataResult.og_type,
+          og_author: metadataResult.og_author,
+          og_published_time: metadataResult.og_published_time,
+        };
+
+        if (metadataResult.embed_html) {
+          embedData = {
+            type: metadataResult.platform_type,
+            html: metadataResult.embed_html,
+            title: metadataResult.og_title,
+            description: metadataResult.og_description,
+            thumbnail_url: metadataResult.og_image,
+            metadata: metadataResult.embed_metadata,
+          };
+        }
+      }
     }
 
     let type = 'text';
@@ -146,6 +168,12 @@ Deno.serve(async (req: Request) => {
     if (embedData) {
       updateData.embed_type = embedData.type;
       updateData.embed_html = embedData.html;
+      updateData.embed_metadata = embedData.metadata;
+      updateData.embed_fetched_at = new Date().toISOString();
+    }
+
+    if (metadata?.platform_type) {
+      updateData.platform_type = metadata.platform_type;
     }
 
     if (ogMetadata) {
@@ -157,6 +185,13 @@ Deno.serve(async (req: Request) => {
       updateData.og_type = ogMetadata.og_type;
       updateData.og_author = ogMetadata.og_author;
       updateData.og_published_time = ogMetadata.og_published_time;
+    }
+
+    if (metadata?.author_name) {
+      updateData.author_name = metadata.author_name;
+    }
+    if (metadata?.author_avatar) {
+      updateData.author_avatar = metadata.author_avatar;
     }
 
     const { data: item } = await supabase

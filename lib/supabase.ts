@@ -67,6 +67,10 @@ export interface Item {
   preview_fetched_at?: string;
   embed_type?: string;
   embed_html?: string;
+  embed_metadata?: any;
+  embed_fetched_at?: string;
+  embed_error?: string;
+  platform_type?: string;
   video_url?: string;
   og_title?: string;
   og_description?: string;
@@ -76,6 +80,8 @@ export interface Item {
   og_type?: string;
   og_author?: string;
   og_published_time?: string;
+  author_name?: string;
+  author_avatar?: string;
 }
 
 export interface Profile {
