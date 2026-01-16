@@ -17,6 +17,7 @@ export function ItemCard({ item, onPress, onOpenUrl, viewMode = 'list' }: ItemCa
   const { theme } = useTheme();
   const router = useRouter();
   const [expanded, setExpanded] = useState(true);
+  const [imageError, setImageError] = useState(false);
 
   const getIcon = () => {
     switch (item.type) {
@@ -149,11 +150,12 @@ export function ItemCard({ item, onPress, onOpenUrl, viewMode = 'list' }: ItemCa
       style={[styles.card, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
     >
       <View style={styles.imageContainer}>
-        {(item.og_image || item.preview_image_url || item.image_preview) ? (
+        {(item.og_image || item.preview_image_url || item.image_preview) && !imageError ? (
           <Image
             source={{ uri: item.og_image || item.preview_image_url || item.image_preview }}
             style={styles.image}
             resizeMode="cover"
+            onError={() => setImageError(true)}
           />
         ) : (
           <View style={[styles.logoFallback, { backgroundColor: theme.primary + '10' }]}>

@@ -307,6 +307,7 @@ export default function ProfileScreen() {
                   'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
+                  limit: 100,
                   onlyStale: true,
                 }),
               });
@@ -369,7 +370,6 @@ export default function ProfileScreen() {
                   'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                  userId: user.id,
                   limit: 100,
                   platforms: ['twitter', 'instagram', 'youtube', 'tiktok', 'vimeo', 'facebook'],
                 }),

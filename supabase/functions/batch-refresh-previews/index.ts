@@ -33,47 +33,44 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const { userId, limit = 50, platforms = ['twitter', 'instagram', 'youtube', 'tiktok', 'vimeo', 'facebook'] } = await req.json();
+    const body = await req.json();
+    const { limit = 50, platforms, onlyStale = false } = body;
 
-    if (userId && userId !== user.id) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized to refresh other users items' }),
-        {
-          status: 403,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
-    }
-
-    const platformPatterns = {
-      twitter: "raw_content ILIKE '%twitter.com%' OR raw_content ILIKE '%x.com%'",
-      instagram: "raw_content ILIKE '%instagram.com%'",
-      youtube: "raw_content ILIKE '%youtube.com%' OR raw_content ILIKE '%youtu.be%'",
-      tiktok: "raw_content ILIKE '%tiktok.com%'",
-      vimeo: "raw_content ILIKE '%vimeo.com%'",
-      facebook: "raw_content ILIKE '%facebook.com%'"
-    };
-
-    const platformConditions = platforms
-      .filter(p => platformPatterns[p])
-      .map(p => `(${platformPatterns[p]})`)
-      .join(' OR ');
-
-    if (!platformConditions) {
-      return new Response(
-        JSON.stringify({ error: 'No valid platforms specified' }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
-    }
-
-    const { data: items, error: itemsError } = await supabase
+    let query = supabase
       .from('items')
-      .select('id, raw_content, user_id')
+      .select('id, raw_content, user_id, og_image, og_title, og_description, preview_fetched_at')
       .eq('user_id', user.id)
-      .or(platformConditions)
+      .not('raw_content', 'is', null);
+
+    if (platforms && platforms.length > 0) {
+      const platformPatterns = {
+        twitter: "raw_content ILIKE '%twitter.com%' OR raw_content ILIKE '%x.com%'",
+        instagram: "raw_content ILIKE '%instagram.com%'",
+        youtube: "raw_content ILIKE '%youtube.com%' OR raw_content ILIKE '%youtu.be%'",
+        tiktok: "raw_content ILIKE '%tiktok.com%'",
+        vimeo: "raw_content ILIKE '%vimeo.com%'",
+        facebook: "raw_content ILIKE '%facebook.com%'"
+      };
+
+      const platformConditions = platforms
+        .filter(p => platformPatterns[p])
+        .map(p => `(${platformPatterns[p]})`)
+        .join(' OR ');
+
+      if (platformConditions) {
+        query = query.or(platformConditions);
+      }
+    } else {
+      query = query.like('raw_content', '%http%');
+    }
+
+    if (onlyStale) {
+      const staleDate = new Date();
+      staleDate.setDate(staleDate.getDate() - 7);
+      query = query.or(`preview_fetched_at.is.null,preview_fetched_at.lt.${staleDate.toISOString()}`);
+    }
+
+    const { data: items, error: itemsError } = await query
       .order('created_at', { ascending: false })
       .limit(limit);
 
@@ -160,9 +157,11 @@ Deno.serve(async (req: Request) => {
           });
         }
       } catch (error) {
+        console.error(`Failed to process item ${item.id}:`, error);
         results.failed++;
         results.errors.push({
           itemId: item.id,
+          url: item.raw_content?.substring(0, 100),
           error: error.message,
         });
       }
@@ -171,6 +170,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const message = `Refresh complete: ${results.updated} embeds updated, ${results.failed} failed out of ${results.processed} items processed`;
+    console.log('Batch refresh complete:', { processed: results.processed, updated: results.updated, failed: results.failed });
 
     return new Response(
       JSON.stringify({
@@ -179,7 +179,7 @@ Deno.serve(async (req: Request) => {
         updated: results.updated,
         failed: results.failed,
         message,
-        errors: results.errors.length > 0 ? results.errors.slice(0, 5) : undefined,
+        errors: results.errors.length > 0 ? results.errors.slice(0, 10) : undefined,
       }),
       {
         status: 200,
@@ -193,6 +193,7 @@ Deno.serve(async (req: Request) => {
         success: false,
         error: 'Internal server error',
         message: error.message,
+        details: error.stack?.substring(0, 200),
       }),
       {
         status: 500,
