@@ -210,6 +210,84 @@ Deno.serve(async (req: Request) => {
         errorCount = itemsToInsert.length;
       } else {
         importedCount = data?.length || 0;
+
+        console.log(`Processing ${importedCount} newly imported items for metadata and categorization...`);
+
+        const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+        const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+        for (const item of data || []) {
+          try {
+            const urlMatch = item.raw_content?.match(/(https?:\/\/[^\s]+)/);
+            const hasUrl = urlMatch && urlMatch[0];
+
+            if (hasUrl) {
+              const metadataResponse = await fetch(
+                `${supabaseUrl}/functions/v1/fetch-link-metadata`,
+                {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${supabaseServiceKey}`,
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({ url: hasUrl }),
+                }
+              );
+
+              if (metadataResponse.ok) {
+                const metadataResult = await metadataResponse.json();
+                if (metadataResult.success && metadataResult.metadata) {
+                  const metadata = metadataResult.metadata;
+                  const updateData: any = {
+                    preview_fetched_at: new Date().toISOString(),
+                  };
+
+                  if (metadata.og_title) updateData.og_title = metadata.og_title;
+                  if (metadata.og_description) updateData.og_description = metadata.og_description;
+                  if (metadata.og_image) updateData.og_image = metadata.og_image;
+                  if (metadata.og_site_name) updateData.og_site_name = metadata.og_site_name;
+                  if (metadata.og_url) updateData.og_url = metadata.og_url;
+                  if (metadata.og_type) updateData.og_type = metadata.og_type;
+                  if (metadata.og_author) updateData.og_author = metadata.og_author;
+                  if (metadata.author_name) updateData.author_name = metadata.author_name;
+                  if (metadata.author_avatar) updateData.author_avatar = metadata.author_avatar;
+                  if (metadata.platform_type) updateData.platform_type = metadata.platform_type;
+                  if (metadata.embed_html) updateData.embed_html = metadata.embed_html;
+                  if (metadata.embed_metadata) updateData.embed_metadata = metadata.embed_metadata;
+                  if (metadata.content_duration) updateData.content_duration = metadata.content_duration;
+                  if (metadata.published_date) updateData.published_date = metadata.published_date;
+
+                  await supabase
+                    .from('items')
+                    .update(updateData)
+                    .eq('id', item.id);
+                }
+              }
+            }
+
+            await fetch(
+              `${supabaseUrl}/functions/v1/categorize-item`,
+              {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${supabaseServiceKey}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  itemId: item.id,
+                  content: item.raw_content,
+                  userId: user.id,
+                }),
+              }
+            );
+
+            await new Promise(resolve => setTimeout(resolve, 200));
+          } catch (itemError) {
+            console.error(`Failed to process item ${item.id}:`, itemError);
+          }
+        }
+
+        console.log('Finished processing imported items');
       }
     }
 
