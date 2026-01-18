@@ -319,8 +319,8 @@ export default function ProfileScreen() {
               const data = await response.json();
 
               if (data.success) {
-                const { total, refreshed, failed } = data.results;
-                let message = `Total items: ${total}\nRefreshed: ${refreshed}`;
+                const { processed, updated, failed } = data;
+                let message = `Processed: ${processed}\nUpdated: ${updated}`;
                 if (failed > 0) {
                   message += `\nFailed: ${failed}`;
                 }
@@ -424,15 +424,15 @@ export default function ProfileScreen() {
                 return;
               }
 
-              const response = await fetch(`${supabaseUrl}/functions/v1/refresh-twitter-previews`, {
+              const response = await fetch(`${supabaseUrl}/functions/v1/batch-refresh-previews`, {
                 method: 'POST',
                 headers: {
                   'Authorization': `Bearer ${session.access_token}`,
                   'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                  userId: user.id,
                   limit: 100,
+                  platforms: ['twitter'],
                 }),
               });
 
@@ -445,7 +445,7 @@ export default function ProfileScreen() {
               if (data.success) {
                 Alert.alert(
                   'Refresh Complete',
-                  `Processed: ${data.processed}\nUpdated with images: ${data.updated}\n\n${data.message}`
+                  `Processed: ${data.processed || 0}\nUpdated with images: ${data.updated || 0}${data.failed > 0 ? `\nFailed: ${data.failed}` : ''}`
                 );
               } else {
                 Alert.alert('Refresh Failed', data.error || 'Unknown error occurred');
