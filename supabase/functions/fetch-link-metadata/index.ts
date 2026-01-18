@@ -183,26 +183,69 @@ async function fetchYouTubeData(url: string): Promise<Metadata | null> {
 async function fetchTwitterEmbed(url: string): Promise<Metadata | null> {
   try {
     const oembedData = await fetchTwitterOembed(url);
-    if (oembedData && oembedData.embed_html) {
-      const vxUrl = url.replace('twitter.com', 'vxtwitter.com').replace('x.com', 'vxtwitter.com');
+    if (!oembedData) {
+      return null;
+    }
 
-      try {
-        const vxResponse = await fetch(vxUrl, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (compatible; MeMarkBot/1.0)',
-          },
-        });
+    const tweetIdMatch = url.match(/status\/(\d+)/);
+    if (!tweetIdMatch) {
+      return oembedData;
+    }
 
-        if (vxResponse.ok) {
-          const html = await vxResponse.text();
+    const tweetId = tweetIdMatch[1];
+    const usernameMatch = url.match(/(?:twitter\.com|x\.com)\/([^\/]+)\/status/);
+    const username = usernameMatch ? usernameMatch[1] : '';
+
+    if (!username) {
+      return oembedData;
+    }
+
+    try {
+      const fxApiUrl = `https://api.fxtwitter.com/${username}/status/${tweetId}`;
+      const fxResponse = await fetch(fxApiUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; MeMarkBot/1.0)',
+        },
+      });
+
+      if (fxResponse.ok) {
+        const fxData = await fxResponse.json();
+        const tweet = fxData?.tweet;
+
+        if (tweet) {
+          if (tweet.author?.avatar_url) {
+            oembedData.author_avatar = tweet.author.avatar_url;
+          }
+
           const imageUrls: string[] = [];
 
-          const twitterImageRegex = /<meta\s+(?:property|name)=["'](?:twitter:image|og:image)(?::(\d+))?["']\s+content=["']([^"']+)["']/gi;
-          let match;
-          while ((match = twitterImageRegex.exec(html)) !== null) {
-            const imageUrl = match[2];
-            if (imageUrl && !imageUrls.includes(imageUrl) && !imageUrl.includes('profile_images')) {
-              imageUrls.push(imageUrl);
+          if (tweet.media?.photos && Array.isArray(tweet.media.photos)) {
+            for (const photo of tweet.media.photos) {
+              if (photo.url) {
+                imageUrls.push(photo.url);
+              }
+            }
+          }
+
+          if (tweet.media?.videos && Array.isArray(tweet.media.videos) && tweet.media.videos.length > 0) {
+            const video = tweet.media.videos[0];
+            if (video.thumbnail_url) {
+              imageUrls.push(video.thumbnail_url);
+            }
+            if (video.url) {
+              oembedData.og_type = 'video';
+              if (!oembedData.embed_metadata) {
+                oembedData.embed_metadata = {};
+              }
+              oembedData.embed_metadata.video_url = video.url;
+            }
+          }
+
+          if (tweet.quote?.media?.photos && Array.isArray(tweet.quote.media.photos)) {
+            for (const photo of tweet.quote.media.photos) {
+              if (photo.url) {
+                imageUrls.push(photo.url);
+              }
             }
           }
 
@@ -213,62 +256,13 @@ async function fetchTwitterEmbed(url: string): Promise<Metadata | null> {
             }
             oembedData.embed_metadata.additional_images = imageUrls;
           }
-
-          const videoMatch = html.match(/<meta\s+property=["']og:video(?::secure_url)?["']\s+content=["']([^"']+)["']/i);
-          if (videoMatch) {
-            oembedData.og_type = 'video';
-            if (!oembedData.embed_metadata) {
-              oembedData.embed_metadata = {};
-            }
-            oembedData.embed_metadata.video_url = videoMatch[1];
-          }
-
-          const authorImageMatch = html.match(/<meta\s+property=["']og:image["']\s+content=["']([^"']+profile_images[^"']+)["']/i);
-          if (authorImageMatch) {
-            oembedData.author_avatar = authorImageMatch[1];
-          }
-        }
-      } catch (vxError) {
-        console.log('vxtwitter enrichment failed, trying fixupx.com:', vxError);
-
-        try {
-          const fixupxUrl = url.replace('twitter.com', 'fixupx.com').replace('x.com', 'fixupx.com');
-          const fixupxResponse = await fetch(fixupxUrl, {
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (compatible; MeMarkBot/1.0)',
-            },
-          });
-
-          if (fixupxResponse.ok) {
-            const html = await fixupxResponse.text();
-            const imageUrls: string[] = [];
-
-            const twitterImageRegex = /<meta\s+(?:property|name)=["'](?:twitter:image|og:image)(?::(\d+))?["']\s+content=["']([^"']+)["']/gi;
-            let match;
-            while ((match = twitterImageRegex.exec(html)) !== null) {
-              const imageUrl = match[2];
-              if (imageUrl && !imageUrls.includes(imageUrl) && !imageUrl.includes('profile_images')) {
-                imageUrls.push(imageUrl);
-              }
-            }
-
-            if (imageUrls.length > 0) {
-              oembedData.og_image = imageUrls[0];
-              if (!oembedData.embed_metadata) {
-                oembedData.embed_metadata = {};
-              }
-              oembedData.embed_metadata.additional_images = imageUrls;
-            }
-          }
-        } catch (fixupxError) {
-          console.log('fixupx enrichment also failed, using oEmbed data only:', fixupxError);
         }
       }
-
-      return oembedData;
+    } catch (fxError) {
+      console.log('FxTwitter API enrichment failed, using oEmbed data only:', fxError);
     }
 
-    return await fetchTwitterOembed(url);
+    return oembedData;
   } catch (error) {
     console.error('Twitter embed error:', error);
     return null;
