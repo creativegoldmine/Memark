@@ -307,8 +307,8 @@ export default function ProfileScreen() {
                   'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                  limit: 100,
-                  onlyStale: true,
+                  limit: 1000,
+                  onlyStale: false,
                 }),
               });
 

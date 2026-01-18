@@ -34,34 +34,33 @@ Deno.serve(async (req: Request) => {
     }
 
     const body = await req.json();
-    const { limit = 50, platforms, onlyStale = false } = body;
+    const { limit = 1000, platforms, onlyStale = false } = body;
 
     let query = supabase
       .from('items')
       .select('id, raw_content, user_id, og_image, og_title, og_description, preview_fetched_at')
       .eq('user_id', user.id)
-      .not('raw_content', 'is', null);
+      .not('raw_content', 'is', null)
+      .like('raw_content', '%http%');
 
     if (platforms && platforms.length > 0) {
       const platformPatterns = {
-        twitter: "raw_content ILIKE '%twitter.com%' OR raw_content ILIKE '%x.com%'",
-        instagram: "raw_content ILIKE '%instagram.com%'",
-        youtube: "raw_content ILIKE '%youtube.com%' OR raw_content ILIKE '%youtu.be%'",
-        tiktok: "raw_content ILIKE '%tiktok.com%'",
-        vimeo: "raw_content ILIKE '%vimeo.com%'",
-        facebook: "raw_content ILIKE '%facebook.com%'"
+        twitter: "raw_content.ilike.%twitter.com%,raw_content.ilike.%x.com%",
+        instagram: "raw_content.ilike.%instagram.com%",
+        youtube: "raw_content.ilike.%youtube.com%,raw_content.ilike.%youtu.be%",
+        tiktok: "raw_content.ilike.%tiktok.com%",
+        vimeo: "raw_content.ilike.%vimeo.com%",
+        facebook: "raw_content.ilike.%facebook.com%"
       };
 
       const platformConditions = platforms
         .filter(p => platformPatterns[p])
-        .map(p => `(${platformPatterns[p]})`)
-        .join(' OR ');
+        .map(p => platformPatterns[p])
+        .join(',');
 
       if (platformConditions) {
         query = query.or(platformConditions);
       }
-    } else {
-      query = query.like('raw_content', '%http%');
     }
 
     if (onlyStale) {
@@ -166,7 +165,7 @@ Deno.serve(async (req: Request) => {
         });
       }
 
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
 
     const message = `Refresh complete: ${results.updated} embeds updated, ${results.failed} failed out of ${results.processed} items processed`;
