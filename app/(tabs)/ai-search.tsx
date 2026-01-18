@@ -15,6 +15,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase, Item, supabaseUrl } from '@/lib/supabase';
 import { ItemCard } from '@/components/ItemCard';
+import { SocialEmbedCard } from '@/components/SocialEmbedCard';
 import { LogoHeader } from '@/components/LogoHeader';
 import { LoadingLogo } from '@/components/LoadingLogo';
 import { LinkPreviewModal } from '@/components/LinkPreviewModal';
@@ -52,6 +53,32 @@ export default function AISearch() {
     }
     setBrowserUrl(url);
     setBrowserVisible(true);
+  };
+
+  const renderItemCard = (item: Item, onPress: () => void, onOpenUrl: (url: string) => void) => {
+    const platformType = (item as any).platform_type;
+    const embedHtml = (item as any).embed_html;
+    const shouldUseSocialEmbed = platformType && embedHtml && ['youtube', 'twitter', 'instagram', 'tiktok', 'vimeo', 'facebook'].includes(platformType);
+
+    if (shouldUseSocialEmbed) {
+      return (
+        <SocialEmbedCard
+          item={item}
+          onPress={onPress}
+          onOpenUrl={onOpenUrl}
+          viewMode="list"
+        />
+      );
+    }
+
+    return (
+      <ItemCard
+        item={item}
+        onPress={onPress}
+        onOpenUrl={onOpenUrl}
+        viewMode="list"
+      />
+    );
   };
 
   const handleSend = async () => {
@@ -176,15 +203,16 @@ export default function AISearch() {
             {message.items && message.items.length > 0 && (
               <View style={styles.itemsContainer}>
                 {message.items.map((item) => (
-                  <ItemCard
-                    key={item.id}
-                    item={item}
-                    onPress={() => {
-                      setSelectedItem(item);
-                      setModalVisible(true);
-                    }}
-                    onOpenUrl={handleOpenUrl}
-                  />
+                  <View key={item.id}>
+                    {renderItemCard(
+                      item,
+                      () => {
+                        setSelectedItem(item);
+                        setModalVisible(true);
+                      },
+                      handleOpenUrl
+                    )}
+                  </View>
                 ))}
               </View>
             )}

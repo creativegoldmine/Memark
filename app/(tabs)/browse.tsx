@@ -6,6 +6,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase, Item } from '@/lib/supabase';
 import { ItemCard } from '@/components/ItemCard';
+import { SocialEmbedCard } from '@/components/SocialEmbedCard';
 import { LogoHeader } from '@/components/LogoHeader';
 import { InAppBrowser } from '@/components/InAppBrowser';
 import { LinkPreviewModal } from '@/components/LinkPreviewModal';
@@ -103,6 +104,32 @@ export default function Browse() {
     await fetchItems();
     setRefreshing(false);
   }, [fetchItems]);
+
+  const renderItemCard = (item: Item, onPress: () => void, onOpenUrl: (url: string) => void) => {
+    const platformType = (item as any).platform_type;
+    const embedHtml = (item as any).embed_html;
+    const shouldUseSocialEmbed = platformType && embedHtml && ['youtube', 'twitter', 'instagram', 'tiktok', 'vimeo', 'facebook'].includes(platformType);
+
+    if (shouldUseSocialEmbed) {
+      return (
+        <SocialEmbedCard
+          item={item}
+          onPress={onPress}
+          onOpenUrl={onOpenUrl}
+          viewMode="list"
+        />
+      );
+    }
+
+    return (
+      <ItemCard
+        item={item}
+        onPress={onPress}
+        onOpenUrl={onOpenUrl}
+        viewMode="list"
+      />
+    );
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -212,7 +239,9 @@ export default function Browse() {
               {filteredItems.length} result{filteredItems.length !== 1 ? 's' : ''}
             </Text>
             {filteredItems.map((item) => (
-              <ItemCard key={item.id} item={item} onPress={() => handleItemPress(item)} onOpenUrl={handleOpenUrl} />
+              <View key={item.id}>
+                {renderItemCard(item, () => handleItemPress(item), handleOpenUrl)}
+              </View>
             ))}
           </>
         ) : (

@@ -8,6 +8,7 @@ import { supabase, Item } from '@/lib/supabase';
 import { LogoHeader } from '@/components/LogoHeader';
 import { LoadingLogo } from '@/components/LoadingLogo';
 import { ItemCard } from '@/components/ItemCard';
+import { SocialEmbedCard } from '@/components/SocialEmbedCard';
 import { LinkPreviewModal } from '@/components/LinkPreviewModal';
 import { InAppBrowser } from '@/components/InAppBrowser';
 import { SmartFolderSuggestions } from '@/components/SmartFolderSuggestions';
@@ -221,6 +222,32 @@ export default function Collections() {
     } else {
       fetchFolders();
     }
+  };
+
+  const renderItemCard = (item: Item, onPress: () => void, onOpenUrl: (url: string) => void, viewMode: 'grid' | 'list') => {
+    const platformType = (item as any).platform_type;
+    const embedHtml = (item as any).embed_html;
+    const shouldUseSocialEmbed = platformType && embedHtml && ['youtube', 'twitter', 'instagram', 'tiktok', 'vimeo', 'facebook'].includes(platformType);
+
+    if (shouldUseSocialEmbed) {
+      return (
+        <SocialEmbedCard
+          item={item}
+          onPress={onPress}
+          onOpenUrl={onOpenUrl}
+          viewMode={viewMode}
+        />
+      );
+    }
+
+    return (
+      <ItemCard
+        item={item}
+        onPress={onPress}
+        onOpenUrl={onOpenUrl}
+        viewMode={viewMode}
+      />
+    );
   };
 
   const groupedFolders = useMemo(() => {
@@ -478,15 +505,17 @@ export default function Collections() {
             ) : (
               <View style={styles.itemsList}>
                 {filteredItems.map((item) => (
-                  <ItemCard
-                    key={item.id}
-                    item={item}
-                    onPress={() => {
-                      setSelectedItem(item);
-                      setModalVisible(true);
-                    }}
-                    onOpenUrl={handleOpenUrl}
-                  />
+                  <View key={item.id}>
+                    {renderItemCard(
+                      item,
+                      () => {
+                        setSelectedItem(item);
+                        setModalVisible(true);
+                      },
+                      handleOpenUrl,
+                      viewMode
+                    )}
+                  </View>
                 ))}
               </View>
             )}
