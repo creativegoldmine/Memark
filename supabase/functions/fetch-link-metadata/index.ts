@@ -149,10 +149,33 @@ async function fetchYouTubeData(url: string): Promise<Metadata | null> {
 
     const data = await response.json();
 
+    const thumbnailOptions = [
+      `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+      `https://img.youtube.com/vi/${videoId}/sddefault.jpg`,
+      `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+      `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`,
+      data.thumbnail_url,
+    ];
+
+    let bestThumbnail = data.thumbnail_url || thumbnailOptions[0];
+
+    for (const thumbnailUrl of thumbnailOptions) {
+      if (!thumbnailUrl) continue;
+      try {
+        const thumbResponse = await fetch(thumbnailUrl, { method: 'HEAD' });
+        if (thumbResponse.ok) {
+          bestThumbnail = thumbnailUrl;
+          break;
+        }
+      } catch {
+        continue;
+      }
+    }
+
     return {
       og_title: data.title || '',
       og_description: `YouTube video by ${data.author_name}`,
-      og_image: data.thumbnail_url || `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+      og_image: bestThumbnail,
       og_site_name: 'YouTube',
       og_url: url,
       og_type: 'video',
@@ -166,6 +189,8 @@ async function fetchYouTubeData(url: string): Promise<Metadata | null> {
         author_name: data.author_name,
         author_url: data.author_url,
         thumbnail_url: data.thumbnail_url,
+        thumbnail_options: thumbnailOptions,
+        best_thumbnail: bestThumbnail,
         width: data.width,
         height: data.height,
         type: data.type,
@@ -314,40 +339,123 @@ async function fetchTwitterOembed(url: string): Promise<Metadata | null> {
 
 async function fetchInstagramData(url: string): Promise<Metadata | null> {
   try {
-    const oembedUrl = `https://graph.facebook.com/v18.0/instagram_oembed?url=${encodeURIComponent(url)}&omitscript=true`;
+    const oembedUrl = `https://graph.facebook.com/v18.0/instagram_oembed?url=${encodeURIComponent(url)}&omitscript=true&access_token=`;
 
     const response = await fetch(oembedUrl);
-    if (!response.ok) return null;
-
-    const data = await response.json();
-
-    return {
-      og_title: data.author_name ? `${data.author_name} on Instagram` : 'Instagram Post',
-      og_description: 'Instagram post',
-      og_image: data.thumbnail_url || '',
-      og_site_name: 'Instagram',
-      og_url: url,
-      og_type: 'photo',
-      author_name: data.author_name || '',
-      author_avatar: '',
-      platform_type: 'instagram',
-      embed_html: data.html || '',
-      embed_metadata: {
-        author_name: data.author_name,
-        author_url: data.author_url,
-        thumbnail_url: data.thumbnail_url,
-        width: data.width,
-        height: data.height,
-        type: data.type,
-        provider_name: data.provider_name,
-        provider_url: data.provider_url,
-        version: data.version,
-      },
-    };
+    if (response.ok) {
+      const data = await response.json();
+      return {
+        og_title: data.author_name ? `${data.author_name} on Instagram` : 'Instagram Post',
+        og_description: 'Instagram post',
+        og_image: data.thumbnail_url || '',
+        og_site_name: 'Instagram',
+        og_url: url,
+        og_type: 'photo',
+        author_name: data.author_name || '',
+        author_avatar: '',
+        platform_type: 'instagram',
+        embed_html: data.html || '',
+        embed_metadata: {
+          author_name: data.author_name,
+          author_url: data.author_url,
+          thumbnail_url: data.thumbnail_url,
+          width: data.width,
+          height: data.height,
+          type: data.type,
+          provider_name: data.provider_name,
+          provider_url: data.provider_url,
+          version: data.version,
+        },
+      };
+    }
   } catch (error) {
-    console.error('Instagram embed error:', error);
-    return null;
+    console.log('Instagram oEmbed failed, trying fallback:', error);
   }
+
+  try {
+    const shortcodeMatch = url.match(/instagram\.com\/(?:p|reel|tv)\/([A-Za-z0-9_-]+)/);
+    if (!shortcodeMatch) return null;
+
+    const shortcode = shortcodeMatch[1];
+    const apiUrl = `https://www.instagram.com/p/${shortcode}/?__a=1&__d=dis`;
+
+    const response = await fetch(apiUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Accept': 'application/json',
+      },
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      const media = data?.items?.[0] || data?.graphql?.shortcode_media;
+
+      if (media) {
+        const carouselImages: string[] = [];
+
+        if (media.carousel_media) {
+          media.carousel_media.forEach((item: any) => {
+            if (item.image_versions2?.candidates?.[0]?.url) {
+              carouselImages.push(item.image_versions2.candidates[0].url);
+            }
+          });
+        }
+
+        const displayUrl = media.image_versions2?.candidates?.[0]?.url ||
+                          media.display_url ||
+                          media.thumbnail_url;
+
+        return {
+          og_title: `${media.user?.username || 'Instagram'} on Instagram`,
+          og_description: media.caption?.text || 'Instagram post',
+          og_image: displayUrl || '',
+          og_site_name: 'Instagram',
+          og_url: url,
+          og_type: media.media_type === 2 ? 'video' : 'photo',
+          author_name: media.user?.username || '',
+          author_avatar: media.user?.profile_pic_url || '',
+          platform_type: 'instagram',
+          embed_html: `<blockquote class="instagram-media" data-instgrm-permalink="${url}" data-instgrm-version="14"></blockquote>`,
+          embed_metadata: {
+            shortcode: shortcode,
+            carousel_images: carouselImages,
+            like_count: media.like_count,
+            comment_count: media.comment_count,
+            is_video: media.media_type === 2,
+          },
+        };
+      }
+    }
+  } catch (fallbackError) {
+    console.error('Instagram fallback API error:', fallbackError);
+  }
+
+  try {
+    const htmlResponse = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      },
+    });
+
+    if (htmlResponse.ok) {
+      const html = await htmlResponse.text();
+      const metadata = extractMetadata(html, url);
+
+      metadata.platform_type = 'instagram';
+      metadata.og_site_name = 'Instagram';
+
+      if (!metadata.og_image && html.includes('og:image')) {
+        const imgMatch = html.match(/<meta property="og:image" content="([^"]+)"/);
+        if (imgMatch) metadata.og_image = imgMatch[1];
+      }
+
+      return metadata;
+    }
+  } catch (htmlError) {
+    console.error('Instagram HTML scraping error:', htmlError);
+  }
+
+  return null;
 }
 
 async function fetchTikTokData(url: string): Promise<Metadata | null> {

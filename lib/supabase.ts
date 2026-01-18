@@ -82,6 +82,23 @@ export interface Item {
   og_published_time?: string;
   author_name?: string;
   author_avatar?: string;
+  media_urls?: string[];
+  media_count?: number;
+  media_storage_paths?: string[];
+  thumbnail_urls?: string[];
+  content_classification?: 'text_only' | 'text_with_photo' | 'link_only' | 'link_with_text' | 'link_with_photo' | 'social_post' | 'direct_share';
+  ingestion_source?: 'sms' | 'ios_share' | 'android_share' | 'web' | 'api';
+  processing_status?: 'pending' | 'processing' | 'completed' | 'failed';
+  processing_error?: string;
+  carousel_images?: string[];
+  video_metadata?: {
+    duration?: string;
+    quality?: string;
+    codec?: string;
+    width?: number;
+    height?: number;
+  };
+  api_version?: string;
 }
 
 export interface Profile {

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Platform, NativeScrollEvent, NativeSyntheticEvent, ActivityIndicator } from 'react-native';
 import { Flame, Plus } from 'lucide-react-native';
 import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -30,9 +30,13 @@ export default function Home() {
     reviewCount: 0,
     streak: 0,
   });
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(0);
+  const ITEMS_PER_PAGE = 20;
   const subscriptionRef = useRef<any>(null);
 
-  const fetchItems = useCallback(async () => {
+  const fetchItems = useCallback(async (pageNum: number = 0, append: boolean = false) => {
     if (!user?.id) return;
 
     const { data, error } = await supabase
@@ -42,15 +46,23 @@ export default function Home() {
       .eq('status', 'active')
       .eq('is_archived', false)
       .order('created_at', { ascending: false })
-      .limit(50);
+      .range(pageNum * ITEMS_PER_PAGE, (pageNum + 1) * ITEMS_PER_PAGE - 1);
 
     if (data) {
       const sortedItems = sortItemsIntelligently(data);
-      setItems(sortedItems);
-      calculateStats(data);
+
+      if (append) {
+        setItems(prev => [...prev, ...sortedItems]);
+      } else {
+        setItems(sortedItems);
+        calculateStats(data);
+      }
+
+      setHasMore(data.length === ITEMS_PER_PAGE);
     }
     setLoading(false);
     setRefreshing(false);
+    setLoadingMore(false);
   }, [user?.id]);
 
   const sortItemsIntelligently = (items: Item[]): Item[] => {
@@ -108,7 +120,29 @@ export default function Home() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
     setRefreshing(true);
-    fetchItems();
+    setPage(0);
+    fetchItems(0, false);
+  };
+
+  const loadMore = () => {
+    if (!loadingMore && hasMore && !loading) {
+      setLoadingMore(true);
+      const nextPage = page + 1;
+      setPage(nextPage);
+      fetchItems(nextPage, true);
+    }
+  };
+
+  const isCloseToBottom = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+    const paddingToBottom = 200;
+    return layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom;
+  };
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (isCloseToBottom(event)) {
+      loadMore();
+    }
   };
 
   const handleItemPress = (item: Item) => {
@@ -278,6 +312,8 @@ export default function Home() {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        onScroll={handleScroll}
+        scrollEventThrottle={400}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />
         }
@@ -338,6 +374,21 @@ export default function Home() {
             <Text style={[styles.emptyTitle, { color: theme.text }]}>Your brain is clear</Text>
             <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
               Send something to yourself to get started
+            </Text>
+          </View>
+        )}
+
+        {loadingMore && (
+          <View style={styles.loadingMore}>
+            <ActivityIndicator size="large" color={theme.primary} />
+            <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Loading more...</Text>
+          </View>
+        )}
+
+        {!hasMore && items.length > 0 && (
+          <View style={styles.endMessage}>
+            <Text style={[styles.endMessageText, { color: theme.textTertiary }]}>
+              You've reached the end
             </Text>
           </View>
         )}
@@ -449,5 +500,22 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     textAlign: 'center',
+  },
+  loadingMore: {
+    paddingVertical: 24,
+    alignItems: 'center',
+    gap: 12,
+  },
+  loadingText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  endMessage: {
+    paddingVertical: 24,
+    alignItems: 'center',
+  },
+  endMessageText: {
+    fontSize: 13,
+    fontStyle: 'italic',
   },
 });

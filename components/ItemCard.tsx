@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Platform, ActivityIndicator } from 'react-native';
 import { Link2, Video, FileText, MessageSquare, Image as ImageIcon, CheckSquare, ChevronDown, ChevronUp, Star, ExternalLink, Play } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -19,6 +19,7 @@ export function ItemCard({ item, onPress, onOpenUrl, viewMode = 'list' }: ItemCa
   const router = useRouter();
   const [expanded, setExpanded] = useState(true);
   const [imageError, setImageError] = useState(false);
+  const [imageLoading, setImageLoading] = useState(true);
   const [videoModalVisible, setVideoModalVisible] = useState(false);
 
   const getIcon = () => {
@@ -169,12 +170,23 @@ export function ItemCard({ item, onPress, onOpenUrl, viewMode = 'list' }: ItemCa
       >
       <View style={styles.imageContainer}>
         {(item.og_image || item.preview_image_url || item.image_preview) && !imageError ? (
-          <Image
-            source={{ uri: item.og_image || item.preview_image_url || item.image_preview }}
-            style={styles.image}
-            resizeMode="cover"
-            onError={() => setImageError(true)}
-          />
+          <>
+            <Image
+              source={{ uri: item.og_image || item.preview_image_url || item.image_preview }}
+              style={styles.image}
+              resizeMode="cover"
+              onLoad={() => setImageLoading(false)}
+              onError={() => {
+                setImageError(true);
+                setImageLoading(false);
+              }}
+            />
+            {imageLoading && (
+              <View style={[styles.imageLoadingOverlay, { backgroundColor: theme.surface }]}>
+                <ActivityIndicator size="large" color={theme.primary} />
+              </View>
+            )}
+          </>
         ) : (
           <View style={[styles.logoFallback, { backgroundColor: theme.primary + '10' }]}>
             <Image
@@ -386,6 +398,15 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     height: '100%',
+  },
+  imageLoadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   logoFallback: {
     width: '100%',
