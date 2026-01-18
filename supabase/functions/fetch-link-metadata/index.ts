@@ -184,38 +184,85 @@ async function fetchTwitterEmbed(url: string): Promise<Metadata | null> {
   try {
     const oembedData = await fetchTwitterOembed(url);
     if (oembedData && oembedData.embed_html) {
-      const fxUrl = url.replace('twitter.com', 'fxtwitter.com').replace('x.com', 'fxtwitter.com');
+      const vxUrl = url.replace('twitter.com', 'vxtwitter.com').replace('x.com', 'vxtwitter.com');
 
       try {
-        const fxResponse = await fetch(fxUrl, {
+        const vxResponse = await fetch(vxUrl, {
           headers: {
             'User-Agent': 'Mozilla/5.0 (compatible; MeMarkBot/1.0)',
           },
         });
 
-        if (fxResponse.ok) {
-          const html = await fxResponse.text();
+        if (vxResponse.ok) {
+          const html = await vxResponse.text();
           const imageUrls: string[] = [];
-          const twitterImageRegex = /<meta\s+(?:property|name)=["']twitter:image:?(\d*)["']\s+content=["']([^"']+)["']/gi;
+
+          const twitterImageRegex = /<meta\s+(?:property|name)=["'](?:twitter:image|og:image)(?::(\d+))?["']\s+content=["']([^"']+)["']/gi;
           let match;
           while ((match = twitterImageRegex.exec(html)) !== null) {
             const imageUrl = match[2];
-            if (imageUrl && !imageUrls.includes(imageUrl)) {
+            if (imageUrl && !imageUrls.includes(imageUrl) && !imageUrl.includes('profile_images')) {
               imageUrls.push(imageUrl);
             }
           }
 
           if (imageUrls.length > 0) {
             oembedData.og_image = imageUrls[0];
+            if (!oembedData.embed_metadata) {
+              oembedData.embed_metadata = {};
+            }
+            oembedData.embed_metadata.additional_images = imageUrls;
           }
 
           const videoMatch = html.match(/<meta\s+property=["']og:video(?::secure_url)?["']\s+content=["']([^"']+)["']/i);
           if (videoMatch) {
             oembedData.og_type = 'video';
+            if (!oembedData.embed_metadata) {
+              oembedData.embed_metadata = {};
+            }
+            oembedData.embed_metadata.video_url = videoMatch[1];
+          }
+
+          const authorImageMatch = html.match(/<meta\s+property=["']og:image["']\s+content=["']([^"']+profile_images[^"']+)["']/i);
+          if (authorImageMatch) {
+            oembedData.author_avatar = authorImageMatch[1];
           }
         }
-      } catch (fxError) {
-        console.log('fxtwitter enrichment failed, using oEmbed data only:', fxError);
+      } catch (vxError) {
+        console.log('vxtwitter enrichment failed, trying fixupx.com:', vxError);
+
+        try {
+          const fixupxUrl = url.replace('twitter.com', 'fixupx.com').replace('x.com', 'fixupx.com');
+          const fixupxResponse = await fetch(fixupxUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (compatible; MeMarkBot/1.0)',
+            },
+          });
+
+          if (fixupxResponse.ok) {
+            const html = await fixupxResponse.text();
+            const imageUrls: string[] = [];
+
+            const twitterImageRegex = /<meta\s+(?:property|name)=["'](?:twitter:image|og:image)(?::(\d+))?["']\s+content=["']([^"']+)["']/gi;
+            let match;
+            while ((match = twitterImageRegex.exec(html)) !== null) {
+              const imageUrl = match[2];
+              if (imageUrl && !imageUrls.includes(imageUrl) && !imageUrl.includes('profile_images')) {
+                imageUrls.push(imageUrl);
+              }
+            }
+
+            if (imageUrls.length > 0) {
+              oembedData.og_image = imageUrls[0];
+              if (!oembedData.embed_metadata) {
+                oembedData.embed_metadata = {};
+              }
+              oembedData.embed_metadata.additional_images = imageUrls;
+            }
+          }
+        } catch (fixupxError) {
+          console.log('fixupx enrichment also failed, using oEmbed data only:', fixupxError);
+        }
       }
 
       return oembedData;

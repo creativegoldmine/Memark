@@ -6,6 +6,7 @@ import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Item } from '@/lib/supabase';
 import { ItemCard } from './ItemCard';
+import TwitterPreviewCard from './TwitterPreviewCard';
 
 interface SocialEmbedCardProps {
   item: Item;
@@ -24,6 +25,21 @@ export function SocialEmbedCard({ item, onPress, onOpenUrl, viewMode = 'list' }:
   const embedHtml = (item as any).embed_html;
 
   const shouldEmbed = platformType && embedHtml && ['youtube', 'twitter', 'instagram', 'tiktok', 'vimeo', 'facebook'].includes(platformType);
+
+  if (platformType === 'twitter') {
+    return (
+      <TwitterPreviewCard
+        item={item}
+        onPress={onPress || (() => {
+          const urlMatch = item.raw_content.match(/https?:\/\/[^\s]+/);
+          const url = urlMatch ? urlMatch[0] : item.raw_content;
+          if (onOpenUrl) {
+            onOpenUrl(url);
+          }
+        })}
+      />
+    );
+  }
 
   if (!shouldEmbed || embedError) {
     return (
