@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Platform } from 'react-native';
-import { Link2, Video, FileText, MessageSquare, Image as ImageIcon, CheckSquare, ChevronDown, ChevronUp, Star, ExternalLink } from 'lucide-react-native';
+import { Link2, Video, FileText, MessageSquare, Image as ImageIcon, CheckSquare, ChevronDown, ChevronUp, Star, ExternalLink, Play } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Item } from '@/lib/supabase';
+import { VideoPlayerModal } from './VideoPlayerModal';
 
 interface ItemCardProps {
   item: Item;
@@ -18,6 +19,7 @@ export function ItemCard({ item, onPress, onOpenUrl, viewMode = 'list' }: ItemCa
   const router = useRouter();
   const [expanded, setExpanded] = useState(true);
   const [imageError, setImageError] = useState(false);
+  const [videoModalVisible, setVideoModalVisible] = useState(false);
 
   const getIcon = () => {
     switch (item.type) {
@@ -94,6 +96,21 @@ export function ItemCard({ item, onPress, onOpenUrl, viewMode = 'list' }: ItemCa
     }
   };
 
+  const handleVideoPlay = (e: any) => {
+    e.stopPropagation();
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    setVideoModalVisible(true);
+  };
+
+  const getVideoUrl = () => {
+    if ((item as any).video_url) {
+      return (item as any).video_url;
+    }
+    return extractUrl();
+  };
+
   const extractUrl = () => {
     if (item.raw_content.startsWith('http')) {
       return item.raw_content;
@@ -146,9 +163,10 @@ export function ItemCard({ item, onPress, onOpenUrl, viewMode = 'list' }: ItemCa
   };
 
   return (
-    <View
-      style={[styles.card, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
-    >
+    <>
+      <View
+        style={[styles.card, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
+      >
       <View style={styles.imageContainer}>
         {(item.og_image || item.preview_image_url || item.image_preview) && !imageError ? (
           <Image
@@ -171,17 +189,17 @@ export function ItemCard({ item, onPress, onOpenUrl, viewMode = 'list' }: ItemCa
             <Text style={styles.scoreBadgeText}>{Math.round(item.score)}%</Text>
           </View>
         )}
-        {(item.video_url || (item as any).platform_type === 'youtube' || (item as any).platform_type === 'vimeo') && (
-          <View style={styles.videoBadge}>
+        {(item.video_url || (item as any).platform_type === 'youtube' || (item as any).platform_type === 'vimeo' || (item as any).platform_type === 'tiktok') && (
+          <TouchableOpacity style={styles.videoBadge} onPress={handleVideoPlay} activeOpacity={0.8}>
             <View style={styles.playButton}>
-              <Text style={styles.playIcon}>▶</Text>
+              <Play size={32} color="#8B5CF6" fill="#8B5CF6" />
             </View>
             {(item as any).content_duration && (
               <View style={[styles.durationBadge, { backgroundColor: 'rgba(0, 0, 0, 0.75)' }]}>
                 <Text style={styles.durationText}>{(item as any).content_duration}</Text>
               </View>
             )}
-          </View>
+          </TouchableOpacity>
         )}
         {((item as any).platform_type || item.embed_type) && !item.video_url && (item as any).platform_type !== 'youtube' && (item as any).platform_type !== 'vimeo' && (
           <View style={[styles.embedBadge, { backgroundColor: theme.primary }]}>
@@ -333,6 +351,15 @@ export function ItemCard({ item, onPress, onOpenUrl, viewMode = 'list' }: ItemCa
         </View>
       </TouchableOpacity>
     </View>
+
+    <VideoPlayerModal
+      visible={videoModalVisible}
+      videoUrl={getVideoUrl() || ''}
+      platformType={(item as any).platform_type}
+      title={item.og_title || item.preview_title || item.title}
+      onClose={() => setVideoModalVisible(false)}
+    />
+    </>
   );
 }
 
@@ -585,38 +612,32 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: '50%',
     left: '50%',
-    transform: [{ translateX: -40 }, { translateY: -40 }],
-    width: 80,
-    height: 80,
+    transform: [{ translateX: -50 }, { translateY: -50 }],
+    width: 100,
+    height: 100,
     justifyContent: 'center',
     alignItems: 'center',
   },
   playButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
     justifyContent: 'center',
     alignItems: 'center',
     ...(Platform.OS === 'web' ? {
       shadowColor: '#000',
-      shadowOffset: { width: 0, height: 6 },
-      shadowOpacity: 0.4,
-      shadowRadius: 12,
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.5,
+      shadowRadius: 16,
     } : {
-      elevation: 12,
+      elevation: 16,
     }),
-  },
-  playIcon: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: '#8B5CF6',
-    marginLeft: 6,
   },
   durationBadge: {
     position: 'absolute',
-    bottom: -60,
-    right: 8,
+    bottom: -70,
+    right: -30,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,

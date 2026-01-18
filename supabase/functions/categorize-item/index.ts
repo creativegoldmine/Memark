@@ -193,6 +193,12 @@ Deno.serve(async (req: Request) => {
     if (metadata?.author_avatar) {
       updateData.author_avatar = metadata.author_avatar;
     }
+    if (metadata?.content_duration) {
+      updateData.content_duration = metadata.content_duration;
+    }
+    if (metadata?.published_date) {
+      updateData.published_date = metadata.published_date;
+    }
 
     const { data: item } = await supabase
       .from('items')
@@ -397,6 +403,48 @@ async function fetchEmbedData(url: string) {
     return null;
   } catch (error) {
     console.error('Error fetching embed data:', error);
+    return null;
+  }
+}
+
+async function fetchLinkMetadataFromEdgeFunction(supabaseUrl: string, supabaseServiceKey: string, url: string) {
+  try {
+    const response = await fetch(`${supabaseUrl}/functions/v1/fetch-link-metadata`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseServiceKey}`,
+      },
+      body: JSON.stringify({ url }),
+    });
+
+    if (!response.ok) return null;
+
+    const result = await response.json();
+
+    if (result.success && result.metadata) {
+      const metadata = result.metadata;
+
+      if (metadata.platform_type === 'youtube') {
+        const videoIdMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&?\/]+)/);
+        if (videoIdMatch) {
+          metadata.videoUrl = `https://www.youtube.com/watch?v=${videoIdMatch[1]}`;
+        }
+      } else if (metadata.platform_type === 'vimeo') {
+        const vimeoIdMatch = url.match(/vimeo\.com\/(\d+)/);
+        if (vimeoIdMatch) {
+          metadata.videoUrl = url;
+        }
+      } else if (metadata.platform_type === 'tiktok') {
+        metadata.videoUrl = url;
+      }
+
+      return metadata;
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error calling fetch-link-metadata:', error);
     return null;
   }
 }
