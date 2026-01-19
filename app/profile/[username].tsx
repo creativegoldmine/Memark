@@ -234,7 +234,7 @@ export default function PublicProfile() {
                   ) : (
                     <View style={[styles.itemImageContainer, { backgroundColor: theme.primary + '10', justifyContent: 'center', alignItems: 'center' }]}>
                       <Image
-                        source={require('@/assets/images/copy_of_memark.png')}
+                        source={require('@/assets/images/copy_of_memark_(3).png')}
                         style={{ width: 120, height: 120, opacity: 0.4 }}
                         resizeMode="contain"
                       />
