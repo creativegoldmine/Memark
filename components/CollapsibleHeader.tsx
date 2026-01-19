@@ -9,10 +9,10 @@ import Animated, {
 import { ArrowLeft, Bell } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 
-const HEADER_MAX_HEIGHT = 56;
+const HEADER_MAX_HEIGHT = 52;
 const HEADER_MIN_HEIGHT = 44;
-const LOGO_MAX_SIZE = 100;
-const LOGO_MIN_SIZE = 28;
+const LOGO_MAX_SIZE = 32;
+const LOGO_MIN_SIZE = 24;
 const SCROLL_THRESHOLD = 50;
 
 interface CollapsibleHeaderProps {
@@ -55,17 +55,9 @@ export function CollapsibleHeader({
       Extrapolation.CLAMP
     );
 
-    const opacity = interpolate(
-      scrollY.value,
-      [0, SCROLL_THRESHOLD * 0.5],
-      [1, 0.9],
-      Extrapolation.CLAMP
-    );
-
     return {
-      width: size * 4,
+      width: size * 3.5,
       height: size,
-      opacity,
     };
   });
 
@@ -160,8 +152,8 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
   },
   backButtonContainer: {
     position: 'absolute',
@@ -176,26 +168,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   logoContainer: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'center',
   },
   logo: {
-    width: 400,
-    height: 100,
+    width: 112,
+    height: 32,
   },
   notificationButton: {
-    position: 'absolute',
-    right: 12,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
   },
   badge: {
     position: 'absolute',
-    top: 4,
-    right: 4,
+    top: 2,
+    right: 2,
     minWidth: 18,
     height: 18,
     borderRadius: 9,
