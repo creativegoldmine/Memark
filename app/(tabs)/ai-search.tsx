@@ -58,7 +58,9 @@ export default function AISearch() {
   const renderItemCard = (item: Item, onPress: () => void, onOpenUrl: (url: string) => void) => {
     const platformType = (item as any).platform_type;
     const embedHtml = (item as any).embed_html;
-    const shouldUseSocialEmbed = platformType && embedHtml && ['youtube', 'twitter', 'instagram', 'tiktok', 'vimeo', 'facebook'].includes(platformType);
+    const hasMetadata = item.og_image || item.og_title || item.og_description;
+
+    const shouldUseSocialEmbed = platformType && ['youtube', 'twitter', 'instagram', 'tiktok', 'vimeo', 'facebook'].includes(platformType) && (embedHtml || hasMetadata);
 
     if (shouldUseSocialEmbed) {
       return (

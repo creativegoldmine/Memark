@@ -163,16 +163,40 @@ export function ItemCard({ item, onPress, onOpenUrl, viewMode = 'list' }: ItemCa
     );
   };
 
+  const getImageUrl = () => {
+    const mediaUrls = (item as any).media_urls;
+    const mediaUrl = (item as any).media_url;
+
+    if (mediaUrls && Array.isArray(mediaUrls) && mediaUrls.length > 0) {
+      return mediaUrls[0];
+    }
+    if (mediaUrl) {
+      return mediaUrl;
+    }
+    if (item.og_image) {
+      return item.og_image;
+    }
+    if (item.preview_image_url) {
+      return item.preview_image_url;
+    }
+    if (item.image_preview) {
+      return item.image_preview;
+    }
+    return null;
+  };
+
+  const imageUrl = getImageUrl();
+
   return (
     <>
       <View
         style={[styles.card, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
       >
       <View style={styles.imageContainer}>
-        {(item.og_image || item.preview_image_url || item.image_preview) && !imageError ? (
+        {imageUrl && !imageError ? (
           <>
             <Image
-              source={{ uri: item.og_image || item.preview_image_url || item.image_preview }}
+              source={{ uri: imageUrl }}
               style={styles.image}
               resizeMode="cover"
               onLoad={() => setImageLoading(false)}
@@ -227,9 +251,9 @@ export function ItemCard({ item, onPress, onOpenUrl, viewMode = 'list' }: ItemCa
             </Text>
           </View>
         )}
-        {(item as any).media_count > 1 && (
+        {((item as any).media_count > 1 || ((item as any).media_urls && (item as any).media_urls.length > 1)) && (
           <View style={[styles.mediaCountBadge, { backgroundColor: 'rgba(0, 0, 0, 0.75)' }]}>
-            <Text style={styles.mediaCountText}>1/{(item as any).media_count}</Text>
+            <Text style={styles.mediaCountText}>1/{(item as any).media_count || (item as any).media_urls.length}</Text>
           </View>
         )}
         {(item as any).is_thread && (

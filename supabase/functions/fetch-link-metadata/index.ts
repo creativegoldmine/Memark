@@ -557,36 +557,62 @@ async function fetchFacebookData(url: string): Promise<Metadata | null> {
     const oembedUrl = `https://www.facebook.com/plugins/post/oembed.json/?url=${encodeURIComponent(url)}`;
 
     const response = await fetch(oembedUrl);
-    if (!response.ok) return null;
+    if (response.ok) {
+      const data = await response.json();
 
-    const data = await response.json();
-
-    return {
-      og_title: 'Facebook Post',
-      og_description: '',
-      og_image: '',
-      og_site_name: 'Facebook',
-      og_url: url,
-      og_type: 'article',
-      author_name: data.author_name || '',
-      author_avatar: '',
-      platform_type: 'facebook',
-      embed_html: data.html || '',
-      embed_metadata: {
-        author_name: data.author_name,
-        author_url: data.author_url,
-        width: data.width,
-        height: data.height,
-        type: data.type,
-        provider_name: data.provider_name,
-        provider_url: data.provider_url,
-        version: data.version,
-      },
-    };
+      return {
+        og_title: 'Facebook Post',
+        og_description: '',
+        og_image: '',
+        og_site_name: 'Facebook',
+        og_url: url,
+        og_type: 'article',
+        author_name: data.author_name || '',
+        author_avatar: '',
+        platform_type: 'facebook',
+        embed_html: data.html || '',
+        embed_metadata: {
+          author_name: data.author_name,
+          author_url: data.author_url,
+          width: data.width,
+          height: data.height,
+          type: data.type,
+          provider_name: data.provider_name,
+          provider_url: data.provider_url,
+          version: data.version,
+        },
+      };
+    }
   } catch (error) {
-    console.error('Facebook embed error:', error);
-    return null;
+    console.error('Facebook oEmbed error:', error);
   }
+
+  try {
+    const htmlResponse = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+      },
+    });
+
+    if (htmlResponse.ok) {
+      const html = await htmlResponse.text();
+      const metadata = extractMetadata(html, url);
+
+      metadata.platform_type = 'facebook';
+      metadata.og_site_name = 'Facebook';
+
+      if (!metadata.og_image && html.includes('og:image')) {
+        const imgMatch = html.match(/<meta property="og:image" content="([^"]+)"/);
+        if (imgMatch) metadata.og_image = imgMatch[1];
+      }
+
+      return metadata;
+    }
+  } catch (fallbackError) {
+    console.error('Facebook HTML scraping error:', fallbackError);
+  }
+
+  return null;
 }
 
 Deno.serve(async (req: Request) => {

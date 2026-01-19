@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Platform, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Platform, TouchableOpacity, Image } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { ExternalLink } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
@@ -23,6 +23,7 @@ export function SocialEmbedCard({ item, onPress, onOpenUrl, viewMode = 'list' }:
 
   const platformType = (item as any).platform_type;
   const embedHtml = (item as any).embed_html;
+  const embedMetadata = (item as any).embed_metadata;
 
   const shouldEmbed = platformType && embedHtml && ['youtube', 'twitter', 'instagram', 'tiktok', 'vimeo', 'facebook'].includes(platformType);
 
@@ -41,7 +42,17 @@ export function SocialEmbedCard({ item, onPress, onOpenUrl, viewMode = 'list' }:
     );
   }
 
-  if (!shouldEmbed || embedError) {
+  const hasMetadata = item.og_image || item.og_title || item.og_description;
+
+  if (platformType && ['instagram', 'facebook', 'youtube'].includes(platformType) && !embedHtml && hasMetadata) {
+    return renderStaticPreview();
+  }
+
+  if (embedError && hasMetadata && platformType && ['instagram', 'facebook', 'youtube', 'tiktok', 'vimeo'].includes(platformType)) {
+    return renderStaticPreview();
+  }
+
+  if (!shouldEmbed || (embedError && !hasMetadata)) {
     return (
       <ItemCard
         item={item}
@@ -49,6 +60,60 @@ export function SocialEmbedCard({ item, onPress, onOpenUrl, viewMode = 'list' }:
         onOpenUrl={onOpenUrl}
         viewMode={viewMode}
       />
+    );
+  }
+
+  function renderStaticPreview() {
+    const isVideo = platformType === 'youtube' || platformType === 'vimeo' || platformType === 'tiktok' || item.og_type === 'video';
+
+    return (
+      <View style={[styles.card, { borderColor: theme.border, backgroundColor: theme.cardBackground }]}>
+        <TouchableOpacity onPress={handleOpenUrl} activeOpacity={0.95} style={{ position: 'relative' }}>
+          {item.og_image && (
+            <Image
+              source={{ uri: item.og_image }}
+              style={styles.staticImage}
+              resizeMode="cover"
+            />
+          )}
+          {isVideo && (
+            <View style={styles.playOverlay}>
+              <View style={styles.playButtonStatic}>
+                <Text style={styles.playIcon}>▶</Text>
+              </View>
+            </View>
+          )}
+          {(item as any).carousel_images && (item as any).carousel_images.length > 1 && (
+            <View style={[styles.mediaCountBadge, { position: 'absolute', bottom: 12, right: 12, backgroundColor: 'rgba(0, 0, 0, 0.75)' }]}>
+              <Text style={styles.mediaCountText}>1/{(item as any).carousel_images.length}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+        <View style={[styles.metadata, { backgroundColor: theme.cardBackground }]}>
+          {(item as any).author_name && (
+            <Text style={[styles.author, { color: theme.textSecondary }]}>
+              {(item as any).author_name}
+            </Text>
+          )}
+          <Text style={[styles.title, { color: theme.text }]}>
+            {item.og_title || item.preview_title || item.title || 'Untitled'}
+          </Text>
+          {(item.og_description || item.preview_desc) && (
+            <Text style={[styles.description, { color: theme.textSecondary }]} numberOfLines={3}>
+              {item.og_description || item.preview_desc}
+            </Text>
+          )}
+          <View style={[styles.footer, { borderTopColor: theme.border }]}>
+            <Text style={[styles.platform, { color: theme.primary }]}>
+              {getPlatformLabel(platformType)}
+            </Text>
+            <TouchableOpacity onPress={handleOpenUrl} style={styles.openButton}>
+              <ExternalLink size={16} color={theme.primary} />
+              <Text style={[styles.openText, { color: theme.primary }]}>Open</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
     );
   }
 
@@ -555,5 +620,46 @@ const styles = StyleSheet.create({
   openText: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  staticImage: {
+    width: '100%',
+    height: 300,
+    backgroundColor: '#f0f0f0',
+  },
+  mediaCountBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  mediaCountText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  playOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  playButtonStatic: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  playIcon: {
+    fontSize: 32,
+    color: '#8B5CF6',
+    marginLeft: 4,
   },
 });
