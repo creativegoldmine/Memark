@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, Image, Pressable, Platform } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Image, Pressable, Platform, Animated } from 'react-native';
 import { useTheme } from '../contexts/ThemeContext';
 import * as Haptics from 'expo-haptics';
 
@@ -10,6 +10,8 @@ interface YouTubePreviewCardProps {
 
 export default function YouTubePreviewCard({ item, onPress }: YouTubePreviewCardProps) {
   const { theme } = useTheme();
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [fadeAnim] = useState(new Animated.Value(0));
 
   const thumbnail = (item.og_image && item.og_image !== '0' && item.og_image !== '')
     ? item.og_image
@@ -32,6 +34,15 @@ export default function YouTubePreviewCard({ item, onPress }: YouTubePreviewCard
     onPress?.();
   };
 
+  const handleImageLoad = () => {
+    setImageLoaded(true);
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
   const formatViewCount = (count: number) => {
     if (count >= 1000000) {
       return `${(count / 1000000).toFixed(1)}M views`;
@@ -48,10 +59,14 @@ export default function YouTubePreviewCard({ item, onPress }: YouTubePreviewCard
     >
       {thumbnail && (
         <View style={styles.thumbnailContainer}>
-          <Image
+          {!imageLoaded && (
+            <View style={[styles.skeleton, { backgroundColor: theme.border }]} />
+          )}
+          <Animated.Image
             source={{ uri: thumbnail }}
-            style={styles.thumbnail}
+            style={[styles.thumbnail, { opacity: fadeAnim }]}
             resizeMode="cover"
+            onLoad={handleImageLoad}
           />
           <View style={styles.playOverlay}>
             <View style={styles.playButton}>
@@ -126,6 +141,14 @@ const styles = StyleSheet.create({
   thumbnail: {
     width: '100%',
     height: '100%',
+  },
+  skeleton: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    aspectRatio: 16 / 9,
   },
   playOverlay: {
     ...StyleSheet.absoluteFillObject,

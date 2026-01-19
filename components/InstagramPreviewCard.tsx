@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, Image, Pressable, Platform } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Image, Pressable, Platform, Animated } from 'react-native';
 import { useTheme } from '../contexts/ThemeContext';
 import { Heart, MessageCircle, Send, Bookmark } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
@@ -11,6 +11,8 @@ interface InstagramPreviewCardProps {
 
 export default function InstagramPreviewCard({ item, onPress }: InstagramPreviewCardProps) {
   const { theme } = useTheme();
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [fadeAnim] = useState(new Animated.Value(0));
 
   const images = item.embed_metadata?.carousel_images || item.carousel_images || [];
   const primaryImage = (item.og_image && item.og_image !== '0' && item.og_image !== '')
@@ -33,16 +35,29 @@ export default function InstagramPreviewCard({ item, onPress }: InstagramPreview
     onPress?.();
   };
 
+  const handleImageLoad = () => {
+    setImageLoaded(true);
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
   const renderImages = () => {
     if (!primaryImage && imageCount === 0) return null;
 
     if (imageCount === 1 || !images.length) {
       return (
         <View style={styles.singleImageContainer}>
-          <Image
+          {!imageLoaded && (
+            <View style={[styles.skeleton, { backgroundColor: theme.border }]} />
+          )}
+          <Animated.Image
             source={{ uri: primaryImage }}
-            style={styles.singleImage}
+            style={[styles.singleImage, { opacity: fadeAnim }]}
             resizeMode="cover"
+            onLoad={handleImageLoad}
           />
           {isReel && (
             <View style={styles.videoOverlay}>
@@ -233,6 +248,14 @@ const styles = StyleSheet.create({
     width: '100%',
     aspectRatio: 1,
     backgroundColor: '#f0f0f0',
+  },
+  skeleton: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    aspectRatio: 1,
   },
   videoOverlay: {
     ...StyleSheet.absoluteFillObject,

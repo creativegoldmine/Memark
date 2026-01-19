@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, Image, Pressable, Platform } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Image, Pressable, Platform, Animated } from 'react-native';
 import { useTheme } from '../contexts/ThemeContext';
 import { MessageCircle, Repeat2, Heart, Share } from 'lucide-react-native';
 
@@ -10,6 +10,8 @@ interface TwitterPreviewCardProps {
 
 export default function TwitterPreviewCard({ item, onPress }: TwitterPreviewCardProps) {
   const { theme } = useTheme();
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [fadeAnim] = useState(new Animated.Value(0));
 
   const images = item.embed_metadata?.additional_images || [];
   const primaryImage = (item.og_image && item.og_image !== '0' && item.og_image !== '') ? item.og_image : (images.length > 0 ? images[0] : null);
@@ -20,16 +22,29 @@ export default function TwitterPreviewCard({ item, onPress }: TwitterPreviewCard
 
   const imageCount = images.length;
 
+  const handleImageLoad = () => {
+    setImageLoaded(true);
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
   const renderImages = () => {
     if (!primaryImage && imageCount === 0) return null;
 
     if (imageCount === 1 || !images.length) {
       return (
         <View style={styles.singleImageContainer}>
-          <Image
+          {!imageLoaded && (
+            <View style={[styles.skeleton, { backgroundColor: theme.border }]} />
+          )}
+          <Animated.Image
             source={{ uri: primaryImage }}
-            style={styles.singleImage}
+            style={[styles.singleImage, { opacity: fadeAnim }]}
             resizeMode="cover"
+            onLoad={handleImageLoad}
           />
           {hasVideo && (
             <View style={styles.videoOverlay}>
@@ -209,6 +224,14 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 300,
     backgroundColor: '#f0f0f0',
+  },
+  skeleton: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 300,
   },
   videoOverlay: {
     ...StyleSheet.absoluteFillObject,

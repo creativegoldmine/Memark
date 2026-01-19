@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, Image, Pressable, Platform } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Image, Pressable, Platform, Animated } from 'react-native';
 import { useTheme } from '../contexts/ThemeContext';
 import { Heart, MessageCircle, Share2 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
@@ -11,6 +11,8 @@ interface TikTokPreviewCardProps {
 
 export default function TikTokPreviewCard({ item, onPress }: TikTokPreviewCardProps) {
   const { theme } = useTheme();
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [fadeAnim] = useState(new Animated.Value(0));
 
   const thumbnail = (item.og_image && item.og_image !== '0' && item.og_image !== '')
     ? item.og_image
@@ -31,6 +33,15 @@ export default function TikTokPreviewCard({ item, onPress }: TikTokPreviewCardPr
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
     onPress?.();
+  };
+
+  const handleImageLoad = () => {
+    setImageLoaded(true);
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
   };
 
   const formatCount = (count: number) => {
@@ -65,10 +76,14 @@ export default function TikTokPreviewCard({ item, onPress }: TikTokPreviewCardPr
 
       {thumbnail && (
         <View style={styles.videoContainer}>
-          <Image
+          {!imageLoaded && (
+            <View style={[styles.skeleton, { backgroundColor: theme.border }]} />
+          )}
+          <Animated.Image
             source={{ uri: thumbnail }}
-            style={styles.videoThumbnail}
+            style={[styles.videoThumbnail, { opacity: fadeAnim }]}
             resizeMode="cover"
+            onLoad={handleImageLoad}
           />
           <View style={styles.playOverlay}>
             <View style={styles.playButton}>
@@ -185,6 +200,14 @@ const styles = StyleSheet.create({
   videoThumbnail: {
     width: '100%',
     height: '100%',
+  },
+  skeleton: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    aspectRatio: 9 / 16,
   },
   playOverlay: {
     ...StyleSheet.absoluteFillObject,

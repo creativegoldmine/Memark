@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, Image, Pressable, Platform } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Image, Pressable, Platform, Animated } from 'react-native';
 import { useTheme } from '../contexts/ThemeContext';
 import { ThumbsUp, MessageCircle, Share2 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
@@ -11,6 +11,8 @@ interface FacebookPreviewCardProps {
 
 export default function FacebookPreviewCard({ item, onPress }: FacebookPreviewCardProps) {
   const { theme } = useTheme();
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [fadeAnim] = useState(new Animated.Value(0));
 
   const primaryImage = (item.og_image && item.og_image !== '0' && item.og_image !== '')
     ? item.og_image
@@ -30,6 +32,15 @@ export default function FacebookPreviewCard({ item, onPress }: FacebookPreviewCa
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
     onPress?.();
+  };
+
+  const handleImageLoad = () => {
+    setImageLoaded(true);
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
   };
 
   return (
@@ -63,10 +74,14 @@ export default function FacebookPreviewCard({ item, onPress }: FacebookPreviewCa
 
       {primaryImage && (
         <View style={styles.mediaContainer}>
-          <Image
+          {!imageLoaded && (
+            <View style={[styles.skeleton, { backgroundColor: theme.border }]} />
+          )}
+          <Animated.Image
             source={{ uri: primaryImage }}
-            style={styles.mediaImage}
+            style={[styles.mediaImage, { opacity: fadeAnim }]}
             resizeMode="cover"
+            onLoad={handleImageLoad}
           />
           {isVideo && (
             <View style={styles.videoOverlay}>
@@ -177,6 +192,14 @@ const styles = StyleSheet.create({
     width: '100%',
     aspectRatio: 1.33,
     backgroundColor: '#f0f0f0',
+  },
+  skeleton: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    aspectRatio: 1.33,
   },
   videoOverlay: {
     ...StyleSheet.absoluteFillObject,
