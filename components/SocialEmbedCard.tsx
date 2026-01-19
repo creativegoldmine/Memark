@@ -7,6 +7,11 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { Item } from '@/lib/supabase';
 import { ItemCard } from './ItemCard';
 import TwitterPreviewCard from './TwitterPreviewCard';
+import InstagramPreviewCard from './InstagramPreviewCard';
+import FacebookPreviewCard from './FacebookPreviewCard';
+import YouTubePreviewCard from './YouTubePreviewCard';
+import TikTokPreviewCard from './TikTokPreviewCard';
+import VimeoPreviewCard from './VimeoPreviewCard';
 
 interface SocialEmbedCardProps {
   item: Item;
@@ -27,29 +32,38 @@ export function SocialEmbedCard({ item, onPress, onOpenUrl, viewMode = 'list' }:
 
   const shouldEmbed = platformType && embedHtml && ['youtube', 'twitter', 'instagram', 'tiktok', 'vimeo', 'facebook'].includes(platformType);
 
-  if (platformType === 'twitter') {
-    return (
-      <TwitterPreviewCard
-        item={item}
-        onPress={onPress || (() => {
-          const urlMatch = item.raw_content.match(/https?:\/\/[^\s]+/);
-          const url = urlMatch ? urlMatch[0] : item.raw_content;
-          if (onOpenUrl) {
-            onOpenUrl(url);
-          }
-        })}
-      />
-    );
-  }
-
   const hasMetadata = item.og_image || item.og_title || item.og_description;
 
-  if (platformType && ['instagram', 'facebook', 'youtube'].includes(platformType) && !embedHtml && hasMetadata) {
-    return renderStaticPreview();
+  const handleDefaultPress = onPress || (() => {
+    const urlMatch = item.raw_content.match(/https?:\/\/[^\s]+/);
+    const url = urlMatch ? urlMatch[0] : item.raw_content;
+    if (onOpenUrl) {
+      onOpenUrl(url);
+    }
+  });
+
+  if (platformType === 'twitter' && hasMetadata) {
+    return <TwitterPreviewCard item={item} onPress={handleDefaultPress} />;
   }
 
-  if (embedError && hasMetadata && platformType && ['instagram', 'facebook', 'youtube', 'tiktok', 'vimeo'].includes(platformType)) {
-    return renderStaticPreview();
+  if (platformType === 'instagram' && hasMetadata) {
+    return <InstagramPreviewCard item={item} onPress={handleDefaultPress} />;
+  }
+
+  if (platformType === 'facebook' && hasMetadata) {
+    return <FacebookPreviewCard item={item} onPress={handleDefaultPress} />;
+  }
+
+  if (platformType === 'youtube' && hasMetadata) {
+    return <YouTubePreviewCard item={item} onPress={handleDefaultPress} />;
+  }
+
+  if (platformType === 'tiktok' && hasMetadata) {
+    return <TikTokPreviewCard item={item} onPress={handleDefaultPress} />;
+  }
+
+  if (platformType === 'vimeo' && hasMetadata) {
+    return <VimeoPreviewCard item={item} onPress={handleDefaultPress} />;
   }
 
   if (!shouldEmbed || (embedError && !hasMetadata)) {

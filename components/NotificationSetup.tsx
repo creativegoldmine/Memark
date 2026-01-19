@@ -10,13 +10,15 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 
 export function NotificationSetup() {
   const { user } = useAuth();
-  const notificationListener = useRef<any>();
-  const responseListener = useRef<any>();
+  const notificationListener = useRef<Notifications.Subscription | undefined>(undefined);
+  const responseListener = useRef<Notifications.Subscription | undefined>(undefined);
 
   useEffect(() => {
     if (user?.id) {
@@ -33,10 +35,10 @@ export function NotificationSetup() {
 
       return () => {
         if (notificationListener.current) {
-          Notifications.removeNotificationSubscription(notificationListener.current);
+          notificationListener.current.remove();
         }
         if (responseListener.current) {
-          Notifications.removeNotificationSubscription(responseListener.current);
+          responseListener.current.remove();
         }
       };
     }
