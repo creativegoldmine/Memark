@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Home, FolderOpen, List, Settings, Sparkles } from 'lucide-react-native';
+import { Home, FolderOpen, Search, Settings } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 
 export default function TabLayout() {
@@ -13,14 +13,14 @@ export default function TabLayout() {
           backgroundColor: theme.cardBackground,
           borderTopColor: theme.border,
           borderTopWidth: 1,
-          height: 80,
-          paddingBottom: 20,
-          paddingTop: 10,
+          height: 70,
+          paddingBottom: 16,
+          paddingTop: 8,
         },
         tabBarActiveTintColor: theme.primary,
         tabBarInactiveTintColor: theme.textTertiary,
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: '600',
         },
       }}
@@ -29,35 +29,34 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ size, color }) => <Home size={size} color={color} />,
+          tabBarIcon: ({ size, color }) => <Home size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="collections"
         options={{
-          title: 'Collections',
-          tabBarIcon: ({ size, color}) => <FolderOpen size={size} color={color} />,
+          title: 'Folders',
+          tabBarIcon: ({ size, color }) => <FolderOpen size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="ai-search"
         options={{
-          title: 'AI Search',
-          tabBarIcon: ({ size, color }) => <Sparkles size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="browse"
-        options={{
-          title: 'Browse',
-          tabBarIcon: ({ size, color }) => <List size={size} color={color} />,
+          title: 'Search',
+          tabBarIcon: ({ size, color }) => <Search size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: 'Settings',
-          tabBarIcon: ({ size, color }) => <Settings size={size} color={color} />,
+          tabBarIcon: ({ size, color }) => <Settings size={22} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="browse"
+        options={{
+          href: null,
         }}
       />
     </Tabs>

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Platform, ActivityIndicator } from 'react-native';
-import { Link2, Video, FileText, MessageSquare, Image as ImageIcon, CheckSquare, ChevronDown, ChevronUp, Star, ExternalLink, Play } from 'lucide-react-native';
+import { Link2, Video, FileText, MessageSquare, Image as ImageIcon, CheckSquare, ChevronDown, ChevronUp, Star, ExternalLink, Play, Archive, Folder, Tag, Trash2, Check } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -11,16 +11,43 @@ interface ItemCardProps {
   item: Item;
   onPress?: () => void;
   onOpenUrl?: (url: string) => void;
-  viewMode?: 'grid' | 'list';
+  viewMode?: 'grid' | 'list' | 'compact';
+  showActions?: boolean;
+  onMarkReviewed?: (item: Item) => void;
+  onArchive?: (item: Item) => void;
+  onStar?: (item: Item) => void;
+  onDelete?: (item: Item) => void;
+  onAddToFolder?: (item: Item) => void;
 }
 
-export function ItemCard({ item, onPress, onOpenUrl, viewMode = 'list' }: ItemCardProps) {
+export function ItemCard({
+  item,
+  onPress,
+  onOpenUrl,
+  viewMode = 'list',
+  showActions = false,
+  onMarkReviewed,
+  onArchive,
+  onStar,
+  onDelete,
+  onAddToFolder
+}: ItemCardProps) {
   const { theme } = useTheme();
   const router = useRouter();
   const [expanded, setExpanded] = useState(true);
   const [imageError, setImageError] = useState(false);
   const [imageLoading, setImageLoading] = useState(true);
   const [videoModalVisible, setVideoModalVisible] = useState(false);
+
+  const isStarred = (item as any).is_starred;
+  const isArchived = (item as any).is_archived;
+  const lastReviewed = (item as any).last_reviewed_at;
+
+  const triggerHaptic = () => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  };
 
   const getIcon = () => {
     switch (item.type) {
@@ -186,6 +213,77 @@ export function ItemCard({ item, onPress, onOpenUrl, viewMode = 'list' }: ItemCa
   };
 
   const imageUrl = getImageUrl();
+
+  if (viewMode === 'compact') {
+    return (
+      <TouchableOpacity
+        style={[styles.compactCard, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
+        onPress={() => {
+          triggerHaptic();
+          onPress?.();
+        }}
+        activeOpacity={0.7}
+      >
+        <View style={styles.compactLeft}>
+          {imageUrl && !imageError ? (
+            <Image
+              source={{ uri: imageUrl }}
+              style={styles.compactImage}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={[styles.compactIconContainer, { backgroundColor: theme.surface }]}>
+              {getIcon()}
+            </View>
+          )}
+          <View style={styles.compactContent}>
+            <Text style={[styles.compactTitle, { color: theme.text }]} numberOfLines={1}>
+              {item.og_title || item.title || item.raw_content || 'Untitled'}
+            </Text>
+            <View style={styles.compactMeta}>
+              <Text style={[styles.compactSource, { color: theme.textTertiary }]} numberOfLines={1}>
+                {item.og_site_name || getDomain(extractUrl() || '') || item.type}
+              </Text>
+              <Text style={[styles.compactTime, { color: theme.textTertiary }]}>
+                {formatDate(item.created_at)}
+              </Text>
+            </View>
+          </View>
+        </View>
+        {showActions && (
+          <View style={styles.compactActions}>
+            {onStar && (
+              <TouchableOpacity
+                style={styles.compactActionBtn}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  triggerHaptic();
+                  onStar(item);
+                }}
+              >
+                <Star size={16} color={isStarred ? theme.warning : theme.textTertiary} fill={isStarred ? theme.warning : 'transparent'} />
+              </TouchableOpacity>
+            )}
+            {onArchive && (
+              <TouchableOpacity
+                style={styles.compactActionBtn}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  triggerHaptic();
+                  onArchive(item);
+                }}
+              >
+                <Archive size={16} color={theme.textTertiary} />
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+        {!lastReviewed && (
+          <View style={[styles.unreadDot, { backgroundColor: theme.primary }]} />
+        )}
+      </TouchableOpacity>
+    );
+  }
 
   return (
     <>
@@ -386,6 +484,67 @@ export function ItemCard({ item, onPress, onOpenUrl, viewMode = 'list' }: ItemCa
           )}
         </View>
       </TouchableOpacity>
+
+      {showActions && (
+        <View style={[styles.actionBar, { borderTopColor: theme.border }]}>
+          {onMarkReviewed && (
+            <TouchableOpacity
+              style={[styles.actionBtn, { backgroundColor: theme.success + '15' }]}
+              onPress={() => {
+                triggerHaptic();
+                onMarkReviewed(item);
+              }}
+            >
+              <Check size={16} color={theme.success} />
+              <Text style={[styles.actionBtnText, { color: theme.success }]}>Done</Text>
+            </TouchableOpacity>
+          )}
+          {onStar && (
+            <TouchableOpacity
+              style={[styles.actionBtn, { backgroundColor: isStarred ? theme.warning + '25' : theme.surface }]}
+              onPress={() => {
+                triggerHaptic();
+                onStar(item);
+              }}
+            >
+              <Star size={16} color={isStarred ? theme.warning : theme.textTertiary} fill={isStarred ? theme.warning : 'transparent'} />
+            </TouchableOpacity>
+          )}
+          {onAddToFolder && (
+            <TouchableOpacity
+              style={[styles.actionBtn, { backgroundColor: theme.surface }]}
+              onPress={() => {
+                triggerHaptic();
+                onAddToFolder(item);
+              }}
+            >
+              <Folder size={16} color={theme.textTertiary} />
+            </TouchableOpacity>
+          )}
+          {onArchive && (
+            <TouchableOpacity
+              style={[styles.actionBtn, { backgroundColor: theme.surface }]}
+              onPress={() => {
+                triggerHaptic();
+                onArchive(item);
+              }}
+            >
+              <Archive size={16} color={theme.textTertiary} />
+            </TouchableOpacity>
+          )}
+          {onDelete && (
+            <TouchableOpacity
+              style={[styles.actionBtn, { backgroundColor: theme.error + '10' }]}
+              onPress={() => {
+                triggerHaptic();
+                onDelete(item);
+              }}
+            >
+              <Trash2 size={16} color={theme.error} />
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
     </View>
 
     <VideoPlayerModal
@@ -740,6 +899,89 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   quickLinkText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  compactCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 6,
+  },
+  compactLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 10,
+  },
+  compactImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 6,
+  },
+  compactIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  compactContent: {
+    flex: 1,
+  },
+  compactTitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  compactMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  compactSource: {
+    fontSize: 11,
+    flex: 1,
+  },
+  compactTime: {
+    fontSize: 11,
+  },
+  compactActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  compactActionBtn: {
+    padding: 6,
+  },
+  unreadDot: {
+    position: 'absolute',
+    left: 4,
+    top: '50%',
+    marginTop: -3,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  actionBar: {
+    flexDirection: 'row',
+    borderTopWidth: 1,
+    padding: 8,
+    gap: 6,
+  },
+  actionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  actionBtnText: {
     fontSize: 12,
     fontWeight: '600',
   },

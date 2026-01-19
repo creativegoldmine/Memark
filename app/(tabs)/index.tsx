@@ -1,40 +1,56 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Platform, NativeScrollEvent, NativeSyntheticEvent, ActivityIndicator } from 'react-native';
-import { Flame, Plus } from 'lucide-react-native';
-import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, RefreshControl, Platform, useWindowDimensions } from 'react-native';
+import { Flame, Plus, Eye, Clock, Archive, Star, Check, LayoutGrid, List, Grid } from 'lucide-react-native';
+import Animated, { FadeInDown, FadeIn, useSharedValue, useAnimatedScrollHandler } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase, Item } from '@/lib/supabase';
 import { ItemCard } from '@/components/ItemCard';
 import { SocialEmbedCard } from '@/components/SocialEmbedCard';
 import { LinkPreviewModal } from '@/components/LinkPreviewModal';
-import { LogoHeader } from '@/components/LogoHeader';
+import { CollapsibleHeader } from '@/components/CollapsibleHeader';
+import { TopicTabs } from '@/components/TopicTabs';
+import { ReviewCarousel } from '@/components/ReviewCarousel';
 import { ItemCardSkeleton } from '@/components/SkeletonLoader';
-import { ViewModeToggle } from '@/components/ViewModeToggle';
 import { InAppBrowser } from '@/components/InAppBrowser';
 
+const AnimatedScrollView = Animated.createAnimatedComponent(require('react-native').ScrollView);
+
 export default function Home() {
-  const { theme, themeMode } = useTheme();
+  const { theme } = useTheme();
   const { user, dbUser } = useAuth();
+  const { width: screenWidth } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const scrollY = useSharedValue(0);
+
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+  const [viewMode, setViewMode] = useState<'compact' | 'grid' | 'list'>('list');
   const [browserVisible, setBrowserVisible] = useState(false);
   const [browserUrl, setBrowserUrl] = useState('');
+  const [activeTab, setActiveTab] = useState('all');
   const [stats, setStats] = useState({
     todayCount: 0,
-    reviewCount: 0,
+    unreviewed: 0,
     streak: 0,
+    totalItems: 0,
   });
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [page, setPage] = useState(0);
   const ITEMS_PER_PAGE = 20;
   const subscriptionRef = useRef<any>(null);
+
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
+  });
 
   const fetchItems = useCallback(async (pageNum: number = 0, append: boolean = false) => {
     if (!user?.id) return;
@@ -49,15 +65,12 @@ export default function Home() {
       .range(pageNum * ITEMS_PER_PAGE, (pageNum + 1) * ITEMS_PER_PAGE - 1);
 
     if (data) {
-      const sortedItems = sortItemsIntelligently(data);
-
       if (append) {
-        setItems(prev => [...prev, ...sortedItems]);
+        setItems(prev => [...prev, ...data]);
       } else {
-        setItems(sortedItems);
+        setItems(data);
         calculateStats(data);
       }
-
       setHasMore(data.length === ITEMS_PER_PAGE);
     }
     setLoading(false);
@@ -65,53 +78,23 @@ export default function Home() {
     setLoadingMore(false);
   }, [user?.id]);
 
-  const sortItemsIntelligently = (items: Item[]): Item[] => {
-    return items.sort((a, b) => {
-      const aReviewDate = a.next_review_date ? new Date(a.next_review_date) : null;
-      const bReviewDate = b.next_review_date ? new Date(b.next_review_date) : null;
-      const now = new Date();
-
-      const aScore = a.score || 0;
-      const bScore = b.score || 0;
-
-      const aCreatedAt = new Date(a.created_at);
-      const bCreatedAt = new Date(b.created_at);
-
-      if (aReviewDate && aReviewDate <= now && (!bReviewDate || bReviewDate > now)) {
-        return -1;
-      }
-      if (bReviewDate && bReviewDate <= now && (!aReviewDate || aReviewDate > now)) {
-        return 1;
-      }
-
-      if (aReviewDate && bReviewDate && aReviewDate <= now && bReviewDate <= now) {
-        return aReviewDate.getTime() - bReviewDate.getTime();
-      }
-
-      if (Math.abs(aScore - bScore) > 15) {
-        return bScore - aScore;
-      }
-
-      return bCreatedAt.getTime() - aCreatedAt.getTime();
-    });
-  };
-
-  const calculateStats = (items: Item[]) => {
+  const calculateStats = (allItems: Item[]) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const todayCount = items.filter(
+    const todayCount = allItems.filter(
       (item) => new Date(item.created_at) >= today
     ).length;
 
-    const reviewCount = items.filter(
-      (item) => new Date(item.next_review_date) <= new Date()
+    const unreviewed = allItems.filter(
+      (item) => !(item as any).last_reviewed_at
     ).length;
 
     setStats({
       todayCount,
-      reviewCount,
-      streak: 0,
+      unreviewed,
+      streak: dbUser?.review_streak || 0,
+      totalItems: allItems.length,
     });
   };
 
@@ -133,14 +116,10 @@ export default function Home() {
     }
   };
 
-  const isCloseToBottom = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+  const handleScroll = (event: any) => {
     const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
     const paddingToBottom = 200;
-    return layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom;
-  };
-
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    if (isCloseToBottom(event)) {
+    if (layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom) {
       loadMore();
     }
   };
@@ -153,51 +132,72 @@ export default function Home() {
     setModalVisible(true);
   };
 
-  const handleViewModeChange = async (mode: 'grid' | 'list') => {
-    setViewMode(mode);
-    if (user?.id) {
-      await supabase
-        .from('users')
-        .update({ view_mode: mode })
-        .eq('id', user.id);
+  const handleOpenUrl = (url: string) => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
+    setBrowserUrl(url);
+    setBrowserVisible(true);
   };
 
-  const handleModalClose = () => {
-    setModalVisible(false);
-    setSelectedItem(null);
+  const handleMarkReviewed = async (item: Item) => {
+    if (!user?.id) return;
+    const now = new Date().toISOString();
+
+    await supabase
+      .from('items')
+      .update({
+        last_reviewed_at: now,
+        review_count: ((item as any).review_count || 0) + 1
+      })
+      .eq('id', item.id);
+
+    await supabase.from('review_history').insert({
+      user_id: user.id,
+      item_id: item.id,
+      action_type: 'reviewed'
+    });
+
+    setItems(prev => prev.map(i =>
+      i.id === item.id ? { ...i, last_reviewed_at: now, review_count: ((i as any).review_count || 0) + 1 } as Item : i
+    ));
+    setStats(prev => ({ ...prev, unreviewed: Math.max(0, prev.unreviewed - 1) }));
   };
 
-  const handleItemUpdate = (updatedItem: Item) => {
-    setItems(prev => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
+  const handleArchive = async (item: Item) => {
+    if (!user?.id) return;
+
+    await supabase
+      .from('items')
+      .update({ is_archived: true })
+      .eq('id', item.id);
+
+    await supabase.from('review_history').insert({
+      user_id: user.id,
+      item_id: item.id,
+      action_type: 'archived'
+    });
+
+    setItems(prev => prev.filter(i => i.id !== item.id));
+    setStats(prev => ({
+      ...prev,
+      totalItems: prev.totalItems - 1,
+      unreviewed: (item as any).last_reviewed_at ? prev.unreviewed : prev.unreviewed - 1
+    }));
   };
 
-  const renderItemCard = (item: Item, onPress: () => void, onOpenUrl: (url: string) => void, viewMode: 'grid' | 'list') => {
-    const platformType = (item as any).platform_type;
-    const embedHtml = (item as any).embed_html;
-    const hasMetadata = item.og_image || item.og_title || item.og_description;
+  const handleStar = async (item: Item) => {
+    if (!user?.id) return;
+    const isStarred = !(item as any).is_starred;
 
-    const shouldUseSocialEmbed = platformType && ['youtube', 'twitter', 'instagram', 'tiktok', 'vimeo', 'facebook'].includes(platformType) && (embedHtml || hasMetadata);
+    await supabase
+      .from('items')
+      .update({ is_starred: isStarred })
+      .eq('id', item.id);
 
-    if (shouldUseSocialEmbed) {
-      return (
-        <SocialEmbedCard
-          item={item}
-          onPress={onPress}
-          onOpenUrl={onOpenUrl}
-          viewMode={viewMode}
-        />
-      );
-    }
-
-    return (
-      <ItemCard
-        item={item}
-        onPress={onPress}
-        onOpenUrl={onOpenUrl}
-        viewMode={viewMode}
-      />
-    );
+    setItems(prev => prev.map(i =>
+      i.id === item.id ? { ...i, is_starred: isStarred } as Item : i
+    ));
   };
 
   useEffect(() => {
@@ -220,27 +220,19 @@ export default function Home() {
         if (payload.eventType === 'INSERT') {
           const newItem = payload.new as Item;
           if (newItem.status === 'active' && !newItem.is_archived) {
-            setItems(prev => {
-              const updated = sortItemsIntelligently([newItem, ...prev].slice(0, 50));
-              calculateStats(updated);
-              return updated;
-            });
+            setItems(prev => [newItem, ...prev].slice(0, 50));
+            setStats(prev => ({
+              ...prev,
+              todayCount: prev.todayCount + 1,
+              totalItems: prev.totalItems + 1,
+              unreviewed: prev.unreviewed + 1
+            }));
           }
         } else if (payload.eventType === 'UPDATE') {
           const updatedItem = payload.new as Item;
-          setItems(prev => {
-            const updated = sortItemsIntelligently(
-              prev.map(item => item.id === updatedItem.id ? updatedItem : item)
-            );
-            calculateStats(updated);
-            return updated;
-          });
+          setItems(prev => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
         } else if (payload.eventType === 'DELETE') {
-          setItems(prev => {
-            const updated = prev.filter(item => item.id !== payload.old.id);
-            calculateStats(updated);
-            return updated;
-          });
+          setItems(prev => prev.filter(item => item.id !== payload.old.id));
         }
       })
       .subscribe();
@@ -250,157 +242,210 @@ export default function Home() {
     };
   }, [user?.id]);
 
-  const handleOpenUrl = (url: string) => {
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  const topicTabs = useMemo(() => {
+    const tabs = [
+      { id: 'all', label: 'All', count: stats.totalItems },
+      { id: 'unreviewed', label: 'Unreviewed', count: stats.unreviewed, isSpecial: true },
+      { id: 'starred', label: 'Starred', count: items.filter(i => (i as any).is_starred).length },
+      { id: 'articles', label: 'Articles', count: items.filter(i => i.type === 'article').length },
+      { id: 'videos', label: 'Videos', count: items.filter(i => i.type === 'video').length },
+    ];
+    return tabs;
+  }, [items, stats]);
+
+  const filteredItems = useMemo(() => {
+    switch (activeTab) {
+      case 'unreviewed':
+        return items.filter(i => !(i as any).last_reviewed_at);
+      case 'starred':
+        return items.filter(i => (i as any).is_starred);
+      case 'articles':
+        return items.filter(i => i.type === 'article');
+      case 'videos':
+        return items.filter(i => i.type === 'video');
+      default:
+        return items;
     }
-    setBrowserUrl(url);
-    setBrowserVisible(true);
+  }, [items, activeTab]);
+
+  const unreviewedItems = useMemo(() => {
+    return items.filter(i => !(i as any).last_reviewed_at).slice(0, 10);
+  }, [items]);
+
+  const renderItemCard = (item: Item, onPress: () => void, onOpenUrl: (url: string) => void) => {
+    const platformType = (item as any).platform_type;
+    const embedHtml = (item as any).embed_html;
+    const hasMetadata = item.og_image || item.og_title || item.og_description;
+    const shouldUseSocialEmbed = platformType && ['youtube', 'twitter', 'instagram', 'tiktok', 'vimeo', 'facebook'].includes(platformType) && (embedHtml || hasMetadata);
+
+    if (shouldUseSocialEmbed && viewMode !== 'compact') {
+      return (
+        <SocialEmbedCard
+          item={item}
+          onPress={onPress}
+          onOpenUrl={onOpenUrl}
+          viewMode={viewMode === 'grid' ? 'grid' : 'list'}
+        />
+      );
+    }
+
+    return (
+      <ItemCard
+        item={item}
+        onPress={onPress}
+        onOpenUrl={onOpenUrl}
+        viewMode={viewMode}
+        showActions={true}
+        onMarkReviewed={handleMarkReviewed}
+        onArchive={handleArchive}
+        onStar={handleStar}
+      />
+    );
   };
-
-  const todayItems = items.filter((item) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return new Date(item.created_at) >= today;
-  });
-
-  const videoItems = items.filter((item) => item.type === 'video');
-  const articleItems = items.filter((item) => item.type === 'article');
 
   if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: theme.background }]}>
-        <LogoHeader />
-        <View style={[styles.subHeader, { backgroundColor: theme.cardBackground, borderBottomColor: theme.border }]}>
-          <Text style={[styles.greeting, { color: theme.text }]}>Welcome</Text>
-          <TouchableOpacity style={[styles.addButton, { backgroundColor: theme.primary }]} disabled>
-            <Plus size={24} color="#FFFFFF" />
-          </TouchableOpacity>
+        <CollapsibleHeader scrollY={scrollY} />
+        <View style={styles.skeletonContainer}>
+          <ItemCardSkeleton />
+          <ItemCardSkeleton />
+          <ItemCardSkeleton />
         </View>
-
-        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-          <ItemCardSkeleton />
-          <ItemCardSkeleton />
-          <ItemCardSkeleton />
-        </ScrollView>
       </View>
     );
   }
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <LogoHeader />
+      <CollapsibleHeader scrollY={scrollY} unreadCount={stats.unreviewed} />
+
+      <TopicTabs
+        tabs={topicTabs}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+      />
+
       <View style={[styles.subHeader, { backgroundColor: theme.cardBackground, borderBottomColor: theme.border }]}>
-        <View>
-          <Text style={[styles.greeting, { color: theme.text }]}>
-            {dbUser?.name ? `Hi, ${dbUser.name.split(' ')[0]}` : 'Welcome'}
-          </Text>
-          <Animated.Text
-            entering={FadeIn.duration(600).delay(200)}
-            style={[styles.subgreeting, { color: theme.textSecondary }]}
+        <View style={styles.statsRow}>
+          <TouchableOpacity
+            style={[styles.statPill, { backgroundColor: stats.unreviewed > 0 ? theme.warning + '20' : theme.surface }]}
+            onPress={() => setActiveTab('unreviewed')}
           >
-            Your personal knowledge vault
-          </Animated.Text>
+            <Eye size={14} color={stats.unreviewed > 0 ? theme.warning : theme.textTertiary} />
+            <Text style={[styles.statPillText, { color: stats.unreviewed > 0 ? theme.warning : theme.textTertiary }]}>
+              {stats.unreviewed} to review
+            </Text>
+          </TouchableOpacity>
+          <View style={[styles.statPill, { backgroundColor: theme.surface }]}>
+            <Clock size={14} color={theme.textTertiary} />
+            <Text style={[styles.statPillText, { color: theme.textTertiary }]}>
+              {stats.todayCount} today
+            </Text>
+          </View>
+          {stats.streak > 0 && (
+            <View style={[styles.statPill, { backgroundColor: theme.error + '15' }]}>
+              <Flame size={14} color={theme.error} />
+              <Text style={[styles.statPillText, { color: theme.error }]}>
+                {stats.streak}
+              </Text>
+            </View>
+          )}
         </View>
         <View style={styles.headerActions}>
-          <ViewModeToggle mode={viewMode} onModeChange={handleViewModeChange} />
-          <TouchableOpacity style={[styles.addButton, { backgroundColor: theme.primary }]}>
-            <Plus size={24} color="#FFFFFF" />
-          </TouchableOpacity>
+          <View style={styles.viewToggle}>
+            <TouchableOpacity
+              style={[styles.viewButton, viewMode === 'compact' && { backgroundColor: theme.surface }]}
+              onPress={() => setViewMode('compact')}
+            >
+              <LayoutGrid size={16} color={viewMode === 'compact' ? theme.primary : theme.textTertiary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.viewButton, viewMode === 'list' && { backgroundColor: theme.surface }]}
+              onPress={() => setViewMode('list')}
+            >
+              <List size={16} color={viewMode === 'list' ? theme.primary : theme.textTertiary} />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
-      <ScrollView
+      <AnimatedScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        onScroll={handleScroll}
-        scrollEventThrottle={400}
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />
         }
       >
-        <View style={styles.statsContainer}>
-          <View style={[styles.statCard, { backgroundColor: theme.surface }]}>
-            <Text style={[styles.statValue, { color: theme.primary }]}>{stats.todayCount}</Text>
-            <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Today's Captures</Text>
-          </View>
-          <View style={[styles.statCard, { backgroundColor: theme.surface }]}>
-            <Text style={[styles.statValue, { color: theme.warning }]}>{stats.reviewCount}</Text>
-            <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Needs Review</Text>
-          </View>
-          <View style={[styles.statCard, { backgroundColor: theme.surface }]}>
-            <View style={styles.streakRow}>
-              <Flame size={20} color={theme.error} />
-              <Text style={[styles.statValue, { color: theme.error }]}>{stats.streak}</Text>
-            </View>
-            <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Day Streak</Text>
-          </View>
-        </View>
-
-        {todayItems.length > 0 && (
-          <Animated.View entering={FadeIn.duration(400)} style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Today's Items</Text>
-            {todayItems.map((item, index) => (
-              <Animated.View key={item.id} entering={FadeInDown.delay(index * 100).duration(400)}>
-                {renderItemCard(item, () => handleItemPress(item), handleOpenUrl, viewMode)}
-              </Animated.View>
-            ))}
-          </Animated.View>
+        {unreviewedItems.length > 0 && activeTab === 'all' && (
+          <ReviewCarousel
+            items={unreviewedItems}
+            title="Review These"
+            subtitle={`${stats.unreviewed} items need attention`}
+            onItemPress={handleItemPress}
+            onMarkReviewed={handleMarkReviewed}
+            onArchive={handleArchive}
+            onStar={handleStar}
+            onSeeAll={() => setActiveTab('unreviewed')}
+          />
         )}
 
-        {videoItems.length > 0 && (
-          <Animated.View entering={FadeIn.duration(400).delay(200)} style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Videos to Watch</Text>
-            {videoItems.slice(0, 3).map((item, index) => (
-              <Animated.View key={item.id} entering={FadeInDown.delay(200 + index * 100).duration(400)}>
-                {renderItemCard(item, () => handleItemPress(item), handleOpenUrl, viewMode)}
-              </Animated.View>
-            ))}
-          </Animated.View>
-        )}
-
-        {articleItems.length > 0 && (
-          <Animated.View entering={FadeIn.duration(400).delay(400)} style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Articles to Read</Text>
-            {articleItems.slice(0, 3).map((item, index) => (
-              <Animated.View key={item.id} entering={FadeInDown.delay(400 + index * 100).duration(400)}>
-                {renderItemCard(item, () => handleItemPress(item), handleOpenUrl, viewMode)}
-              </Animated.View>
-            ))}
-          </Animated.View>
-        )}
-
-        {items.length === 0 && (
-          <View style={styles.emptyState}>
-            <Text style={[styles.emptyTitle, { color: theme.text }]}>Your brain is clear</Text>
-            <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
-              Send something to yourself to get started
+        <View style={styles.feedSection}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>
+              {activeTab === 'all' ? 'Recent' : activeTab === 'unreviewed' ? 'Needs Review' : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
+            </Text>
+            <Text style={[styles.sectionCount, { color: theme.textTertiary }]}>
+              {filteredItems.length} items
             </Text>
           </View>
-        )}
+
+          {filteredItems.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={[styles.emptyTitle, { color: theme.text }]}>
+                {activeTab === 'unreviewed' ? 'All caught up!' : 'No items yet'}
+              </Text>
+              <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
+                {activeTab === 'unreviewed'
+                  ? 'You have reviewed all your marks'
+                  : 'Send something to yourself to get started'}
+              </Text>
+            </View>
+          ) : (
+            filteredItems.map((item, index) => (
+              <Animated.View key={item.id} entering={FadeInDown.delay(index * 50).duration(300)}>
+                {renderItemCard(item, () => handleItemPress(item), handleOpenUrl)}
+              </Animated.View>
+            ))
+          )}
+        </View>
 
         {loadingMore && (
           <View style={styles.loadingMore}>
-            <ActivityIndicator size="large" color={theme.primary} />
             <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Loading more...</Text>
           </View>
         )}
 
-        {!hasMore && items.length > 0 && (
+        {!hasMore && filteredItems.length > 0 && (
           <View style={styles.endMessage}>
             <Text style={[styles.endMessageText, { color: theme.textTertiary }]}>
               You've reached the end
             </Text>
           </View>
         )}
-      </ScrollView>
+      </AnimatedScrollView>
 
       <LinkPreviewModal
         visible={modalVisible}
         item={selectedItem}
-        onClose={handleModalClose}
-        onUpdate={() => selectedItem && handleItemUpdate(selectedItem)}
+        onClose={() => {
+          setModalVisible(false);
+          setSelectedItem(null);
+        }}
+        onUpdate={() => selectedItem && handleMarkReviewed(selectedItem)}
       />
 
       <InAppBrowser
@@ -416,37 +461,48 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+  skeletonContainer: {
+    padding: 16,
   },
   subHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderBottomWidth: 1,
   },
-  greeting: {
-    fontSize: 20,
-    fontWeight: '700',
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
   },
-  subgreeting: {
-    fontSize: 13,
-    fontWeight: '500',
-    marginTop: 2,
+  statPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  statPillText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
   },
-  addButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  viewToggle: {
+    flexDirection: 'row',
+    gap: 2,
+  },
+  viewButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -454,70 +510,50 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 20,
+    paddingBottom: 20,
   },
-  statsContainer: {
+  feedSection: {
+    paddingHorizontal: 12,
+  },
+  sectionHeader: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 24,
-  },
-  statCard: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 12,
+    justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 24,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 11,
-    textAlign: 'center',
-  },
-  streakRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginBottom: 4,
-  },
-  section: {
-    marginBottom: 24,
+    paddingVertical: 12,
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
-    marginBottom: 16,
+  },
+  sectionCount: {
+    fontSize: 13,
   },
   emptyState: {
     alignItems: 'center',
-    paddingVertical: 60,
+    paddingVertical: 40,
   },
   emptyTitle: {
-    fontSize: 24,
+    fontSize: 18,
     fontWeight: '700',
     marginBottom: 8,
   },
   emptyText: {
-    fontSize: 16,
+    fontSize: 14,
     textAlign: 'center',
   },
   loadingMore: {
-    paddingVertical: 24,
+    paddingVertical: 20,
     alignItems: 'center',
-    gap: 12,
   },
   loadingText: {
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: 13,
   },
   endMessage: {
-    paddingVertical: 24,
+    paddingVertical: 20,
     alignItems: 'center',
   },
   endMessageText: {
-    fontSize: 13,
+    fontSize: 12,
     fontStyle: 'italic',
   },
 });

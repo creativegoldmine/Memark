@@ -1,11 +1,14 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, TextInput, Modal, Platform } from 'react-native';
-import { Grid, List, ChevronRight, Plus, X, Trash2, Search as SearchIcon } from 'lucide-react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, TextInput, Modal, Platform, Dimensions, useWindowDimensions } from 'react-native';
+import { Grid, List, ChevronRight, Plus, X, Trash2, Search as SearchIcon, LayoutGrid } from 'lucide-react-native';
+import Animated, { useSharedValue, useAnimatedScrollHandler, FadeIn, FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase, Item } from '@/lib/supabase';
-import { LogoHeader } from '@/components/LogoHeader';
+import { CollapsibleHeader } from '@/components/CollapsibleHeader';
+import { TopicTabs } from '@/components/TopicTabs';
 import { LoadingLogo } from '@/components/LoadingLogo';
 import { ItemCard } from '@/components/ItemCard';
 import { SocialEmbedCard } from '@/components/SocialEmbedCard';
@@ -31,6 +34,8 @@ import {
   HomeIcon,
 } from '@/components/CollectionIcons';
 
+const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
+
 interface Folder {
   id: string;
   name: string;
@@ -45,6 +50,9 @@ interface Folder {
 export default function Collections() {
   const { theme } = useTheme();
   const { user } = useAuth();
+  const { width: screenWidth } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const scrollY = useSharedValue(0);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [selectedFolder, setSelectedFolder] = useState<Folder | null>(null);
   const [folderItems, setFolderItems] = useState<Item[]>([]);
@@ -52,14 +60,26 @@ export default function Collections() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<'compact' | 'grid' | 'list'>('compact');
   const [createModalVisible, setCreateModalVisible] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [newFolderIcon, setNewFolderIcon] = useState('folder');
   const [searchQuery, setSearchQuery] = useState('');
   const [browserVisible, setBrowserVisible] = useState(false);
   const [browserUrl, setBrowserUrl] = useState('');
+  const [activeTab, setActiveTab] = useState('all');
   const subscriptionRef = useRef<any>(null);
+
+  const numColumns = screenWidth < 400 ? 3 : screenWidth < 600 ? 4 : 5;
+  const cardGap = 8;
+  const containerPadding = 12;
+  const cardWidth = (screenWidth - containerPadding * 2 - cardGap * (numColumns - 1)) / numColumns;
+
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
+  });
 
   const handleOpenUrl = (url: string) => {
     if (Platform.OS !== 'web') {
@@ -284,6 +304,15 @@ export default function Collections() {
     );
   }, [folderItems, searchQuery]);
 
+  const topicTabs = useMemo(() => {
+    const tabs = [
+      { id: 'all', label: 'All', count: folders.length },
+      { id: 'smart', label: 'Smart', count: folders.filter(f => f.is_auto_generated).length, isSpecial: true },
+      { id: 'manual', label: 'My Collections', count: folders.filter(f => !f.is_auto_generated).length },
+    ];
+    return tabs;
+  }, [folders]);
+
   if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -294,36 +323,68 @@ export default function Collections() {
     );
   }
 
+  const displayFolders = useMemo(() => {
+    let filtered = filteredFolders;
+    if (activeTab === 'smart') {
+      filtered = filtered.filter(f => f.is_auto_generated);
+    } else if (activeTab === 'manual') {
+      filtered = filtered.filter(f => !f.is_auto_generated);
+    }
+    return filtered;
+  }, [filteredFolders, activeTab]);
+
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <LogoHeader />
+      <CollapsibleHeader
+        scrollY={scrollY}
+        showBackButton={!!selectedFolder}
+        onBackPress={() => {
+          setSelectedFolder(null);
+          setFolderItems([]);
+          setSearchQuery('');
+        }}
+      />
 
-      {!selectedFolder && <SmartFolderSuggestions />}
+      {!selectedFolder && (
+        <TopicTabs
+          tabs={topicTabs}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+        />
+      )}
 
-      <View style={[styles.header, { borderBottomColor: theme.border }]}>
-        <Text style={[styles.headerText, { color: theme.text }]}>
-          {selectedFolder ? selectedFolder.name : 'Collections'}
-        </Text>
+      <View style={[styles.subHeader, { backgroundColor: theme.cardBackground, borderBottomColor: theme.border }]}>
+        <View style={styles.subHeaderLeft}>
+          <Text style={[styles.headerText, { color: theme.text }]}>
+            {selectedFolder ? selectedFolder.name : `${displayFolders.length} Folders`}
+          </Text>
+        </View>
         {!selectedFolder && (
           <View style={styles.headerActions}>
             <TouchableOpacity
               style={[styles.createButton, { backgroundColor: theme.primary }]}
               onPress={() => setCreateModalVisible(true)}
             >
-              <Plus size={18} color="#FFFFFF" />
+              <Plus size={16} color="#FFFFFF" />
             </TouchableOpacity>
             <View style={styles.viewToggle}>
               <TouchableOpacity
-                style={[styles.viewButton, viewMode === 'list' && { backgroundColor: theme.surface }]}
-                onPress={() => setViewMode('list')}
+                style={[styles.viewButton, viewMode === 'compact' && { backgroundColor: theme.surface }]}
+                onPress={() => setViewMode('compact')}
               >
-                <List size={20} color={viewMode === 'list' ? theme.primary : theme.textTertiary} />
+                <LayoutGrid size={18} color={viewMode === 'compact' ? theme.primary : theme.textTertiary} />
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.viewButton, viewMode === 'grid' && { backgroundColor: theme.surface }]}
                 onPress={() => setViewMode('grid')}
               >
-                <Grid size={20} color={viewMode === 'grid' ? theme.primary : theme.textTertiary} />
+                <Grid size={18} color={viewMode === 'grid' ? theme.primary : theme.textTertiary} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.viewButton, viewMode === 'list' && { backgroundColor: theme.surface }]}
+                onPress={() => setViewMode('list')}
+              >
+                <List size={18} color={viewMode === 'list' ? theme.primary : theme.textTertiary} />
               </TouchableOpacity>
             </View>
           </View>
@@ -332,25 +393,27 @@ export default function Collections() {
 
       <View style={styles.searchContainer}>
         <View style={[styles.searchBar, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <SearchIcon size={20} color={theme.textSecondary} />
+          <SearchIcon size={18} color={theme.textSecondary} />
           <TextInput
             style={[styles.searchInput, { color: theme.text }]}
-            placeholder={selectedFolder ? "Search items..." : "Search collections..."}
+            placeholder={selectedFolder ? "Search items..." : "Search folders..."}
             placeholderTextColor={theme.textTertiary}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
           {searchQuery !== '' && (
             <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <X size={20} color={theme.textSecondary} />
+              <X size={18} color={theme.textSecondary} />
             </TouchableOpacity>
           )}
         </View>
       </View>
 
-      <ScrollView
+      <AnimatedScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingHorizontal: containerPadding }]}
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -360,7 +423,7 @@ export default function Collections() {
         }
       >
         {!selectedFolder ? (
-          filteredFolders.length === 0 ? (
+          displayFolders.length === 0 ? (
             <View style={styles.emptyState}>
               <Text style={[styles.emptyTitle, { color: theme.text }]}>
                 {folders.length === 0 ? 'No folders yet' : 'No results found'}
@@ -371,82 +434,65 @@ export default function Collections() {
                   : 'Try adjusting your search'}
               </Text>
             </View>
-          ) : searchQuery ? (
-            <View style={viewMode === 'grid' ? styles.foldersGrid : styles.foldersList}>
-              {filteredFolders.map((folder) => (
-                <TouchableOpacity
-                  key={folder.id}
-                  style={[
-                    viewMode === 'grid' ? styles.folderCardGrid : styles.folderCardList,
-                    { backgroundColor: theme.cardBackground, borderColor: theme.border }
-                  ]}
-                  onPress={() => handleFolderPress(folder)}
-                >
-                  <View style={styles.folderContent}>
-                    <View style={styles.folderTop}>
-                      <View style={styles.folderIconContainer}>
-                        {(() => {
-                          const IconComponent = getCollectionIcon(folder.icon || folder.name);
-                          return <IconComponent size={32} color={theme.primary} />;
-                        })()}
-                      </View>
-                      {!folder.is_auto_generated && viewMode === 'grid' && (
-                        <TouchableOpacity onPress={() => deleteFolder(folder.id)}>
-                          <Trash2 size={16} color={theme.textTertiary} />
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                    <View style={styles.folderInfo}>
-                      <Text style={[styles.folderName, { color: theme.text }]} numberOfLines={1}>
-                        {folder.name}
-                      </Text>
-                      <Text style={[styles.folderCount, { color: theme.textSecondary }]}>
-                        {folder.itemCount} items
-                      </Text>
-                      {folder.is_auto_generated && (
-                        <View style={[styles.autoTag, { backgroundColor: theme.surface }]}>
-                          <Text style={[styles.autoTagText, { color: theme.textTertiary }]}>Auto</Text>
-                        </View>
-                      )}
-                    </View>
-                  </View>
-                  {viewMode === 'list' && !folder.is_auto_generated && (
-                    <TouchableOpacity onPress={() => deleteFolder(folder.id)}>
-                      <Trash2 size={16} color={theme.textTertiary} />
-                    </TouchableOpacity>
-                  )}
-                  {viewMode === 'list' && folder.is_auto_generated && (
-                    <ChevronRight size={20} color={theme.textTertiary} />
-                  )}
-                </TouchableOpacity>
-              ))}
-            </View>
           ) : (
-            <View>
-              {Object.entries(groupedFolders).map(([category, categoryFolders]) => (
-                <View key={category} style={styles.categorySection}>
-                  <Text style={[styles.categoryTitle, { color: theme.textSecondary }]}>{category}</Text>
-                  <View style={viewMode === 'grid' ? styles.foldersGrid : styles.foldersList}>
-                    {categoryFolders.map((folder) => (
+            <View style={[
+              viewMode === 'compact' ? styles.foldersCompact : viewMode === 'grid' ? styles.foldersGrid : styles.foldersList,
+              { gap: cardGap }
+            ]}>
+              {displayFolders.map((folder, index) => {
+                const IconComponent = getCollectionIcon(folder.icon || folder.name);
+
+                if (viewMode === 'compact') {
+                  return (
+                    <Animated.View
+                      key={folder.id}
+                      entering={FadeInDown.delay(index * 30).duration(200)}
+                      style={{ width: cardWidth }}
+                    >
                       <TouchableOpacity
-                        key={folder.id}
                         style={[
-                          viewMode === 'grid' ? styles.folderCardGrid : styles.folderCardList,
+                          styles.folderCardCompact,
                           { backgroundColor: theme.cardBackground, borderColor: theme.border }
                         ]}
                         onPress={() => handleFolderPress(folder)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={[styles.compactIconWrap, { backgroundColor: theme.surface }]}>
+                          <IconComponent size={20} color={theme.primary} />
+                        </View>
+                        <Text style={[styles.compactName, { color: theme.text }]} numberOfLines={1}>
+                          {folder.name}
+                        </Text>
+                        <Text style={[styles.compactCount, { color: theme.textTertiary }]}>
+                          {folder.itemCount}
+                        </Text>
+                      </TouchableOpacity>
+                    </Animated.View>
+                  );
+                }
+
+                if (viewMode === 'grid') {
+                  return (
+                    <Animated.View
+                      key={folder.id}
+                      entering={FadeInDown.delay(index * 30).duration(200)}
+                    >
+                      <TouchableOpacity
+                        style={[
+                          styles.folderCardGrid,
+                          { backgroundColor: theme.cardBackground, borderColor: theme.border }
+                        ]}
+                        onPress={() => handleFolderPress(folder)}
+                        activeOpacity={0.7}
                       >
                         <View style={styles.folderContent}>
                           <View style={styles.folderTop}>
                             <View style={styles.folderIconContainer}>
-                              {(() => {
-                                const IconComponent = getCollectionIcon(folder.icon || folder.name);
-                                return <IconComponent size={32} color={theme.primary} />;
-                              })()}
+                              <IconComponent size={28} color={theme.primary} />
                             </View>
-                            {!folder.is_auto_generated && viewMode === 'grid' && (
+                            {!folder.is_auto_generated && (
                               <TouchableOpacity onPress={() => deleteFolder(folder.id)}>
-                                <Trash2 size={16} color={theme.textTertiary} />
+                                <Trash2 size={14} color={theme.textTertiary} />
                               </TouchableOpacity>
                             )}
                           </View>
@@ -457,41 +503,54 @@ export default function Collections() {
                             <Text style={[styles.folderCount, { color: theme.textSecondary }]}>
                               {folder.itemCount} items
                             </Text>
-                            {folder.is_auto_generated && (
-                              <View style={[styles.autoTag, { backgroundColor: theme.surface }]}>
-                                <Text style={[styles.autoTagText, { color: theme.textTertiary }]}>Auto</Text>
-                              </View>
-                            )}
                           </View>
                         </View>
-                        {viewMode === 'list' && !folder.is_auto_generated && (
-                          <TouchableOpacity onPress={() => deleteFolder(folder.id)}>
-                            <Trash2 size={16} color={theme.textTertiary} />
-                          </TouchableOpacity>
-                        )}
-                        {viewMode === 'list' && folder.is_auto_generated && (
-                          <ChevronRight size={20} color={theme.textTertiary} />
-                        )}
                       </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-              ))}
+                    </Animated.View>
+                  );
+                }
+
+                return (
+                  <Animated.View
+                    key={folder.id}
+                    entering={FadeInDown.delay(index * 30).duration(200)}
+                  >
+                    <TouchableOpacity
+                      style={[
+                        styles.folderCardList,
+                        { backgroundColor: theme.cardBackground, borderColor: theme.border }
+                      ]}
+                      onPress={() => handleFolderPress(folder)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.listLeft}>
+                        <View style={[styles.listIconWrap, { backgroundColor: theme.surface }]}>
+                          <IconComponent size={20} color={theme.primary} />
+                        </View>
+                        <View>
+                          <Text style={[styles.folderName, { color: theme.text }]} numberOfLines={1}>
+                            {folder.name}
+                          </Text>
+                          <Text style={[styles.folderCount, { color: theme.textSecondary }]}>
+                            {folder.itemCount} items
+                          </Text>
+                        </View>
+                      </View>
+                      {!folder.is_auto_generated ? (
+                        <TouchableOpacity onPress={() => deleteFolder(folder.id)}>
+                          <Trash2 size={16} color={theme.textTertiary} />
+                        </TouchableOpacity>
+                      ) : (
+                        <ChevronRight size={18} color={theme.textTertiary} />
+                      )}
+                    </TouchableOpacity>
+                  </Animated.View>
+                );
+              })}
             </View>
           )
         ) : (
           <>
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={() => {
-                setSelectedFolder(null);
-                setFolderItems([]);
-                setSearchQuery('');
-              }}
-            >
-              <ChevronRight size={20} color={theme.textSecondary} style={{ transform: [{ rotate: '180deg' }] }} />
-              <Text style={[styles.backText, { color: theme.textSecondary }]}>Back to Folders</Text>
-            </TouchableOpacity>
 
             {filteredItems.length === 0 ? (
               <View style={styles.emptyState}>
@@ -523,7 +582,7 @@ export default function Collections() {
             )}
           </>
         )}
-      </ScrollView>
+      </AnimatedScrollView>
 
       <LinkPreviewModal
         visible={modalVisible}
@@ -633,82 +692,122 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 20,
+    paddingVertical: 12,
   },
   searchContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
     borderWidth: 1,
-    gap: 12,
+    gap: 8,
   },
   searchInput: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 14,
   },
-  header: {
+  subHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     borderBottomWidth: 1,
   },
+  subHeaderLeft: {
+    flex: 1,
+  },
   headerText: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: '700',
   },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
   },
   createButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
   },
   viewToggle: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 4,
   },
   viewButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  foldersCompact: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
   },
   foldersGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 16,
   },
-  foldersList: {
-    gap: 12,
+  foldersList: {},
+  folderCardCompact: {
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  compactIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  compactName: {
+    fontSize: 11,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 2,
+  },
+  compactCount: {
+    fontSize: 10,
+    fontWeight: '500',
   },
   folderCardGrid: {
-    width: '47%',
-    padding: 16,
-    borderRadius: 16,
+    width: '48%',
+    padding: 12,
+    borderRadius: 12,
     borderWidth: 1,
-    minHeight: 100,
   },
   folderCardList: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
-    borderRadius: 16,
+    padding: 12,
+    borderRadius: 10,
     borderWidth: 1,
+  },
+  listLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  listIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   folderContent: {
     flex: 1,
@@ -717,62 +816,42 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   folderIconContainer: {
-    width: 40,
-    height: 40,
+    width: 32,
+    height: 32,
     justifyContent: 'center',
     alignItems: 'center',
   },
   folderInfo: {
     flex: 1,
   },
-  autoTag: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    marginTop: 8,
-  },
-  autoTagText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
   folderName: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   folderCount: {
-    fontSize: 14,
-  },
-  backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 20,
-  },
-  backText: {
-    fontSize: 16,
+    fontSize: 12,
   },
   itemsList: {
-    gap: 12,
+    gap: 10,
   },
   emptyState: {
     alignItems: 'center',
-    paddingVertical: 60,
-    paddingHorizontal: 40,
+    paddingVertical: 40,
+    paddingHorizontal: 20,
   },
   emptyTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
     marginBottom: 8,
   },
   emptyText: {
-    fontSize: 14,
+    fontSize: 13,
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 18,
   },
   modalOverlay: {
     flex: 1,
@@ -780,57 +859,47 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modal: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 20,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 16,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
   },
   iconPicker: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 20,
+    gap: 10,
+    marginBottom: 16,
   },
   iconOption: {
-    width: 50,
-    height: 50,
-    borderRadius: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
   input: {
-    padding: 16,
-    borderRadius: 12,
-    fontSize: 16,
-    marginBottom: 16,
+    padding: 14,
+    borderRadius: 10,
+    fontSize: 15,
+    marginBottom: 12,
   },
   submitButton: {
-    padding: 16,
-    borderRadius: 12,
+    padding: 14,
+    borderRadius: 10,
     alignItems: 'center',
   },
   submitButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
-  },
-  categorySection: {
-    marginBottom: 32,
-  },
-  categoryTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    marginBottom: 16,
-    letterSpacing: 1,
   },
 });
