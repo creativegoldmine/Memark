@@ -13,7 +13,7 @@ export function LogoHeader() {
       {
         backgroundColor: theme.cardBackground,
         borderBottomColor: theme.border,
-        paddingTop: Math.max(insets.top + 8, 8)
+        paddingTop: Math.max(insets.top, 0)
       }
     ]}>
       <View style={styles.logoContainer}>
@@ -39,6 +39,7 @@ const styles = StyleSheet.create({
     paddingBottom: 0,
     paddingHorizontal: 0,
     borderBottomWidth: 1,
+    flexDirection: 'row',
     alignItems: 'center',
     ...(Platform.OS === 'web' ? {
       shadowColor: '#000',
@@ -50,12 +51,12 @@ const styles = StyleSheet.create({
     }),
   },
   logoContainer: {
-    alignItems: 'center',
+    paddingLeft: 16,
     justifyContent: 'center',
   },
   logo: {
-    width: 560,
-    height: 126,
+    width: 640,
+    height: 144,
   },
   notificationContainer: {
     position: 'absolute',
