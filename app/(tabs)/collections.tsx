@@ -692,7 +692,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingVertical: 12,
+    paddingTop: 12,
+    paddingBottom: 100,
   },
   searchContainer: {
     paddingHorizontal: 12,
