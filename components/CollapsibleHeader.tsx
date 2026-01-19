@@ -9,10 +9,10 @@ import Animated, {
 import { ArrowLeft, Bell } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 
-const HEADER_MAX_HEIGHT = 52;
-const HEADER_MIN_HEIGHT = 44;
-const LOGO_MAX_SIZE = 32;
-const LOGO_MIN_SIZE = 24;
+const HEADER_MAX_HEIGHT = 56;
+const HEADER_MIN_HEIGHT = 48;
+const LOGO_MAX_SIZE = 45;
+const LOGO_MIN_SIZE = 32;
 const SCROLL_THRESHOLD = 50;
 
 interface CollapsibleHeaderProps {
@@ -172,8 +172,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   logo: {
-    width: 112,
-    height: 32,
+    width: 158,
+    height: 45,
   },
   notificationButton: {
     width: 36,
