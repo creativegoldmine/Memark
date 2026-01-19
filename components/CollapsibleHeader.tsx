@@ -11,8 +11,8 @@ import { useTheme } from '@/contexts/ThemeContext';
 
 const HEADER_MAX_HEIGHT = 56;
 const HEADER_MIN_HEIGHT = 48;
-const LOGO_MAX_SIZE = 45;
-const LOGO_MIN_SIZE = 32;
+const LOGO_MAX_SIZE = 54;
+const LOGO_MIN_SIZE = 46;
 const SCROLL_THRESHOLD = 50;
 
 interface CollapsibleHeaderProps {
@@ -47,17 +47,31 @@ export function CollapsibleHeader({
     };
   });
 
-  const animatedLogoStyle = useAnimatedStyle(() => {
-    const size = interpolate(
+  const animatedLogoContainerStyle = useAnimatedStyle(() => {
+    const containerHeight = interpolate(
       scrollY.value,
       [0, SCROLL_THRESHOLD],
-      [LOGO_MAX_SIZE, LOGO_MIN_SIZE],
+      [HEADER_MAX_HEIGHT - 2, HEADER_MIN_HEIGHT - 2],
       Extrapolation.CLAMP
     );
 
     return {
-      width: size * 3.5,
-      height: size,
+      width: containerHeight,
+      height: containerHeight,
+    };
+  });
+
+  const animatedLogoStyle = useAnimatedStyle(() => {
+    const containerHeight = interpolate(
+      scrollY.value,
+      [0, SCROLL_THRESHOLD],
+      [HEADER_MAX_HEIGHT - 2, HEADER_MIN_HEIGHT - 2],
+      Extrapolation.CLAMP
+    );
+
+    return {
+      width: containerHeight * 5,
+      height: containerHeight * 5,
     };
   });
 
@@ -106,7 +120,7 @@ export function CollapsibleHeader({
           </Animated.View>
         )}
 
-        <Animated.View style={styles.logoContainer}>
+        <Animated.View style={[styles.logoContainer, animatedLogoContainerStyle]}>
           <Animated.Image
             source={require('@/assets/images/copy_of_memark.png')}
             style={[
@@ -114,7 +128,7 @@ export function CollapsibleHeader({
               animatedLogoStyle,
               themeMode === 'purple' && { tintColor: '#FFFFFF' }
             ]}
-            resizeMode="contain"
+            resizeMode="cover"
           />
         </Animated.View>
 
@@ -154,6 +168,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
+    paddingVertical: 1,
   },
   backButtonContainer: {
     position: 'absolute',
@@ -168,13 +183,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   logoContainer: {
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+    marginLeft: 3,
   },
-  logo: {
-    width: 158,
-    height: 45,
-  },
+  logo: {},
   notificationButton: {
     width: 36,
     height: 36,
