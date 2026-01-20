@@ -578,7 +578,7 @@ export default function Collections() {
                         setModalVisible(true);
                       },
                       handleOpenUrl,
-                      viewMode
+                      viewMode === 'compact' ? 'list' : viewMode
                     )}
                   </View>
                 ))}

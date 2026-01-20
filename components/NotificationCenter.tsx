@@ -242,8 +242,8 @@ export function NotificationCenter() {
               </View>
             ) : notifications.length === 0 ? (
               <View style={styles.emptyContainer}>
-                <Bell size={48} color={theme.secondaryText} />
-                <Text style={[styles.emptyText, { color: theme.secondaryText }]}>
+                <Bell size={48} color={theme.textSecondary} />
+                <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
                   No notifications yet
                 </Text>
               </View>
@@ -280,7 +280,7 @@ export function NotificationCenter() {
                           {item.title}
                         </Text>
                         <Text
-                          style={[styles.notificationBody, { color: theme.secondaryText }]}
+                          style={[styles.notificationBody, { color: theme.textSecondary }]}
                           numberOfLines={2}
                         >
                           {item.body}
@@ -297,7 +297,7 @@ export function NotificationCenter() {
                         deleteNotification(item.id);
                       }}
                     >
-                      <Trash2 size={16} color={theme.secondaryText} />
+                      <Trash2 size={16} color={theme.textSecondary} />
                     </TouchableOpacity>
                   </TouchableOpacity>
                 )}

@@ -36,6 +36,7 @@ export interface User {
   superadmin_mode_enabled_at?: string;
   public_profile_enabled?: boolean;
   referral_code?: string;
+  review_streak?: number;
   created_at: string;
   updated_at: string;
 }
@@ -51,6 +52,7 @@ export interface Item {
   category?: string;
   image_preview?: string;
   media_url?: string;
+  url?: string;
   score: number;
   status: 'active' | 'archived' | 'done' | 'snoozed';
   review_stage: number;
@@ -58,6 +60,7 @@ export interface Item {
   created_at: string;
   updated_at: string;
   last_viewed_at?: string;
+  last_reviewed_at?: string;
   view_count?: number;
   is_archived?: boolean;
   is_public?: boolean;

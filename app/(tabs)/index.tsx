@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, RefreshControl, Platform, useWindowDimensions } from 'react-native';
-import { Flame, Plus, Eye, Clock, Archive, Star, Check, LayoutGrid, List, Grid } from 'lucide-react-native';
+import { View, Text, StyleSheet, TouchableOpacity, RefreshControl, Platform, useWindowDimensions, ScrollView } from 'react-native';
+import { Flame, Plus, Eye, Clock, Archive, Star, Check, LayoutGrid, List, Grid, X } from 'lucide-react-native';
 import Animated, { FadeInDown, FadeIn, useSharedValue, useAnimatedScrollHandler } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,7 +16,7 @@ import { ReviewCarousel } from '@/components/ReviewCarousel';
 import { ItemCardSkeleton } from '@/components/SkeletonLoader';
 import { InAppBrowser } from '@/components/InAppBrowser';
 
-const AnimatedScrollView = Animated.createAnimatedComponent(require('react-native').ScrollView);
+const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
 
 export default function Home() {
   const { theme } = useTheme();
@@ -43,6 +43,7 @@ export default function Home() {
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [page, setPage] = useState(0);
+  const [error, setError] = useState<string | null>(null);
   const ITEMS_PER_PAGE = 20;
   const subscriptionRef = useRef<any>(null);
 
@@ -64,7 +65,16 @@ export default function Home() {
       .order('created_at', { ascending: false })
       .range(pageNum * ITEMS_PER_PAGE, (pageNum + 1) * ITEMS_PER_PAGE - 1);
 
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+      setRefreshing(false);
+      setLoadingMore(false);
+      return;
+    }
+
     if (data) {
+      setError(null);
       if (append) {
         setItems(prev => [...prev, ...data]);
       } else {
@@ -320,6 +330,15 @@ export default function Home() {
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <LogoHeader />
 
+      {error && (
+        <View style={[styles.errorBanner, { backgroundColor: theme.error + '15', borderColor: theme.error }]}>
+          <Text style={[styles.errorText, { color: theme.error }]}>{error}</Text>
+          <TouchableOpacity onPress={() => setError(null)}>
+            <X size={18} color={theme.error} />
+          </TouchableOpacity>
+        </View>
+      )}
+
       <TopicTabs
         tabs={topicTabs}
         activeTab={activeTab}
@@ -460,6 +479,22 @@ export default function Home() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginHorizontal: 12,
+    marginVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  errorText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '500',
   },
   skeletonContainer: {
     padding: 16,

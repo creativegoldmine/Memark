@@ -27,6 +27,7 @@ export default function Browse() {
   const [browserUrl, setBrowserUrl] = useState('');
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleOpenUrl = (url: string) => {
     if (Platform.OS !== 'web') {
@@ -51,13 +52,19 @@ export default function Browse() {
   const fetchItems = useCallback(async () => {
     if (!user?.id) return;
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('items')
       .select('*')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
+    if (error) {
+      setError(error.message);
+      return;
+    }
+
     if (data) {
+      setError(null);
       setItems(data);
     }
   }, [user?.id]);
@@ -136,6 +143,15 @@ export default function Browse() {
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <LogoHeader />
+
+      {error && (
+        <View style={[styles.errorBanner, { backgroundColor: theme.error + '15', borderColor: theme.error }]}>
+          <Text style={[styles.errorText, { color: theme.error }]}>{error}</Text>
+          <TouchableOpacity onPress={() => setError(null)}>
+            <X size={18} color={theme.error} />
+          </TouchableOpacity>
+        </View>
+      )}
 
       <View style={styles.searchContainer}>
         <View style={[styles.searchBar, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -285,6 +301,22 @@ export default function Browse() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginHorizontal: 12,
+    marginVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  errorText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '500',
   },
   header: {
     paddingTop: 60,

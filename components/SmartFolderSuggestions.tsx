@@ -169,12 +169,12 @@ export function SmartFolderSuggestions() {
               {item.suggested_folder_name}
             </Text>
 
-            <Text style={[styles.description, { color: theme.secondaryText }]} numberOfLines={2}>
+            <Text style={[styles.description, { color: theme.textSecondary }]} numberOfLines={2}>
               {item.suggested_description}
             </Text>
 
             <View style={styles.statsRow}>
-              <Text style={[styles.itemCount, { color: theme.secondaryText }]}>
+              <Text style={[styles.itemCount, { color: theme.textSecondary }]}>
                 {item.item_count} items
               </Text>
             </View>
@@ -199,9 +199,9 @@ export function SmartFolderSuggestions() {
                 disabled={processingId === item.id}
               >
                 {processingId === item.id ? (
-                  <ActivityIndicator size="small" color={theme.secondaryText} />
+                  <ActivityIndicator size="small" color={theme.textSecondary} />
                 ) : (
-                  <X size={18} color={theme.secondaryText} />
+                  <X size={18} color={theme.textSecondary} />
                 )}
               </TouchableOpacity>
 
