@@ -51,7 +51,7 @@ const styles = StyleSheet.create({
     }),
   },
   logoContainer: {
-    paddingLeft: 12,
+    paddingLeft: 8,
     justifyContent: 'center',
     alignItems: 'flex-start',
   },
