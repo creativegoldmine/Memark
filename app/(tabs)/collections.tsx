@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase, Item } from '@/lib/supabase';
-import { CollapsibleHeader } from '@/components/CollapsibleHeader';
+import { LogoHeader } from '@/components/LogoHeader';
 import { TopicTabs } from '@/components/TopicTabs';
 import { LoadingLogo } from '@/components/LoadingLogo';
 import { ItemCard } from '@/components/ItemCard';
@@ -335,15 +335,7 @@ export default function Collections() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <CollapsibleHeader
-        scrollY={scrollY}
-        showBackButton={!!selectedFolder}
-        onBackPress={() => {
-          setSelectedFolder(null);
-          setFolderItems([]);
-          setSearchQuery('');
-        }}
-      />
+      <LogoHeader />
 
       {!selectedFolder && (
         <TopicTabs
@@ -355,6 +347,18 @@ export default function Collections() {
 
       <View style={[styles.subHeader, { backgroundColor: theme.cardBackground, borderBottomColor: theme.border }]}>
         <View style={styles.subHeaderLeft}>
+          {selectedFolder && (
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => {
+                setSelectedFolder(null);
+                setFolderItems([]);
+                setSearchQuery('');
+              }}
+            >
+              <ChevronRight size={20} color={theme.primary} style={{ transform: [{ rotate: '180deg' }] }} />
+            </TouchableOpacity>
+          )}
           <Text style={[styles.headerText, { color: theme.text }]}>
             {selectedFolder ? selectedFolder.name : `${displayFolders.length} Folders`}
           </Text>
@@ -722,6 +726,16 @@ const styles = StyleSheet.create({
   },
   subHeaderLeft: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  backButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerText: {
     fontSize: 16,

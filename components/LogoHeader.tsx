@@ -35,8 +35,7 @@ export function LogoHeader() {
 
 const styles = StyleSheet.create({
   header: {
-    paddingTop: 0,
-    paddingBottom: 0,
+    height: 60,
     paddingHorizontal: 0,
     borderBottomWidth: 1,
     flexDirection: 'row',
@@ -52,14 +51,16 @@ const styles = StyleSheet.create({
     }),
   },
   logoContainer: {
-    paddingLeft: 16,
-    paddingVertical: 0,
+    paddingLeft: 12,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
   },
   logo: {
-    width: 180,
-    height: 40,
+    width: 110,
+    height: 28,
   },
   notificationContainer: {
     paddingRight: 16,
+    justifyContent: 'center',
   },
 });

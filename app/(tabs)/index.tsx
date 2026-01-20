@@ -10,7 +10,7 @@ import { supabase, Item } from '@/lib/supabase';
 import { ItemCard } from '@/components/ItemCard';
 import { SocialEmbedCard } from '@/components/SocialEmbedCard';
 import { LinkPreviewModal } from '@/components/LinkPreviewModal';
-import { CollapsibleHeader } from '@/components/CollapsibleHeader';
+import { LogoHeader } from '@/components/LogoHeader';
 import { TopicTabs } from '@/components/TopicTabs';
 import { ReviewCarousel } from '@/components/ReviewCarousel';
 import { ItemCardSkeleton } from '@/components/SkeletonLoader';
@@ -306,7 +306,7 @@ export default function Home() {
   if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: theme.background }]}>
-        <CollapsibleHeader scrollY={scrollY} />
+        <LogoHeader />
         <View style={styles.skeletonContainer}>
           <ItemCardSkeleton />
           <ItemCardSkeleton />
@@ -318,7 +318,7 @@ export default function Home() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <CollapsibleHeader scrollY={scrollY} unreadCount={stats.unreviewed} />
+      <LogoHeader />
 
       <TopicTabs
         tabs={topicTabs}
