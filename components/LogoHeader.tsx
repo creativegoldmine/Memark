@@ -40,6 +40,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
     borderBottomWidth: 1,
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
     ...(Platform.OS === 'web' ? {
       shadowColor: '#000',
@@ -52,15 +53,13 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     paddingLeft: 16,
-    justifyContent: 'center',
+    paddingVertical: 0,
   },
   logo: {
-    width: 640,
-    height: 144,
+    width: 180,
+    height: 40,
   },
   notificationContainer: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
+    paddingRight: 16,
   },
 });

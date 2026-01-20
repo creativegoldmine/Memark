@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { themes, Theme, ThemeMode } from '@/constants/theme';
 
 interface ThemeContextType {
@@ -8,14 +9,49 @@ interface ThemeContextType {
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
+const THEME_STORAGE_KEY = '@memark_theme_mode';
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [themeMode, setThemeMode] = useState<ThemeMode>('light');
-  const [theme, setTheme] = useState<Theme>(themes.light);
+  const [themeMode, setThemeModeState] = useState<ThemeMode>('dark');
+  const [theme, setTheme] = useState<Theme>(themes.dark);
+  const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    setTheme(themes[themeMode]);
-  }, [themeMode]);
+    loadThemePreference();
+  }, []);
+
+  useEffect(() => {
+    if (isLoaded) {
+      setTheme(themes[themeMode]);
+      saveThemePreference(themeMode);
+    }
+  }, [themeMode, isLoaded]);
+
+  const loadThemePreference = async () => {
+    try {
+      const savedTheme = await AsyncStorage.getItem(THEME_STORAGE_KEY);
+      if (savedTheme && (savedTheme === 'light' || savedTheme === 'dark' || savedTheme === 'purple')) {
+        setThemeModeState(savedTheme as ThemeMode);
+        setTheme(themes[savedTheme as ThemeMode]);
+      }
+    } catch (error) {
+      console.error('Error loading theme preference:', error);
+    } finally {
+      setIsLoaded(true);
+    }
+  };
+
+  const saveThemePreference = async (mode: ThemeMode) => {
+    try {
+      await AsyncStorage.setItem(THEME_STORAGE_KEY, mode);
+    } catch (error) {
+      console.error('Error saving theme preference:', error);
+    }
+  };
+
+  const setThemeMode = (mode: ThemeMode) => {
+    setThemeModeState(mode);
+  };
 
   return (
     <ThemeContext.Provider value={{ theme, themeMode, setThemeMode }}>
