@@ -313,16 +313,6 @@ export default function Collections() {
     return tabs;
   }, [folders]);
 
-  if (loading) {
-    return (
-      <View style={[styles.container, { backgroundColor: theme.background }]}>
-        <View style={styles.centered}>
-          <LoadingLogo size={80} />
-        </View>
-      </View>
-    );
-  }
-
   const displayFolders = useMemo(() => {
     let filtered = filteredFolders;
     if (activeTab === 'smart') {
@@ -332,6 +322,16 @@ export default function Collections() {
     }
     return filtered;
   }, [filteredFolders, activeTab]);
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
+        <View style={styles.centered}>
+          <LoadingLogo size={80} />
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
