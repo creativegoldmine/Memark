@@ -15,6 +15,7 @@ import {
 import { MessageCircle, Send, X, Sparkles } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface Message {
   id: string;
@@ -30,6 +31,7 @@ interface AIChatAssistantProps {
 
 export function AIChatAssistant({ visible, onClose }: AIChatAssistantProps) {
   const { user } = useAuth();
+  const { theme } = useTheme();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
@@ -43,7 +45,7 @@ export function AIChatAssistant({ visible, onClose }: AIChatAssistantProps) {
         {
           id: 'welcome',
           role: 'assistant',
-          content: "Hi! I'm your Memark AI Assistant. I can help you:\n\n• Find specific marks using natural language\n• Answer questions about Memark features\n• Provide insights about your saved content\n• Suggest ways to organize your knowledge vault\n\nWhat would you like to know?",
+          content: "Hi! I'm your Memark AI Assistant. I can help you:\n\n- Find specific marks using natural language\n- Answer questions about Memark features\n- Provide insights about your saved content\n- Suggest ways to organize your knowledge vault\n\nWhat would you like to know?",
           timestamp: new Date(),
         },
       ]);
@@ -139,28 +141,28 @@ export function AIChatAssistant({ visible, onClose }: AIChatAssistantProps) {
       onRequestClose={onClose}
     >
       <KeyboardAvoidingView
-        style={styles.container}
+        style={[styles.container, { backgroundColor: theme.background }]}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={0}
       >
-        <View style={styles.header}>
+        <View style={[styles.header, { backgroundColor: theme.cardBackground, borderBottomColor: theme.border }]}>
           <View style={styles.headerLeft}>
-            <Sparkles size={24} color="#8B5CF6" />
-            <Text style={styles.headerTitle}>AI Assistant</Text>
+            <Sparkles size={24} color={theme.primary} />
+            <Text style={[styles.headerTitle, { color: theme.text }]}>AI Assistant</Text>
           </View>
           <View style={styles.headerRight}>
             <TouchableOpacity onPress={clearChat} style={styles.headerButton}>
-              <Text style={styles.clearText}>Clear</Text>
+              <Text style={[styles.clearText, { color: theme.primary }]}>Clear</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={onClose} style={styles.headerButton}>
-              <X size={24} color="#666" />
+              <X size={24} color={theme.textSecondary} />
             </TouchableOpacity>
           </View>
         </View>
 
         <ScrollView
           ref={scrollViewRef}
-          style={styles.messagesContainer}
+          style={[styles.messagesContainer, { backgroundColor: theme.background }]}
           contentContainerStyle={styles.messagesContent}
           onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
         >
@@ -169,18 +171,22 @@ export function AIChatAssistant({ visible, onClose }: AIChatAssistantProps) {
               key={message.id}
               style={[
                 styles.messageBubble,
-                message.role === 'user' ? styles.userBubble : styles.assistantBubble,
+                message.role === 'user'
+                  ? [styles.userBubble, { backgroundColor: theme.primary }]
+                  : [styles.assistantBubble, { backgroundColor: theme.cardBackground, borderColor: theme.border }],
               ]}
             >
               {message.role === 'assistant' && (
-                <View style={styles.assistantIcon}>
-                  <Sparkles size={16} color="#8B5CF6" />
+                <View style={[styles.assistantIcon, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+                  <Sparkles size={16} color={theme.primary} />
                 </View>
               )}
               <Text
                 style={[
                   styles.messageText,
-                  message.role === 'user' ? styles.userText : styles.assistantText,
+                  message.role === 'user'
+                    ? styles.userText
+                    : [styles.assistantText, { color: theme.text }],
                 ]}
               >
                 {message.content}
@@ -189,33 +195,33 @@ export function AIChatAssistant({ visible, onClose }: AIChatAssistantProps) {
           ))}
 
           {loading && (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="small" color="#8B5CF6" />
-              <Text style={styles.loadingText}>Thinking...</Text>
+            <View style={[styles.loadingContainer, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+              <ActivityIndicator size="small" color={theme.primary} />
+              <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Thinking...</Text>
             </View>
           )}
 
           {suggestions.length > 0 && !loading && (
             <View style={styles.suggestionsContainer}>
-              <Text style={styles.suggestionsTitle}>Suggestions:</Text>
+              <Text style={[styles.suggestionsTitle, { color: theme.textTertiary }]}>Suggestions:</Text>
               {suggestions.map((suggestion, index) => (
                 <Pressable
                   key={index}
-                  style={styles.suggestionChip}
+                  style={[styles.suggestionChip, { backgroundColor: theme.surface, borderColor: theme.primary }]}
                   onPress={() => handleSuggestionPress(suggestion)}
                 >
-                  <Text style={styles.suggestionText}>{suggestion}</Text>
+                  <Text style={[styles.suggestionText, { color: theme.primary }]}>{suggestion}</Text>
                 </Pressable>
               ))}
             </View>
           )}
         </ScrollView>
 
-        <View style={styles.inputContainer}>
+        <View style={[styles.inputContainer, { backgroundColor: theme.cardBackground, borderTopColor: theme.border }]}>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { backgroundColor: theme.surface, color: theme.text }]}
             placeholder="Ask me anything..."
-            placeholderTextColor="#999"
+            placeholderTextColor={theme.textTertiary}
             value={inputText}
             onChangeText={setInputText}
             onSubmitEditing={() => sendMessage(inputText)}
@@ -224,11 +230,15 @@ export function AIChatAssistant({ visible, onClose }: AIChatAssistantProps) {
             editable={!loading}
           />
           <TouchableOpacity
-            style={[styles.sendButton, (!inputText.trim() || loading) && styles.sendButtonDisabled]}
+            style={[
+              styles.sendButton,
+              { backgroundColor: theme.primary },
+              (!inputText.trim() || loading) && [styles.sendButtonDisabled, { backgroundColor: theme.surface }]
+            ]}
             onPress={() => sendMessage(inputText)}
             disabled={!inputText.trim() || loading}
           >
-            <Send size={20} color={inputText.trim() && !loading ? '#fff' : '#ccc'} />
+            <Send size={20} color={inputText.trim() && !loading ? '#fff' : theme.textTertiary} />
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -237,8 +247,10 @@ export function AIChatAssistant({ visible, onClose }: AIChatAssistantProps) {
 }
 
 export function AIChatButton({ onPress }: { onPress: () => void }) {
+  const { theme } = useTheme();
+
   return (
-    <TouchableOpacity style={styles.floatingButton} onPress={onPress}>
+    <TouchableOpacity style={[styles.floatingButton, { backgroundColor: theme.primary }]} onPress={onPress}>
       <Sparkles size={24} color="#fff" />
     </TouchableOpacity>
   );
@@ -247,7 +259,6 @@ export function AIChatButton({ onPress }: { onPress: () => void }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
   },
   header: {
     flexDirection: 'row',
@@ -257,8 +268,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingTop: Platform.OS === 'ios' ? 50 : 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    backgroundColor: '#fff',
   },
   headerLeft: {
     flexDirection: 'row',
@@ -268,7 +277,6 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#000',
   },
   headerRight: {
     flexDirection: 'row',
@@ -280,12 +288,10 @@ const styles = StyleSheet.create({
   },
   clearText: {
     fontSize: 14,
-    color: '#8B5CF6',
     fontWeight: '500',
   },
   messagesContainer: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
   },
   messagesContent: {
     padding: 16,
@@ -299,25 +305,20 @@ const styles = StyleSheet.create({
   },
   userBubble: {
     alignSelf: 'flex-end',
-    backgroundColor: '#8B5CF6',
     borderBottomRightRadius: 4,
   },
   assistantBubble: {
     alignSelf: 'flex-start',
-    backgroundColor: '#fff',
     borderBottomLeftRadius: 4,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
   },
   assistantIcon: {
     position: 'absolute',
     top: -8,
     left: -8,
-    backgroundColor: '#fff',
     borderRadius: 12,
     padding: 4,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
   },
   messageText: {
     fontSize: 15,
@@ -326,23 +327,18 @@ const styles = StyleSheet.create({
   userText: {
     color: '#fff',
   },
-  assistantText: {
-    color: '#000',
-  },
+  assistantText: {},
   loadingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: '#fff',
     padding: 12,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
     gap: 8,
   },
   loadingText: {
     fontSize: 14,
-    color: '#666',
     fontStyle: 'italic',
   },
   suggestionsContainer: {
@@ -352,23 +348,19 @@ const styles = StyleSheet.create({
   suggestionsTitle: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#666',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 4,
   },
   suggestionChip: {
-    backgroundColor: '#fff',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#8B5CF6',
     alignSelf: 'flex-start',
   },
   suggestionText: {
     fontSize: 14,
-    color: '#8B5CF6',
     fontWeight: '500',
   },
   inputContainer: {
@@ -377,32 +369,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     paddingBottom: Platform.OS === 'ios' ? 28 : 12,
-    backgroundColor: '#fff',
     borderTopWidth: 1,
-    borderTopColor: '#eee',
     gap: 8,
   },
   input: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 10,
     fontSize: 15,
     maxHeight: 100,
-    color: '#000',
   },
   sendButton: {
-    backgroundColor: '#8B5CF6',
     width: 40,
     height: 40,
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  sendButtonDisabled: {
-    backgroundColor: '#e5e7eb',
-  },
+  sendButtonDisabled: {},
   floatingButton: {
     position: 'absolute',
     bottom: 20,
@@ -410,7 +395,6 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#8B5CF6',
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 4,

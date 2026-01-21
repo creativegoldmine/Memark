@@ -482,16 +482,16 @@ export default function Home() {
       />
 
       <TouchableOpacity
-        style={[styles.fab, { backgroundColor: theme.primary }]}
+        style={styles.addButton}
         onPress={() => {
           if (Platform.OS !== 'web') {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
           }
           setAddMarkVisible(true);
         }}
-        activeOpacity={0.8}
+        activeOpacity={0.7}
       >
-        <Plus size={28} color="#FFFFFF" strokeWidth={2.5} />
+        <Plus size={32} color={theme.primary} strokeWidth={2.5} />
       </TouchableOpacity>
 
       <AIChatButton onPress={() => setChatVisible(true)} />
@@ -628,20 +628,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontStyle: 'italic',
   },
-  fab: {
+  addButton: {
     position: 'absolute',
     bottom: 100,
     right: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 48,
+    height: 48,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
     zIndex: 100,
   },
 });
