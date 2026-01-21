@@ -24,7 +24,6 @@ export function LogoHeader() {
             themeMode === 'purple' && { tintColor: '#FFFFFF' }
           ]}
           resizeMode="contain"
-          justify 'left',
         />
       </View>
       <View style={styles.notificationContainer}>
