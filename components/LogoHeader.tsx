@@ -40,6 +40,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
     borderBottomWidth: 1,
     flexDirection: 'row',
+    flex:10,
     justifyContent: 'space-between',
     alignItems: 'center',
     ...(Platform.OS === 'web' ? {
@@ -60,6 +61,6 @@ const styles = StyleSheet.create({
     height: 61,
   },
   notificationContainer: {
-    justifyContent: 'right',
+    justifyContent: 'left',
   },
 });
