@@ -36,12 +36,11 @@ export function LogoHeader() {
 const styles = StyleSheet.create({
   header: {
     height: 60,
-    width: 0,
-    paddingHorizontal: 0,
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center,
+    alignItems: 'center',
     ...(Platform.OS === 'web' ? {
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 4 },
@@ -54,6 +53,7 @@ const styles = StyleSheet.create({
   logoContainer: {
     justifyContent: 'center',
     alignItems: 'flex-start',
+    marginLeft: -4,
   },
   logo: {
     width: 242,
