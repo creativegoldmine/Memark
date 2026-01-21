@@ -51,12 +51,12 @@ const styles = StyleSheet.create({
     }),
   },
   logoContainer: {
-    justifyContent: 'left',
+    justifyContent: 'center',
     alignItems: 'flex-start',
   },
   logo: {
-    width: 220,
-    height: 56,
+    width: 242,
+    height: 61,
   },
   notificationContainer: {
     justifyContent: 'center',
