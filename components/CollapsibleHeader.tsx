@@ -153,7 +153,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: -12,
+    paddingHorizontal: 12,
   },
   backButtonContainer: {
     position: 'absolute',
@@ -169,7 +169,7 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     alignItems: 'flex-start',
-    justifyContent: 'center',
+    justifyContent: 'left',
   },
   logo: {
     width: 158,
