@@ -46,6 +46,7 @@ export function ItemCard({
   const [imageError, setImageError] = useState(false);
   const [imageLoading, setImageLoading] = useState(true);
   const [videoModalVisible, setVideoModalVisible] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const isStarred = (item as any).is_starred;
   const isArchived = (item as any).is_archived;
@@ -569,16 +570,40 @@ export function ItemCard({
               <Archive size={16} color={theme.textTertiary} />
             </TouchableOpacity>
           )}
-          {onDelete && (
+          {onDelete && !showDeleteConfirm && (
             <TouchableOpacity
               style={[styles.actionBtn, { backgroundColor: theme.error + '10' }]}
               onPress={() => {
                 triggerHaptic();
-                onDelete(item);
+                setShowDeleteConfirm(true);
               }}
             >
               <Trash2 size={16} color={theme.error} />
             </TouchableOpacity>
+          )}
+          {onDelete && showDeleteConfirm && (
+            <View style={styles.deleteConfirmRow}>
+              <Text style={[styles.deleteConfirmText, { color: theme.error }]}>Delete?</Text>
+              <TouchableOpacity
+                style={[styles.deleteConfirmBtn, { backgroundColor: theme.error }]}
+                onPress={() => {
+                  triggerHaptic();
+                  onDelete(item);
+                  setShowDeleteConfirm(false);
+                }}
+              >
+                <Text style={styles.deleteConfirmBtnText}>Yes</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.deleteConfirmBtn, { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1 }]}
+                onPress={() => {
+                  triggerHaptic();
+                  setShowDeleteConfirm(false);
+                }}
+              >
+                <Text style={[styles.deleteConfirmBtnText, { color: theme.text }]}>No</Text>
+              </TouchableOpacity>
+            </View>
           )}
         </View>
       )}
@@ -1045,5 +1070,24 @@ const styles = StyleSheet.create({
   actionBtnText: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  deleteConfirmRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  deleteConfirmText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  deleteConfirmBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  deleteConfirmBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });
