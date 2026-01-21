@@ -52,13 +52,13 @@ const styles = StyleSheet.create({
     }),
   },
   logoContainer: {
-    justify: 'left',
     justifyContent: 'center',
     alignItems: 'flex-start',
   },
   logo: {
     width: 242,
     height: 61,
+    justifyContent: 'left',
   },
   notificationContainer: {
     justifyContent: 'center',
