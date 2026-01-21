@@ -41,7 +41,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'LEFT',
     ...(Platform.OS === 'web' ? {
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 4 },
