@@ -53,11 +53,12 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     justifyContent: 'center',
-    alignItems: 'flex-1',
+    alignItems: 'flex-start',
   },
   logo: {
     width: 242,
     height: 61,
+    flex: 1,
   },
   notificationContainer: {
     justifyContent: 'center',
