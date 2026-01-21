@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, RefreshControl, Platform, useWindowDimensions, ScrollView } from 'react-native';
-import { Flame, Plus, Eye, Clock, Archive, Star, Check, LayoutGrid, List, Grid, X } from 'lucide-react-native';
+import { Flame, Plus, Eye, Clock, Archive, Star, Check, LayoutGrid, List, Grid2x2 as Grid, X } from 'lucide-react-native';
 import Animated, { FadeInDown, FadeIn, useSharedValue, useAnimatedScrollHandler } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
