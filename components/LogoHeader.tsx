@@ -60,6 +60,6 @@ const styles = StyleSheet.create({
     height: 61,
   },
   notificationContainer: {
-    justifyContent: 'center',
+    justifyContent: 'right',
   },
 });
