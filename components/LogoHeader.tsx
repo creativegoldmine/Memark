@@ -52,8 +52,8 @@ const styles = StyleSheet.create({
     }),
   },
   logoContainer: {
-    justifyContent: 'center',
-    alignItems: 'left',
+    justifyContent: 'right',
+    alignItems: 'flex-start',
   },
   logo: {
     width: 242,
