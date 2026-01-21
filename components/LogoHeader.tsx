@@ -37,7 +37,7 @@ const styles = StyleSheet.create({
   header: {
     height: 60,
     width: 0,
-    paddingHorizontal: -8,
+    paddingHorizontal: -40,
     borderBottomWidth: 1,
     flexDirection: 'row',
     justifyContent: 'space-between',
