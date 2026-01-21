@@ -7,11 +7,16 @@ const corsHeaders = {
 };
 
 interface ImportRequest {
-  bookmarks: Array<{
+  bookmarks?: Array<{
     url: string;
     title?: string;
     created_at?: string;
+    folder?: string;
   }>;
+  url?: string;
+  title?: string;
+  folder?: string;
+  addDate?: string;
 }
 
 Deno.serve(async (req: Request) => {
@@ -45,9 +50,22 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const { bookmarks } = await req.json() as ImportRequest;
+    const body = await req.json() as ImportRequest;
 
-    if (!bookmarks || !Array.isArray(bookmarks) || bookmarks.length === 0) {
+    const bookmarksToImport: Array<{ url: string; title?: string; folder?: string; created_at?: string }> = [];
+
+    if (body.url) {
+      bookmarksToImport.push({
+        url: body.url,
+        title: body.title,
+        folder: body.folder,
+        created_at: body.addDate,
+      });
+    } else if (body.bookmarks && Array.isArray(body.bookmarks)) {
+      bookmarksToImport.push(...body.bookmarks);
+    }
+
+    if (bookmarksToImport.length === 0) {
       return new Response(
         JSON.stringify({ error: 'No bookmarks provided' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -57,8 +75,20 @@ Deno.serve(async (req: Request) => {
     const imported: string[] = [];
     const failed: Array<{ url: string; error: string }> = [];
 
-    for (const bookmark of bookmarks) {
+    for (const bookmark of bookmarksToImport) {
       try {
+        const { data: existing } = await supabase
+          .from('items')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('raw_content', bookmark.url)
+          .maybeSingle();
+
+        if (existing) {
+          failed.push({ url: bookmark.url, error: 'Already exists' });
+          continue;
+        }
+
         const { data: item, error: insertError } = await supabase
           .from('items')
           .insert({
@@ -66,6 +96,7 @@ Deno.serve(async (req: Request) => {
             raw_content: bookmark.url,
             type: 'article',
             title: bookmark.title || null,
+            category: bookmark.folder || 'Imported',
             status: 'active',
             review_stage: 1,
             next_review_date: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
@@ -79,7 +110,7 @@ Deno.serve(async (req: Request) => {
           continue;
         }
 
-        await fetch(
+        fetch(
           `${supabaseUrl}/functions/v1/categorize-item`,
           {
             method: 'POST',
@@ -87,13 +118,13 @@ Deno.serve(async (req: Request) => {
               'Authorization': `Bearer ${supabaseServiceKey}`,
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ 
-              itemId: item.id, 
+            body: JSON.stringify({
+              itemId: item.id,
               content: bookmark.url,
               userId: user.id
             }),
           }
-        );
+        ).catch(() => {});
 
         imported.push(item.id);
       } catch (error) {
@@ -102,8 +133,8 @@ Deno.serve(async (req: Request) => {
     }
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
+      JSON.stringify({
+        success: true,
         imported: imported.length,
         failed: failed.length,
         details: { imported, failed }

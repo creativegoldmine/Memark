@@ -8,6 +8,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase, supabaseUrl, Profile as ProfileType } from '@/lib/supabase';
 import { UpgradeModal } from '@/components/UpgradeModal';
+import { BookmarkImport } from '@/components/BookmarkImport';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -28,6 +29,7 @@ export default function ProfileScreen() {
   const [refreshingAllEmbeds, setRefreshingAllEmbeds] = useState(false);
   const [upgradeModalVisible, setUpgradeModalVisible] = useState(false);
   const [notificationPrefs, setNotificationPrefs] = useState<any>(null);
+  const [bookmarkImportVisible, setBookmarkImportVisible] = useState(false);
 
   const isPro = dbUser?.plan_type === 'pro' || dbUser?.plan_type === 'premium';
 
@@ -463,11 +465,7 @@ export default function ProfileScreen() {
   };
 
   const handleImportBookmarks = () => {
-    Alert.alert(
-      'Import Bookmarks',
-      'This feature is only available on mobile. Please use the mobile app to import bookmarks.',
-      [{ text: 'OK' }]
-    );
+    setBookmarkImportVisible(true);
   };
 
   const handleAdminAccess = () => {
@@ -1014,6 +1012,14 @@ export default function ProfileScreen() {
         visible={upgradeModalVisible}
         onClose={() => setUpgradeModalVisible(false)}
         feature="Public Profiles"
+      />
+
+      <BookmarkImport
+        visible={bookmarkImportVisible}
+        onClose={() => setBookmarkImportVisible(false)}
+        onImportComplete={(count) => {
+          Alert.alert('Import Complete', `Successfully imported ${count} bookmarks!`);
+        }}
       />
     </View>
   );
