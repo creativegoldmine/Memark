@@ -52,7 +52,8 @@ const styles = StyleSheet.create({
     }),
   },
   logoContainer: {
-    justifyContent: 'right',
+    justify: 'left',
+    justifyContent: 'center',
     alignItems: 'flex-start',
   },
   logo: {
