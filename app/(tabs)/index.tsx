@@ -16,6 +16,7 @@ import { ReviewCarousel } from '@/components/ReviewCarousel';
 import { ItemCardSkeleton } from '@/components/SkeletonLoader';
 import { InAppBrowser } from '@/components/InAppBrowser';
 import { AIChatAssistant, AIChatButton } from '@/components/AIChatAssistant';
+import { AddMarkModal } from '@/components/AddMarkModal';
 
 const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
 
@@ -36,6 +37,7 @@ export default function Home() {
   const [browserUrl, setBrowserUrl] = useState('');
   const [activeTab, setActiveTab] = useState('all');
   const [chatVisible, setChatVisible] = useState(false);
+  const [addMarkVisible, setAddMarkVisible] = useState(false);
   const [stats, setStats] = useState({
     todayCount: 0,
     unreviewed: 0,
@@ -255,10 +257,12 @@ export default function Home() {
   }, [user?.id]);
 
   const topicTabs = useMemo(() => {
+    const manualCount = items.filter(i => (i as any).is_manual).length;
     const tabs = [
       { id: 'all', label: 'All', count: stats.totalItems },
       { id: 'unreviewed', label: 'Unreviewed', count: stats.unreviewed, isSpecial: true },
       { id: 'starred', label: 'Starred', count: items.filter(i => (i as any).is_starred).length },
+      { id: 'manual', label: 'Manual', count: manualCount },
       { id: 'articles', label: 'Articles', count: items.filter(i => i.type === 'article').length },
       { id: 'videos', label: 'Videos', count: items.filter(i => i.type === 'video').length },
     ];
@@ -271,6 +275,8 @@ export default function Home() {
         return items.filter(i => !(i as any).last_reviewed_at);
       case 'starred':
         return items.filter(i => (i as any).is_starred);
+      case 'manual':
+        return items.filter(i => (i as any).is_manual);
       case 'articles':
         return items.filter(i => i.type === 'article');
       case 'videos':
@@ -475,11 +481,33 @@ export default function Home() {
         onClose={() => setBrowserVisible(false)}
       />
 
+      <TouchableOpacity
+        style={[styles.fab, { backgroundColor: theme.primary }]}
+        onPress={() => {
+          if (Platform.OS !== 'web') {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          }
+          setAddMarkVisible(true);
+        }}
+        activeOpacity={0.8}
+      >
+        <Plus size={28} color="#FFFFFF" strokeWidth={2.5} />
+      </TouchableOpacity>
+
       <AIChatButton onPress={() => setChatVisible(true)} />
 
       <AIChatAssistant
         visible={chatVisible}
         onClose={() => setChatVisible(false)}
+      />
+
+      <AddMarkModal
+        visible={addMarkVisible}
+        onClose={() => setAddMarkVisible(false)}
+        onSuccess={() => {
+          setPage(0);
+          fetchItems(0, false);
+        }}
       />
     </View>
   );
@@ -599,5 +627,21 @@ const styles = StyleSheet.create({
   endMessageText: {
     fontSize: 12,
     fontStyle: 'italic',
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 100,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 100,
   },
 });
