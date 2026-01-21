@@ -40,7 +40,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
     borderBottomWidth: 1,
     flexDirection: 'row',
-    flex:10,
+    flex: 1,
     justifyContent: 'space-between',
     alignItems: 'center',
     ...(Platform.OS === 'web' ? {
