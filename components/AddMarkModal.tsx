@@ -215,12 +215,17 @@ export function AddMarkModal({ visible, onClose, onSuccess }: AddMarkModalProps)
         tags: tags.length > 0 ? tags : null,
       };
 
+      if (content.trim()) {
+        itemData.title = content.trim();
+      }
+
       if (finalUrl) {
         itemData.media_url = finalUrl;
       }
 
       if (imageUrl) {
         itemData.og_image = imageUrl;
+        itemData.image_preview = imageUrl;
         if (!itemData.media_url) {
           itemData.media_url = imageUrl;
         }

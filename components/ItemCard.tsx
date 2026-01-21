@@ -202,21 +202,25 @@ export function ItemCard({
   const getImageUrl = () => {
     const mediaUrls = (item as any).media_urls;
     const mediaUrl = (item as any).media_url;
+    const isManual = (item as any).is_manual;
 
-    if (mediaUrls && Array.isArray(mediaUrls) && mediaUrls.length > 0) {
-      return mediaUrls[0];
-    }
-    if (mediaUrl) {
-      return mediaUrl;
-    }
     if (item.og_image) {
       return item.og_image;
     }
-    if (item.preview_image_url) {
-      return item.preview_image_url;
-    }
     if (item.image_preview) {
       return item.image_preview;
+    }
+    if (mediaUrls && Array.isArray(mediaUrls) && mediaUrls.length > 0) {
+      return mediaUrls[0];
+    }
+    if (mediaUrl && !isManual) {
+      const isImageUrl = /\.(jpg|jpeg|png|gif|webp|svg|bmp)(\?.*)?$/i.test(mediaUrl);
+      if (isImageUrl) {
+        return mediaUrl;
+      }
+    }
+    if (item.preview_image_url) {
+      return item.preview_image_url;
     }
     return null;
   };
