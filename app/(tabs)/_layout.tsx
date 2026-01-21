@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Home, FolderOpen, Search, Settings, Library, RotateCcw } from 'lucide-react-native';
+import { Home, FolderOpen, Search, Settings, Library } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 
 export default function TabLayout() {
@@ -35,8 +35,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="review"
         options={{
-          title: 'Review',
-          tabBarIcon: ({ size, color }) => <RotateCcw size={22} color={color} />,
+          href: null,
         }}
       />
       <Tabs.Screen

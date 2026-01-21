@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Platform, ActivityIndicator } from 'react-native';
-import { Link2, Video, FileText, MessageSquare, Image as ImageIcon, CheckSquare, ChevronDown, ChevronUp, Star, ExternalLink, Play, Archive, Folder, Tag, Trash2, Check, RotateCcw } from 'lucide-react-native';
+import { Link2, Video, FileText, MessageSquare, Image as ImageIcon, CheckSquare, ChevronDown, ChevronUp, Star, ExternalLink, Play, Archive, Folder, Tag, Trash2, Check, RotateCcw, SkipForward, Clock } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -19,6 +19,9 @@ interface ItemCardProps {
   onStar?: (item: Item) => void;
   onDelete?: (item: Item) => void;
   onAddToFolder?: (item: Item) => void;
+  onSkip?: (item: Item) => void;
+  onSnooze?: (item: Item, days: number) => void;
+  isDueForReview?: boolean;
 }
 
 export function ItemCard({
@@ -32,7 +35,10 @@ export function ItemCard({
   onArchive,
   onStar,
   onDelete,
-  onAddToFolder
+  onAddToFolder,
+  onSkip,
+  onSnooze,
+  isDueForReview = false,
 }: ItemCardProps) {
   const { theme } = useTheme();
   const router = useRouter();
@@ -495,16 +501,39 @@ export function ItemCard({
 
       {showActions && (
         <View style={[styles.actionBar, { borderTopColor: theme.border }]}>
+          {isDueForReview && onSkip && (
+            <TouchableOpacity
+              style={[styles.actionBtn, { backgroundColor: theme.surface }]}
+              onPress={() => {
+                triggerHaptic();
+                onSkip(item);
+              }}
+            >
+              <SkipForward size={16} color={theme.textSecondary} />
+            </TouchableOpacity>
+          )}
+          {isDueForReview && onSnooze && (
+            <TouchableOpacity
+              style={[styles.actionBtn, { backgroundColor: theme.surface }]}
+              onPress={() => {
+                triggerHaptic();
+                onSnooze(item, 7);
+              }}
+            >
+              <Clock size={16} color={theme.warning} />
+              <Text style={[styles.actionBtnText, { color: theme.warning }]}>7d</Text>
+            </TouchableOpacity>
+          )}
           {onMarkReviewed && (
             <TouchableOpacity
-              style={[styles.actionBtn, { backgroundColor: theme.success + '15' }]}
+              style={[styles.actionBtn, { backgroundColor: isDueForReview ? theme.success : theme.success + '15' }]}
               onPress={() => {
                 triggerHaptic();
                 onMarkReviewed(item);
               }}
             >
-              <Check size={16} color={theme.success} />
-              <Text style={[styles.actionBtnText, { color: theme.success }]}>Done</Text>
+              <Check size={16} color={isDueForReview ? '#FFFFFF' : theme.success} />
+              <Text style={[styles.actionBtnText, { color: isDueForReview ? '#FFFFFF' : theme.success }]}>Done</Text>
             </TouchableOpacity>
           )}
           {onStar && (

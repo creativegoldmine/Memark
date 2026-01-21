@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity, RefreshControl, Platform } from 'react-native';
-import { Search as SearchIcon, Filter, X, Calendar, SortDesc, SortAsc } from 'lucide-react-native';
+import { Search as SearchIcon, Filter, X, Calendar, SortDesc, SortAsc, Target, Clock, CheckCircle, Flame, Star, ChevronDown, ChevronUp } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -15,6 +15,7 @@ import { ItemCardSkeleton } from '@/components/SkeletonLoader';
 
 const FILTER_TYPES = ['All', 'Article', 'Video', 'Note', 'Screenshot', 'Task'];
 const FILTER_CATEGORIES = ['All', 'Work', 'Personal', 'Inspiration', 'Finance', 'Learning'];
+const SMART_FILTERS = ['All', 'Due for Review', 'Starred', 'Unreviewed', 'Archived'];
 
 export default function Browse() {
   const { theme } = useTheme();
@@ -23,7 +24,9 @@ export default function Browse() {
   const [items, setItems] = useState<Item[]>([]);
   const [selectedType, setSelectedType] = useState('All');
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [selectedSmartFilter, setSelectedSmartFilter] = useState('All');
   const [showFilters, setShowFilters] = useState(false);
+  const [showStats, setShowStats] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [browserVisible, setBrowserVisible] = useState(false);
@@ -32,6 +35,12 @@ export default function Browse() {
   const [modalVisible, setModalVisible] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+  const [reviewStats, setReviewStats] = useState({
+    dueToday: 0,
+    overdue: 0,
+    totalReviewed: 0,
+    streak: 0,
+  });
   const subscriptionRef = useRef<any>(null);
 
   const handleOpenUrl = (url: string) => {
@@ -52,6 +61,118 @@ export default function Browse() {
 
   const handleItemUpdate = (updatedItem: Item) => {
     setItems(prev => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
+  };
+
+  const triggerHaptic = () => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  };
+
+  const handleStar = async (item: Item) => {
+    triggerHaptic();
+    const isStarred = (item as any).is_starred;
+    const { error } = await supabase
+      .from('items')
+      .update({ is_starred: !isStarred })
+      .eq('id', item.id);
+
+    if (!error) {
+      setItems(prev => prev.map(i => i.id === item.id ? { ...i, is_starred: !isStarred } as Item : i));
+    }
+  };
+
+  const handleArchive = async (item: Item) => {
+    triggerHaptic();
+    const isArchived = (item as any).is_archived;
+    const { error } = await supabase
+      .from('items')
+      .update({ is_archived: !isArchived, status: isArchived ? 'active' : 'archived' })
+      .eq('id', item.id);
+
+    if (!error) {
+      setItems(prev => prev.map(i => i.id === item.id ? { ...i, is_archived: !isArchived, status: isArchived ? 'active' : 'archived' } as Item : i));
+    }
+  };
+
+  const handleDelete = async (item: Item) => {
+    triggerHaptic();
+    const { error } = await supabase
+      .from('items')
+      .delete()
+      .eq('id', item.id);
+
+    if (!error) {
+      setItems(prev => prev.filter(i => i.id !== item.id));
+    }
+  };
+
+  const handleMarkReviewed = async (item: Item) => {
+    triggerHaptic();
+    const nextStage = Math.min((item.review_stage || 1) + 1, 7);
+    const intervals = [1, 3, 7, 14, 30, 60, 120];
+    const daysUntilNext = intervals[Math.min(nextStage - 1, intervals.length - 1)];
+    const nextReviewDate = new Date();
+    nextReviewDate.setDate(nextReviewDate.getDate() + daysUntilNext);
+
+    const timesReviewed = (item as any).times_reviewed || 0;
+    const { error } = await supabase
+      .from('items')
+      .update({
+        last_reviewed_at: new Date().toISOString(),
+        review_stage: nextStage,
+        next_review_date: nextReviewDate.toISOString(),
+        times_reviewed: timesReviewed + 1,
+      })
+      .eq('id', item.id);
+
+    if (!error) {
+      setItems(prev => prev.map(i => i.id === item.id ? {
+        ...i,
+        last_reviewed_at: new Date().toISOString(),
+        review_stage: nextStage,
+        next_review_date: nextReviewDate.toISOString(),
+        times_reviewed: timesReviewed + 1,
+      } as Item : i));
+      setReviewStats(prev => ({
+        ...prev,
+        dueToday: Math.max(0, prev.dueToday - 1),
+        totalReviewed: prev.totalReviewed + 1,
+      }));
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    }
+  };
+
+  const handleSkip = async (item: Item) => {
+    triggerHaptic();
+    const nextReviewDate = new Date();
+    nextReviewDate.setHours(nextReviewDate.getHours() + 2);
+
+    const { error } = await supabase
+      .from('items')
+      .update({ next_review_date: nextReviewDate.toISOString() })
+      .eq('id', item.id);
+
+    if (!error) {
+      setItems(prev => prev.map(i => i.id === item.id ? { ...i, next_review_date: nextReviewDate.toISOString() } as Item : i));
+    }
+  };
+
+  const handleSnooze = async (item: Item, days: number) => {
+    triggerHaptic();
+    const nextReviewDate = new Date();
+    nextReviewDate.setDate(nextReviewDate.getDate() + days);
+
+    const { error } = await supabase
+      .from('items')
+      .update({ next_review_date: nextReviewDate.toISOString() })
+      .eq('id', item.id);
+
+    if (!error) {
+      setItems(prev => prev.map(i => i.id === item.id ? { ...i, next_review_date: nextReviewDate.toISOString() } as Item : i));
+    }
   };
 
   const toggleSortOrder = () => {
@@ -96,6 +217,30 @@ export default function Browse() {
     if (data) {
       setError(null);
       setItems(data);
+
+      const now = new Date();
+      const dueToday = data.filter((item) => {
+        if (!item.next_review_date) return false;
+        const reviewDate = new Date(item.next_review_date);
+        return reviewDate <= now && (item as any).status !== 'archived';
+      }).length;
+
+      const overdue = data.filter((item) => {
+        if (!item.next_review_date) return false;
+        const reviewDate = new Date(item.next_review_date);
+        const yesterday = new Date(now);
+        yesterday.setDate(yesterday.getDate() - 1);
+        return reviewDate < yesterday && (item as any).status !== 'archived';
+      }).length;
+
+      const totalReviewed = data.filter((item) => item.last_reviewed_at).length;
+
+      setReviewStats({
+        dueToday,
+        overdue,
+        totalReviewed,
+        streak: 0,
+      });
     }
     setLoading(false);
   }, [user?.id, sortOrder]);
@@ -136,6 +281,30 @@ export default function Browse() {
 
   const filteredItems = useMemo(() => {
     let filtered = items;
+    const now = new Date();
+
+    if (selectedSmartFilter !== 'All') {
+      switch (selectedSmartFilter) {
+        case 'Due for Review':
+          filtered = filtered.filter((item) => {
+            if (!item.next_review_date) return false;
+            const reviewDate = new Date(item.next_review_date);
+            return reviewDate <= now && (item as any).status !== 'archived';
+          });
+          break;
+        case 'Starred':
+          filtered = filtered.filter((item) => (item as any).is_starred);
+          break;
+        case 'Unreviewed':
+          filtered = filtered.filter((item) => !item.last_reviewed_at);
+          break;
+        case 'Archived':
+          filtered = filtered.filter((item) => (item as any).is_archived || (item as any).status === 'archived');
+          break;
+      }
+    } else {
+      filtered = filtered.filter((item) => (item as any).status !== 'archived' && !(item as any).is_archived);
+    }
 
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
@@ -157,7 +326,7 @@ export default function Browse() {
     }
 
     return filtered;
-  }, [items, searchQuery, selectedType, selectedCategory]);
+  }, [items, searchQuery, selectedType, selectedCategory, selectedSmartFilter]);
 
   const groupedItems = useMemo(() => {
     const groups: { date: string; items: Item[] }[] = [];
@@ -180,6 +349,13 @@ export default function Browse() {
     setSearchQuery('');
     setSelectedType('All');
     setSelectedCategory('All');
+    setSelectedSmartFilter('All');
+  };
+
+  const isItemDueForReview = (item: Item) => {
+    if (!item.next_review_date) return false;
+    const reviewDate = new Date(item.next_review_date);
+    return reviewDate <= new Date() && (item as any).status !== 'archived';
   };
 
   const onRefresh = useCallback(async () => {
@@ -192,6 +368,7 @@ export default function Browse() {
     const platformType = (item as any).platform_type;
     const embedHtml = (item as any).embed_html;
     const hasMetadata = item.og_image || item.og_title || item.og_description;
+    const isDueForReview = isItemDueForReview(item);
 
     const shouldUseSocialEmbed = platformType && ['youtube', 'twitter', 'instagram', 'tiktok', 'vimeo', 'facebook'].includes(platformType) && (embedHtml || hasMetadata);
 
@@ -212,6 +389,15 @@ export default function Browse() {
         onPress={onPress}
         onOpenUrl={onOpenUrl}
         viewMode="list"
+        showActions
+        showReviewBadge={isDueForReview}
+        isDueForReview={isDueForReview}
+        onMarkReviewed={handleMarkReviewed}
+        onStar={handleStar}
+        onArchive={handleArchive}
+        onDelete={handleDelete}
+        onSkip={isDueForReview ? handleSkip : undefined}
+        onSnooze={isDueForReview ? handleSnooze : undefined}
       />
     );
   };
@@ -278,6 +464,89 @@ export default function Browse() {
         </TouchableOpacity>
       </View>
 
+      <View style={styles.smartFiltersContainer}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.smartFiltersScroll}>
+          {SMART_FILTERS.map((filter) => {
+            const isActive = selectedSmartFilter === filter;
+            const count = filter === 'Due for Review' ? reviewStats.dueToday :
+                         filter === 'Starred' ? items.filter(i => (i as any).is_starred).length :
+                         filter === 'Unreviewed' ? items.filter(i => !i.last_reviewed_at).length :
+                         filter === 'Archived' ? items.filter(i => (i as any).is_archived).length : null;
+
+            return (
+              <TouchableOpacity
+                key={filter}
+                style={[
+                  styles.smartFilterChip,
+                  {
+                    backgroundColor: isActive ? theme.primary : theme.surface,
+                    borderColor: isActive ? theme.primary : theme.border,
+                  },
+                ]}
+                onPress={() => {
+                  triggerHaptic();
+                  setSelectedSmartFilter(filter);
+                }}
+              >
+                {filter === 'Due for Review' && <Clock size={14} color={isActive ? '#FFFFFF' : theme.warning} />}
+                {filter === 'Starred' && <Star size={14} color={isActive ? '#FFFFFF' : theme.warning} fill={isActive ? '#FFFFFF' : theme.warning} />}
+                <Text style={[styles.smartFilterText, { color: isActive ? '#FFFFFF' : theme.text }]}>
+                  {filter}
+                </Text>
+                {count !== null && count > 0 && (
+                  <View style={[styles.filterBadge, { backgroundColor: isActive ? 'rgba(255,255,255,0.3)' : theme.primary + '20' }]}>
+                    <Text style={[styles.filterBadgeText, { color: isActive ? '#FFFFFF' : theme.primary }]}>{count}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+
+      {(reviewStats.dueToday > 0 || reviewStats.overdue > 0) && (
+        <TouchableOpacity
+          style={[styles.statsToggle, { backgroundColor: theme.surface }]}
+          onPress={() => setShowStats(!showStats)}
+        >
+          <View style={styles.statsToggleContent}>
+            <Target size={16} color={theme.primary} />
+            <Text style={[styles.statsToggleText, { color: theme.text }]}>
+              {reviewStats.dueToday} due today{reviewStats.overdue > 0 ? ` (${reviewStats.overdue} overdue)` : ''}
+            </Text>
+          </View>
+          {showStats ? <ChevronUp size={16} color={theme.textSecondary} /> : <ChevronDown size={16} color={theme.textSecondary} />}
+        </TouchableOpacity>
+      )}
+
+      {showStats && (
+        <Animated.View entering={FadeInDown.duration(200)} style={styles.statsContainer}>
+          <View style={[styles.statCard, { backgroundColor: theme.cardBackground }]}>
+            <View style={[styles.statIcon, { backgroundColor: theme.primary + '20' }]}>
+              <Target size={18} color={theme.primary} />
+            </View>
+            <Text style={[styles.statValue, { color: theme.text }]}>{reviewStats.dueToday}</Text>
+            <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Due</Text>
+          </View>
+
+          <View style={[styles.statCard, { backgroundColor: theme.cardBackground }]}>
+            <View style={[styles.statIcon, { backgroundColor: theme.warning + '20' }]}>
+              <Clock size={18} color={theme.warning} />
+            </View>
+            <Text style={[styles.statValue, { color: theme.text }]}>{reviewStats.overdue}</Text>
+            <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Overdue</Text>
+          </View>
+
+          <View style={[styles.statCard, { backgroundColor: theme.cardBackground }]}>
+            <View style={[styles.statIcon, { backgroundColor: theme.success + '20' }]}>
+              <CheckCircle size={18} color={theme.success} />
+            </View>
+            <Text style={[styles.statValue, { color: theme.text }]}>{reviewStats.totalReviewed}</Text>
+            <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Reviewed</Text>
+          </View>
+        </Animated.View>
+      )}
+
       {showFilters && (
         <View style={[styles.filtersPanel, { backgroundColor: theme.surface }]}>
           <View style={styles.filterSection}>
@@ -336,7 +605,7 @@ export default function Browse() {
             </ScrollView>
           </View>
 
-          {(selectedType !== 'All' || selectedCategory !== 'All') && (
+          {(selectedType !== 'All' || selectedCategory !== 'All' || selectedSmartFilter !== 'All') && (
             <TouchableOpacity style={styles.clearButton} onPress={clearSearch}>
               <Text style={[styles.clearButtonText, { color: theme.primary }]}>Clear Filters</Text>
             </TouchableOpacity>
@@ -571,5 +840,85 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 14,
     textAlign: 'center',
+  },
+  smartFiltersContainer: {
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  smartFiltersScroll: {
+    gap: 8,
+    flexDirection: 'row',
+  },
+  smartFilterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 6,
+    marginRight: 8,
+  },
+  smartFilterText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  filterBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+    minWidth: 20,
+    alignItems: 'center',
+  },
+  filterBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  statsToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginHorizontal: 16,
+    marginBottom: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  statsToggleContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  statsToggleText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    marginBottom: 12,
+    gap: 8,
+  },
+  statCard: {
+    flex: 1,
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+    gap: 4,
+  },
+  statIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  statValue: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  statLabel: {
+    fontSize: 11,
   },
 });
