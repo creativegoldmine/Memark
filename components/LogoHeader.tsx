@@ -40,12 +40,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'left',
+    alignItems: 'center',
     ...(Platform.OS === 'web' ? {
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.08,
-      shadowRadius: 12,
+      shadowRadius:4,
     } : {
       elevation: 4,
     }),
