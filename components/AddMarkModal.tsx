@@ -201,26 +201,28 @@ export function AddMarkModal({ visible, onClose, onSuccess }: AddMarkModalProps)
         imageUrl = await uploadImage();
       }
 
+      let finalUrl = url.trim();
+      if (finalUrl && !finalUrl.startsWith('http://') && !finalUrl.startsWith('https://')) {
+        finalUrl = 'https://' + finalUrl;
+      }
+
       const itemData: any = {
         user_id: user.id,
         type: markType,
-        content: content.trim() || url.trim() || 'Image',
+        raw_content: content.trim() || finalUrl || 'Image',
         status: 'active',
         is_manual: true,
         tags: tags.length > 0 ? tags : null,
       };
 
-      if (url.trim()) {
-        itemData.url = url.trim();
-        if (!itemData.url.startsWith('http://') && !itemData.url.startsWith('https://')) {
-          itemData.url = 'https://' + itemData.url;
-        }
+      if (finalUrl) {
+        itemData.media_url = finalUrl;
       }
 
       if (imageUrl) {
         itemData.og_image = imageUrl;
-        if (!itemData.url) {
-          itemData.url = imageUrl;
+        if (!itemData.media_url) {
+          itemData.media_url = imageUrl;
         }
       }
 
@@ -232,8 +234,8 @@ export function AddMarkModal({ visible, onClose, onSuccess }: AddMarkModalProps)
 
       if (insertError) throw insertError;
 
-      if (data && itemData.url && !imageUrl) {
-        fetchMetadata(data.id, itemData.url);
+      if (data && itemData.media_url && !imageUrl) {
+        fetchMetadata(data.id, itemData.media_url);
       }
 
       if (Platform.OS !== 'web') {
