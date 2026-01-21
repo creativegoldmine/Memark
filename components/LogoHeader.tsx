@@ -40,8 +40,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     borderBottomWidth: 1,
     flexDirection: 'row',
-    justifyContent: 'left',
-    alignItems: 'left',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     ...(Platform.OS === 'web' ? {
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 4 },
@@ -53,7 +53,7 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     justifyContent: 'center',
-    alignItems: 'flex-start',
+    alignItems: 'left',
   },
   logo: {
     width: 242,
