@@ -10,9 +10,11 @@ import {
   Platform,
   KeyboardAvoidingView,
   ActivityIndicator,
+  Image,
 } from 'react-native';
-import { X, Link2, FileText, Image as ImageIcon, Video, Tag, Plus, Check } from 'lucide-react-native';
+import { X, Link2, FileText, Image as ImageIcon, Video, Plus, Check, Upload, Camera, Trash2 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
+import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -46,6 +48,8 @@ export function AddMarkModal({ visible, onClose, onSuccess }: AddMarkModalProps)
   const [customTag, setCustomTag] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const triggerHaptic = () => {
     if (Platform.OS !== 'web') {
@@ -60,6 +64,7 @@ export function AddMarkModal({ visible, onClose, onSuccess }: AddMarkModalProps)
     setTags([]);
     setCustomTag('');
     setError(null);
+    setSelectedImage(null);
   };
 
   const handleClose = () => {
@@ -82,19 +87,107 @@ export function AddMarkModal({ visible, onClose, onSuccess }: AddMarkModalProps)
     }
   };
 
+  const pickImage = async (useCamera: boolean = false) => {
+    triggerHaptic();
+    try {
+      if (useCamera) {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+          setError('Camera permission is required');
+          return;
+        }
+      } else {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          setError('Photo library permission is required');
+          return;
+        }
+      }
+
+      const result = useCamera
+        ? await ImagePicker.launchCameraAsync({
+            mediaTypes: ['images'],
+            allowsEditing: true,
+            quality: 0.8,
+          })
+        : await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ['images'],
+            allowsEditing: true,
+            quality: 0.8,
+          });
+
+      if (!result.canceled && result.assets[0]) {
+        setSelectedImage(result.assets[0].uri);
+        setError(null);
+      }
+    } catch (err) {
+      console.error('Image picker error:', err);
+      setError('Failed to pick image');
+    }
+  };
+
+  const removeImage = () => {
+    triggerHaptic();
+    setSelectedImage(null);
+  };
+
+  const uploadImage = async (): Promise<string | null> => {
+    if (!selectedImage || !user?.id) return null;
+
+    setUploadingImage(true);
+    try {
+      const fileExt = selectedImage.split('.').pop()?.toLowerCase() || 'jpg';
+      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+
+      const response = await fetch(selectedImage);
+      const blob = await response.blob();
+
+      const { error: uploadError } = await supabase.storage
+        .from('media')
+        .upload(fileName, blob, {
+          contentType: `image/${fileExt}`,
+          upsert: false,
+        });
+
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        if (uploadError.message?.includes('bucket') || uploadError.message?.includes('not found')) {
+          return selectedImage;
+        }
+        throw uploadError;
+      }
+
+      const { data: urlData } = supabase.storage
+        .from('media')
+        .getPublicUrl(fileName);
+
+      return urlData.publicUrl;
+    } catch (err) {
+      console.error('Image upload error:', err);
+      return selectedImage;
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!user?.id) {
       setError('You must be logged in');
       return;
     }
 
-    if (!content.trim() && !url.trim()) {
-      setError('Please add some content or a URL');
+    if (!content.trim() && !url.trim() && !selectedImage) {
+      setError('Please add some content, URL, or image');
       return;
     }
 
-    if ((markType === 'link' || markType === 'article' || markType === 'video') && !url.trim()) {
+    if ((markType === 'link' || markType === 'article' || markType === 'video') && !url.trim() && !selectedImage) {
       setError('Please enter a URL for this type of mark');
+      return;
+    }
+
+    if (markType === 'screenshot' && !selectedImage && !url.trim()) {
+      setError('Please select an image or enter an image URL');
       return;
     }
 
@@ -103,10 +196,15 @@ export function AddMarkModal({ visible, onClose, onSuccess }: AddMarkModalProps)
     triggerHaptic();
 
     try {
+      let imageUrl: string | null = null;
+      if (selectedImage) {
+        imageUrl = await uploadImage();
+      }
+
       const itemData: any = {
         user_id: user.id,
         type: markType,
-        content: content.trim() || url.trim(),
+        content: content.trim() || url.trim() || 'Image',
         status: 'active',
         is_manual: true,
         tags: tags.length > 0 ? tags : null,
@@ -119,6 +217,13 @@ export function AddMarkModal({ visible, onClose, onSuccess }: AddMarkModalProps)
         }
       }
 
+      if (imageUrl) {
+        itemData.og_image = imageUrl;
+        if (!itemData.url) {
+          itemData.url = imageUrl;
+        }
+      }
+
       const { data, error: insertError } = await supabase
         .from('items')
         .insert(itemData)
@@ -127,7 +232,7 @@ export function AddMarkModal({ visible, onClose, onSuccess }: AddMarkModalProps)
 
       if (insertError) throw insertError;
 
-      if (data && itemData.url) {
+      if (data && itemData.url && !imageUrl) {
         fetchMetadata(data.id, itemData.url);
       }
 
@@ -166,7 +271,8 @@ export function AddMarkModal({ visible, onClose, onSuccess }: AddMarkModalProps)
     }
   };
 
-  const showUrlField = markType === 'link' || markType === 'article' || markType === 'video' || markType === 'screenshot';
+  const showUrlField = markType === 'link' || markType === 'article' || markType === 'video';
+  const showImagePicker = markType === 'screenshot';
 
   return (
     <Modal visible={visible} animationType="slide" transparent>
@@ -215,8 +321,66 @@ export function AddMarkModal({ visible, onClose, onSuccess }: AddMarkModalProps)
                 })}
               </View>
 
+              {showImagePicker && (
+                <View style={styles.imageSection}>
+                  <Text style={[styles.label, { color: theme.textSecondary }]}>Image</Text>
+                  {selectedImage ? (
+                    <View style={styles.imagePreviewContainer}>
+                      <Image source={{ uri: selectedImage }} style={styles.imagePreview} />
+                      <TouchableOpacity
+                        style={[styles.removeImageBtn, { backgroundColor: theme.error }]}
+                        onPress={removeImage}
+                      >
+                        <Trash2 size={18} color="#FFFFFF" />
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <View style={styles.imagePickerButtons}>
+                      <TouchableOpacity
+                        style={[styles.imagePickerBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
+                        onPress={() => pickImage(false)}
+                      >
+                        <Upload size={24} color={theme.primary} />
+                        <Text style={[styles.imagePickerBtnText, { color: theme.text }]}>
+                          Choose Photo
+                        </Text>
+                      </TouchableOpacity>
+                      {Platform.OS !== 'web' && (
+                        <TouchableOpacity
+                          style={[styles.imagePickerBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
+                          onPress={() => pickImage(true)}
+                        >
+                          <Camera size={24} color={theme.primary} />
+                          <Text style={[styles.imagePickerBtnText, { color: theme.text }]}>
+                            Take Photo
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  )}
+                  <Text style={[styles.orText, { color: theme.textTertiary }]}>or enter image URL</Text>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      {
+                        backgroundColor: theme.surface,
+                        color: theme.text,
+                        borderColor: theme.border,
+                      },
+                    ]}
+                    placeholder="https://example.com/image.jpg"
+                    placeholderTextColor={theme.textTertiary}
+                    value={url}
+                    onChangeText={setUrl}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    keyboardType="url"
+                  />
+                </View>
+              )}
+
               {showUrlField && (
-                <>
+                <View>
                   <Text style={[styles.label, { color: theme.textSecondary }]}>URL</Text>
                   <TextInput
                     style={[
@@ -235,7 +399,7 @@ export function AddMarkModal({ visible, onClose, onSuccess }: AddMarkModalProps)
                     autoCorrect={false}
                     keyboardType="url"
                   />
-                </>
+                </View>
               )}
 
               <Text style={[styles.label, { color: theme.textSecondary }]}>
@@ -348,12 +512,17 @@ export function AddMarkModal({ visible, onClose, onSuccess }: AddMarkModalProps)
                 <Text style={[styles.cancelBtnText, { color: theme.textSecondary }]}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.saveBtn, { backgroundColor: theme.primary, opacity: saving ? 0.7 : 1 }]}
+                style={[styles.saveBtn, { backgroundColor: theme.primary, opacity: saving || uploadingImage ? 0.7 : 1 }]}
                 onPress={handleSave}
-                disabled={saving}
+                disabled={saving || uploadingImage}
               >
-                {saving ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
+                {saving || uploadingImage ? (
+                  <View style={styles.savingRow}>
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                    <Text style={styles.saveBtnText}>
+                      {uploadingImage ? 'Uploading...' : 'Saving...'}
+                    </Text>
+                  </View>
                 ) : (
                   <Text style={styles.saveBtnText}>Save Mark</Text>
                 )}
@@ -431,6 +600,51 @@ const styles = StyleSheet.create({
     padding: 14,
     fontSize: 15,
     minHeight: 100,
+  },
+  imageSection: {
+    marginTop: 8,
+  },
+  imagePickerButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  imagePickerBtn: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 12,
+    borderStyle: 'dashed',
+    padding: 20,
+    alignItems: 'center',
+    gap: 8,
+  },
+  imagePickerBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  imagePreviewContainer: {
+    position: 'relative',
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  imagePreview: {
+    width: '100%',
+    height: 200,
+    borderRadius: 12,
+  },
+  removeImageBtn: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  orText: {
+    textAlign: 'center',
+    fontSize: 12,
+    marginVertical: 12,
   },
   tagsContainer: {
     flexDirection: 'row',
@@ -531,5 +745,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  savingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
 });
