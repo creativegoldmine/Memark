@@ -15,6 +15,7 @@ import { TopicTabs } from '@/components/TopicTabs';
 import { ReviewCarousel } from '@/components/ReviewCarousel';
 import { ItemCardSkeleton } from '@/components/SkeletonLoader';
 import { InAppBrowser } from '@/components/InAppBrowser';
+import { AIChatAssistant, AIChatButton } from '@/components/AIChatAssistant';
 
 const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
 
@@ -34,6 +35,7 @@ export default function Home() {
   const [browserVisible, setBrowserVisible] = useState(false);
   const [browserUrl, setBrowserUrl] = useState('');
   const [activeTab, setActiveTab] = useState('all');
+  const [chatVisible, setChatVisible] = useState(false);
   const [stats, setStats] = useState({
     todayCount: 0,
     unreviewed: 0,
@@ -471,6 +473,13 @@ export default function Home() {
         url={browserUrl}
         visible={browserVisible}
         onClose={() => setBrowserVisible(false)}
+      />
+
+      <AIChatButton onPress={() => setChatVisible(true)} />
+
+      <AIChatAssistant
+        visible={chatVisible}
+        onClose={() => setChatVisible(false)}
       />
     </View>
   );
