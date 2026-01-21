@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Platform, ActivityIndicator } from 'react-native';
-import { Link2, Video, FileText, MessageSquare, Image as ImageIcon, CheckSquare, ChevronDown, ChevronUp, Star, ExternalLink, Play, Archive, Folder, Tag, Trash2, Check } from 'lucide-react-native';
+import { Link2, Video, FileText, MessageSquare, Image as ImageIcon, CheckSquare, ChevronDown, ChevronUp, Star, ExternalLink, Play, Archive, Folder, Tag, Trash2, Check, RotateCcw } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -13,6 +13,7 @@ interface ItemCardProps {
   onOpenUrl?: (url: string) => void;
   viewMode?: 'grid' | 'list' | 'compact';
   showActions?: boolean;
+  showReviewBadge?: boolean;
   onMarkReviewed?: (item: Item) => void;
   onArchive?: (item: Item) => void;
   onStar?: (item: Item) => void;
@@ -26,6 +27,7 @@ export function ItemCard({
   onOpenUrl,
   viewMode = 'list',
   showActions = false,
+  showReviewBadge = false,
   onMarkReviewed,
   onArchive,
   onStar,
@@ -321,6 +323,12 @@ export function ItemCard({
         {item.score && item.score >= 70 && (
           <View style={[styles.scoreBadge, { backgroundColor: getScoreColor() }]}>
             <Text style={styles.scoreBadgeText}>{Math.round(item.score)}%</Text>
+          </View>
+        )}
+        {showReviewBadge && (
+          <View style={[styles.reviewBadge, { backgroundColor: theme.warning }]}>
+            <RotateCcw size={12} color="#FFFFFF" />
+            <Text style={styles.reviewBadgeText}>Review</Text>
           </View>
         )}
         {(item.video_url || (item as any).platform_type === 'youtube' || (item as any).platform_type === 'vimeo' || (item as any).platform_type === 'tiktok') && (
@@ -620,6 +628,30 @@ const styles = StyleSheet.create({
   },
   scoreBadgeText: {
     fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  reviewBadge: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    ...(Platform.OS === 'web' ? {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+    } : {
+      elevation: 4,
+    }),
+  },
+  reviewBadgeText: {
+    fontSize: 11,
     fontWeight: '700',
     color: '#FFFFFF',
   },
