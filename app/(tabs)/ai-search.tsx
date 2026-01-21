@@ -128,23 +128,27 @@ export default function AISearch() {
 
   const searchWithAI = async (query: string, items: Item[]) => {
     try {
-      const response = await fetch(`${supabaseUrl}/functions/v1/ai-recall`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          query,
+      const { data, error } = await supabase.functions.invoke('ai-chat-assistant', {
+        body: {
           userId: user!.id,
-        }),
+          message: query,
+          sessionId: null,
+          includeContext: true,
+        },
       });
 
-      if (!response.ok) {
-        throw new Error('AI recall failed');
+      if (error) {
+        throw error;
       }
 
-      const result = await response.json();
-      return result;
+      const foundItems = data.itemsReferenced
+        ? items.filter((item) => data.itemsReferenced.includes(item.id))
+        : basicSearch(query, items);
+
+      return {
+        message: data.message || "I couldn't find anything matching that description.",
+        items: foundItems,
+      };
     } catch (error) {
       console.error('AI search error:', error);
       return {
@@ -156,12 +160,48 @@ export default function AISearch() {
 
   const basicSearch = (query: string, items: Item[]) => {
     const lowerQuery = query.toLowerCase();
-    const matches = items.filter((item) => {
-      const searchText = `${item.title} ${item.summary} ${item.raw_content} ${item.tags?.join(' ')} ${item.category}`.toLowerCase();
-      const queryWords = lowerQuery.split(' ').filter((w) => w.length > 2);
-      return queryWords.some((word) => searchText.includes(word));
+    const queryWords = lowerQuery.split(' ').filter((w) => w.length > 2);
+
+    const scoredMatches = items.map((item) => {
+      const itemData = item as any;
+      let score = 0;
+
+      const searchableText = `
+        ${item.title || ''}
+        ${item.summary || ''}
+        ${item.raw_content || ''}
+        ${item.tags?.join(' ') || ''}
+        ${item.category || ''}
+        ${itemData.content_topics?.join(' ') || ''}
+        ${itemData.semantic_category || ''}
+      `.toLowerCase();
+
+      queryWords.forEach((word) => {
+        if (searchableText.includes(word)) {
+          score += 1;
+        }
+
+        if (itemData.content_topics) {
+          itemData.content_topics.forEach((topic: string) => {
+            if (topic.toLowerCase().includes(word) || word.includes(topic.toLowerCase())) {
+              score += 3;
+            }
+          });
+        }
+
+        if (item.title?.toLowerCase().includes(word)) {
+          score += 2;
+        }
+      });
+
+      return { item, score };
     });
-    return matches.slice(0, 10);
+
+    return scoredMatches
+      .filter(({ score }) => score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 10)
+      .map(({ item }) => item);
   };
 
   useEffect(() => {

@@ -9,6 +9,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Item, supabase, supabaseUrl, Profile } from '@/lib/supabase';
 import { LinearGradient } from 'expo-linear-gradient';
+import { FeedbackButton } from '@/components/FeedbackButton';
 
 export default function ItemDetail() {
   const router = useRouter();
@@ -547,6 +548,9 @@ export default function ItemDetail() {
                 </View>
               )}
             </View>
+            <View style={styles.feedbackContainer}>
+              <FeedbackButton itemId={item.id} context="categorization" />
+            </View>
           </View>
         )}
       </LinearGradient>
@@ -695,6 +699,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     flexWrap: 'wrap',
+  },
+  feedbackContainer: {
+    marginTop: 12,
   },
   typeChip: {
     paddingHorizontal: 10,

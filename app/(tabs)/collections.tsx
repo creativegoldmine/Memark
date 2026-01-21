@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, TextInput, Modal, Platform, Dimensions, useWindowDimensions } from 'react-native';
-import { Grid, List, ChevronRight, Plus, X, Trash2, Search as SearchIcon, LayoutGrid } from 'lucide-react-native';
+import { Grid, List, ChevronRight, Plus, X, Trash2, Search as SearchIcon, LayoutGrid, Sparkles } from 'lucide-react-native';
 import Animated, { useSharedValue, useAnimatedScrollHandler, FadeIn, FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,6 +15,8 @@ import { SocialEmbedCard } from '@/components/SocialEmbedCard';
 import { LinkPreviewModal } from '@/components/LinkPreviewModal';
 import { InAppBrowser } from '@/components/InAppBrowser';
 import { SmartFolderSuggestions } from '@/components/SmartFolderSuggestions';
+import { AIInsights } from '@/components/AIInsights';
+import { TopicExplorer } from '@/components/TopicExplorer';
 import { collectionIconNames, collectionIconDisplayNames } from '@/constants/theme';
 import {
   getCollectionIcon,
@@ -68,6 +70,8 @@ export default function Collections() {
   const [browserVisible, setBrowserVisible] = useState(false);
   const [browserUrl, setBrowserUrl] = useState('');
   const [activeTab, setActiveTab] = useState('all');
+  const [showInsights, setShowInsights] = useState(true);
+  const [topicExplorerVisible, setTopicExplorerVisible] = useState(false);
   const subscriptionRef = useRef<any>(null);
 
   const numColumns = screenWidth < 400 ? 3 : screenWidth < 600 ? 4 : 5;
@@ -338,11 +342,23 @@ export default function Collections() {
       <LogoHeader />
 
       {!selectedFolder && (
-        <TopicTabs
-          tabs={topicTabs}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-        />
+        <View>
+          <TopicTabs
+            tabs={topicTabs}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+          />
+          <TouchableOpacity
+            style={[styles.topicExplorerButton, { backgroundColor: theme.surface }]}
+            onPress={() => setTopicExplorerVisible(true)}
+          >
+            <Sparkles size={16} color="#8B5CF6" />
+            <Text style={[styles.topicExplorerText, { color: theme.text }]}>
+              Explore by Topic
+            </Text>
+            <ChevronRight size={16} color={theme.textTertiary} />
+          </TouchableOpacity>
+        </View>
       )}
 
       <View style={[styles.subHeader, { backgroundColor: theme.cardBackground, borderBottomColor: theme.border }]}>
@@ -427,22 +443,24 @@ export default function Collections() {
         }
       >
         {!selectedFolder ? (
-          displayFolders.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Text style={[styles.emptyTitle, { color: theme.text }]}>
-                {folders.length === 0 ? 'No folders yet' : 'No results found'}
-              </Text>
-              <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
-                {folders.length === 0
-                  ? 'Go to Settings and tap "AI Recategorize All"\nto create smart folders'
-                  : 'Try adjusting your search'}
-              </Text>
-            </View>
-          ) : (
-            <View style={[
-              viewMode === 'compact' ? styles.foldersCompact : viewMode === 'grid' ? styles.foldersGrid : styles.foldersList,
-              { gap: cardGap }
-            ]}>
+          <>
+            {showInsights && <AIInsights />}
+            {displayFolders.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Text style={[styles.emptyTitle, { color: theme.text }]}>
+                  {folders.length === 0 ? 'No folders yet' : 'No results found'}
+                </Text>
+                <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
+                  {folders.length === 0
+                    ? 'Go to Settings and tap "AI Recategorize All"\nto create smart folders'
+                    : 'Try adjusting your search'}
+                </Text>
+              </View>
+            ) : (
+              <View style={[
+                viewMode === 'compact' ? styles.foldersCompact : viewMode === 'grid' ? styles.foldersGrid : styles.foldersList,
+                { gap: cardGap }
+              ]}>
               {displayFolders.map((folder, index) => {
                 const IconComponent = getCollectionIcon(folder.icon || folder.name);
 
@@ -552,7 +570,8 @@ export default function Collections() {
                 );
               })}
             </View>
-          )
+            )}
+          </>
         ) : (
           <>
 
@@ -679,6 +698,11 @@ export default function Collections() {
         visible={browserVisible}
         onClose={() => setBrowserVisible(false)}
       />
+
+      <TopicExplorer
+        visible={topicExplorerVisible}
+        onClose={() => setTopicExplorerVisible(false)}
+      />
     </View>
   );
 }
@@ -715,6 +739,22 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 14,
+  },
+  topicExplorerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginHorizontal: 12,
+    marginVertical: 8,
+    borderRadius: 10,
+    gap: 8,
+  },
+  topicExplorerText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
   },
   subHeader: {
     flexDirection: 'row',
