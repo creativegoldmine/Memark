@@ -58,7 +58,6 @@ const styles = StyleSheet.create({
   logo: {
     width: 242,
     height: 61,
-    flex: 1,
   },
   notificationContainer: {
     justifyContent: 'center',
