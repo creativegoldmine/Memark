@@ -169,7 +169,7 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     alignItems: 'flex-start',
-    justifyContent: 'left',
+    justifyContent: 'center',
   },
   logo: {
     width: 158,
