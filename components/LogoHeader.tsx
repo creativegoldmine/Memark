@@ -36,7 +36,7 @@ export function LogoHeader() {
 const styles = StyleSheet.create({
   header: {
     height: 60,
-    width: 0,
+    width: '100%',
     paddingHorizontal: 0,
     borderBottomWidth: 1,
     flexDirection: 'row',
@@ -58,7 +58,6 @@ const styles = StyleSheet.create({
   logo: {
     width: 242,
     height: 61,
-    float: left,
   },
   notificationContainer: {
     justifyContent: 'left',
