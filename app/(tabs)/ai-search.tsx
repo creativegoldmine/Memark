@@ -295,7 +295,9 @@ export default function AISearch() {
           setModalVisible(false);
           setSelectedItem(null);
         }}
-        onUpdate={() => {}}
+        onUpdate={(updatedItem) => {
+          setSelectedItem(updatedItem);
+        }}
       />
 
       <InAppBrowser

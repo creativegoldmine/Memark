@@ -27,7 +27,13 @@ export default function ReviewScreen() {
       <LinkPreviewModal
         visible={modalVisible}
         item={selectedItem}
-        onClose={() => setModalVisible(false)}
+        onClose={() => {
+          setModalVisible(false);
+          setSelectedItem(null);
+        }}
+        onUpdate={(updatedItem) => {
+          setSelectedItem(updatedItem);
+        }}
       />
     </View>
   );

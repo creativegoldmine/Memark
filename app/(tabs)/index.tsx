@@ -472,7 +472,20 @@ export default function Home() {
           setModalVisible(false);
           setSelectedItem(null);
         }}
-        onUpdate={() => selectedItem && handleMarkReviewed(selectedItem)}
+        onUpdate={(updatedItem) => {
+          setItems(prev => prev.map(i => i.id === updatedItem.id ? updatedItem : i));
+          setSelectedItem(updatedItem);
+        }}
+        onDelete={() => {
+          if (selectedItem) {
+            setItems(prev => prev.filter(i => i.id !== selectedItem.id));
+            setStats(prev => ({
+              ...prev,
+              totalItems: prev.totalItems - 1,
+              unreviewed: (selectedItem as any).last_reviewed_at ? prev.unreviewed : prev.unreviewed - 1
+            }));
+          }
+        }}
       />
 
       <InAppBrowser

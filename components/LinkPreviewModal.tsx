@@ -1,13 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, Image, ScrollView, Platform, Linking, TextInput, Alert } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, Image, ScrollView, Platform, Linking, TextInput, Alert, ActivityIndicator } from 'react-native';
 import { WebView } from 'react-native-webview';
-import { X, ExternalLink, Clock, Archive, Bell, ArrowLeft, Tag, Folder, Plus, Check, ChevronRight, Globe, Lock, Calendar, Trash2 } from 'lucide-react-native';
+import { X, ExternalLink, Clock, Archive, Bell, ArrowLeft, Tag, Folder, Plus, Check, ChevronRight, Globe, Lock, Calendar, Trash2, Star, RotateCcw, FolderPlus } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Item, supabase } from '@/lib/supabase';
+import { getCollectionIcon } from './CollectionIcons';
+import { collectionIconNames } from '@/constants/theme';
 
-interface Folder {
+interface FolderData {
   id: string;
   name: string;
   icon: string;
@@ -19,9 +21,10 @@ interface LinkPreviewModalProps {
   item: Item | null;
   onClose: () => void;
   onUpdate?: (updatedItem: Item) => void;
+  onDelete?: () => void;
 }
 
-export function LinkPreviewModal({ visible, item, onClose, onUpdate }: LinkPreviewModalProps) {
+export function LinkPreviewModal({ visible, item, onClose, onUpdate, onDelete }: LinkPreviewModalProps) {
   const { theme } = useTheme();
   const { user } = useAuth();
   const [showWebView, setShowWebView] = useState(false);
@@ -30,14 +33,22 @@ export function LinkPreviewModal({ visible, item, onClose, onUpdate }: LinkPrevi
   const [showFolderPicker, setShowFolderPicker] = useState(false);
   const [newTag, setNewTag] = useState('');
   const [currentTags, setCurrentTags] = useState<string[]>([]);
-  const [folders, setFolders] = useState<Folder[]>([]);
+  const [folders, setFolders] = useState<FolderData[]>([]);
   const [itemFolders, setItemFolders] = useState<string[]>([]);
   const [isPublic, setIsPublic] = useState(false);
+  const [isStarred, setIsStarred] = useState(false);
+  const [showCreateFolder, setShowCreateFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [newFolderIcon, setNewFolderIcon] = useState('folder');
+  const [creatingFolder, setCreatingFolder] = useState(false);
+  const [isReviewed, setIsReviewed] = useState(false);
 
   useEffect(() => {
     if (item) {
       setCurrentTags(item.tags || []);
       setIsPublic(item.is_public || false);
+      setIsStarred((item as any).is_starred || false);
+      setIsReviewed(!!(item as any).last_reviewed_at);
       loadItemFolders();
     }
   }, [item]);
@@ -211,6 +222,82 @@ export function LinkPreviewModal({ visible, item, onClose, onUpdate }: LinkPrevi
     onUpdate?.({ ...item, is_public: newValue });
   };
 
+  const handleToggleStar = async () => {
+    const newValue = !isStarred;
+    setIsStarred(newValue);
+    triggerHaptic();
+
+    await supabase
+      .from('items')
+      .update({ is_starred: newValue })
+      .eq('id', item.id);
+
+    onUpdate?.({ ...item, is_starred: newValue } as any);
+  };
+
+  const handleMarkReviewed = async () => {
+    const now = new Date().toISOString();
+    setIsReviewed(true);
+    triggerHaptic();
+
+    const reviewCount = ((item as any).review_count || 0) + 1;
+    const nextReviewDays = Math.min(Math.pow(2, reviewCount), 30);
+    const nextReviewDate = new Date();
+    nextReviewDate.setDate(nextReviewDate.getDate() + nextReviewDays);
+
+    await supabase
+      .from('items')
+      .update({
+        last_reviewed_at: now,
+        review_count: reviewCount,
+        next_review_date: nextReviewDate.toISOString(),
+      })
+      .eq('id', item.id);
+
+    onUpdate?.({ ...item, last_reviewed_at: now, review_count: reviewCount } as any);
+    Alert.alert('Marked as Reviewed', `Next review in ${nextReviewDays} days`);
+  };
+
+  const handleCreateFolder = async () => {
+    if (!user?.id || !newFolderName.trim()) return;
+    setCreatingFolder(true);
+
+    try {
+      const { data, error } = await supabase
+        .from('folders')
+        .insert({
+          user_id: user.id,
+          name: newFolderName.trim(),
+          path: newFolderName.trim(),
+          icon: newFolderIcon,
+          is_auto_generated: false,
+          sort_order: folders.length,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        setFolders(prev => [...prev, data]);
+        if (item?.id) {
+          await supabase
+            .from('item_folders')
+            .insert({ item_id: item.id, folder_id: data.id });
+          setItemFolders(prev => [...prev, data.id]);
+        }
+        setNewFolderName('');
+        setNewFolderIcon('folder');
+        setShowCreateFolder(false);
+        triggerHaptic();
+      }
+    } catch (err) {
+      Alert.alert('Error', 'Failed to create folder');
+    } finally {
+      setCreatingFolder(false);
+    }
+  };
+
   const handleDelete = async () => {
     Alert.alert(
       'Delete Item',
@@ -223,11 +310,23 @@ export function LinkPreviewModal({ visible, item, onClose, onUpdate }: LinkPrevi
           onPress: async () => {
             await supabase.from('items').delete().eq('id', item.id);
             triggerHaptic();
+            onDelete?.();
             onClose();
           },
         },
       ]
     );
+  };
+
+  const getImageUrl = () => {
+    if (item.og_image) return item.og_image;
+    if (item.image_preview) return item.image_preview;
+    if (item.preview_image_url) return item.preview_image_url;
+    const mediaUrl = (item as any).media_url;
+    if (mediaUrl && /\.(jpg|jpeg|png|gif|webp)(\?.*)?$/i.test(mediaUrl)) {
+      return mediaUrl;
+    }
+    return null;
   };
 
   if (showWebView) {
@@ -282,13 +381,31 @@ export function LinkPreviewModal({ visible, item, onClose, onUpdate }: LinkPrevi
           </View>
 
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-            {(item.og_image || item.image_preview || item.preview_image_url) && (
+            {getImageUrl() && (
               <Image
-                source={{ uri: item.og_image || item.image_preview || item.preview_image_url }}
+                source={{ uri: getImageUrl() || '' }}
                 style={styles.previewImage}
                 resizeMode="cover"
               />
             )}
+
+            <View style={styles.quickActions}>
+              <TouchableOpacity
+                style={[styles.quickActionBtn, isStarred && { backgroundColor: theme.warning + '20' }]}
+                onPress={handleToggleStar}
+              >
+                <Star size={20} color={isStarred ? theme.warning : theme.textSecondary} fill={isStarred ? theme.warning : 'transparent'} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.quickActionBtn, isReviewed && { backgroundColor: theme.success + '20' }]}
+                onPress={handleMarkReviewed}
+              >
+                <RotateCcw size={20} color={isReviewed ? theme.success : theme.textSecondary} />
+                <Text style={[styles.quickActionText, { color: isReviewed ? theme.success : theme.textSecondary }]}>
+                  {isReviewed ? 'Reviewed' : 'Mark Done'}
+                </Text>
+              </TouchableOpacity>
+            </View>
 
             <Text style={[styles.title, { color: theme.text }]}>
               {item.og_title || item.title || item.raw_content}
@@ -372,40 +489,103 @@ export function LinkPreviewModal({ visible, item, onClose, onUpdate }: LinkPrevi
 
             {showFolderPicker && (
               <View style={[styles.expandedSection, { backgroundColor: theme.surface }]}>
-                {folders.length === 0 ? (
+                <TouchableOpacity
+                  style={[styles.createFolderButton, { backgroundColor: theme.primary + '10', borderColor: theme.primary + '30' }]}
+                  onPress={() => setShowCreateFolder(!showCreateFolder)}
+                >
+                  <FolderPlus size={18} color={theme.primary} />
+                  <Text style={[styles.createFolderText, { color: theme.primary }]}>
+                    Create New Folder
+                  </Text>
+                </TouchableOpacity>
+
+                {showCreateFolder && (
+                  <View style={[styles.createFolderForm, { borderColor: theme.border }]}>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.iconScroll}>
+                      {collectionIconNames.map((iconName) => {
+                        const IconComponent = getCollectionIcon(iconName);
+                        const isSelected = newFolderIcon === iconName;
+                        return (
+                          <TouchableOpacity
+                            key={iconName}
+                            style={[
+                              styles.iconOption,
+                              {
+                                backgroundColor: isSelected ? theme.primary + '20' : theme.background,
+                                borderColor: isSelected ? theme.primary : theme.border,
+                              },
+                            ]}
+                            onPress={() => {
+                              triggerHaptic();
+                              setNewFolderIcon(iconName);
+                            }}
+                          >
+                            <IconComponent size={20} color={isSelected ? theme.primary : theme.textSecondary} />
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                    <View style={styles.createFolderRow}>
+                      <TextInput
+                        style={[styles.folderInput, { backgroundColor: theme.background, color: theme.text, borderColor: theme.border }]}
+                        placeholder="Folder name"
+                        placeholderTextColor={theme.textTertiary}
+                        value={newFolderName}
+                        onChangeText={setNewFolderName}
+                        maxLength={50}
+                      />
+                      <TouchableOpacity
+                        style={[styles.createFolderBtn, { backgroundColor: theme.primary, opacity: creatingFolder || !newFolderName.trim() ? 0.5 : 1 }]}
+                        onPress={handleCreateFolder}
+                        disabled={creatingFolder || !newFolderName.trim()}
+                      >
+                        {creatingFolder ? (
+                          <ActivityIndicator size="small" color="#FFFFFF" />
+                        ) : (
+                          <Plus size={18} color="#FFFFFF" />
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+
+                {folders.length === 0 && !showCreateFolder ? (
                   <Text style={[styles.noFoldersText, { color: theme.textSecondary }]}>
-                    No folders yet. Create one in the Folders tab.
+                    No folders yet. Create one above!
                   </Text>
                 ) : (
-                  folders.map((folder) => (
-                    <TouchableOpacity
-                      key={folder.id}
-                      style={[
-                        styles.folderOption,
-                        { borderBottomColor: theme.border },
-                        itemFolders.includes(folder.id) && { backgroundColor: theme.primary + '10' }
-                      ]}
-                      onPress={() => handleToggleFolder(folder.id)}
-                    >
-                      <View style={styles.folderOptionLeft}>
-                        <Folder size={16} color={itemFolders.includes(folder.id) ? theme.primary : theme.textSecondary} />
-                        <Text style={[
-                          styles.folderOptionText,
-                          { color: itemFolders.includes(folder.id) ? theme.primary : theme.text }
-                        ]}>
-                          {folder.name}
-                        </Text>
-                        {folder.is_auto_generated && (
-                          <View style={[styles.smartBadge, { backgroundColor: theme.primary + '20' }]}>
-                            <Text style={[styles.smartBadgeText, { color: theme.primary }]}>Smart</Text>
-                          </View>
+                  folders.map((folder) => {
+                    const IconComponent = getCollectionIcon(folder.icon || folder.name);
+                    return (
+                      <TouchableOpacity
+                        key={folder.id}
+                        style={[
+                          styles.folderOption,
+                          { borderBottomColor: theme.border },
+                          itemFolders.includes(folder.id) && { backgroundColor: theme.primary + '10' }
+                        ]}
+                        onPress={() => handleToggleFolder(folder.id)}
+                      >
+                        <View style={styles.folderOptionLeft}>
+                          <IconComponent size={16} color={itemFolders.includes(folder.id) ? theme.primary : theme.textSecondary} />
+                          <Text style={[
+                            styles.folderOptionText,
+                            { color: itemFolders.includes(folder.id) ? theme.primary : theme.text }
+                          ]}>
+                            {folder.name}
+                          </Text>
+                          {folder.is_auto_generated && (
+                            <View style={[styles.smartBadge, { backgroundColor: theme.primary + '20' }]}>
+                              <Text style={[styles.smartBadgeText, { color: theme.primary }]}>Smart</Text>
+                            </View>
+                          )}
+                        </View>
+                        {itemFolders.includes(folder.id) && (
+                          <Check size={18} color={theme.primary} />
                         )}
-                      </View>
-                      {itemFolders.includes(folder.id) && (
-                        <Check size={18} color={theme.primary} />
-                      )}
-                    </TouchableOpacity>
-                  ))
+                      </TouchableOpacity>
+                    );
+                  })
                 )}
               </View>
             )}
@@ -710,5 +890,73 @@ const styles = StyleSheet.create({
   backText: {
     fontSize: 17,
     fontWeight: '600',
+  },
+  quickActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 16,
+  },
+  quickActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+  },
+  quickActionText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  createFolderButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    marginBottom: 12,
+  },
+  createFolderText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  createFolderForm: {
+    paddingBottom: 12,
+    marginBottom: 8,
+    borderBottomWidth: 1,
+  },
+  iconScroll: {
+    marginBottom: 10,
+  },
+  iconOption: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    marginRight: 8,
+  },
+  createFolderRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  folderInput: {
+    flex: 1,
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    fontSize: 14,
+  },
+  createFolderBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

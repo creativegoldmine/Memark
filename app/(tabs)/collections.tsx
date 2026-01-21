@@ -614,11 +614,17 @@ export default function Collections() {
           setModalVisible(false);
           setSelectedItem(null);
         }}
-        onUpdate={() => {
+        onUpdate={(updatedItem) => {
           if (selectedFolder?.id) {
             setFolderItems(prev =>
-              prev.map(item => item.id === selectedItem?.id ? { ...item, ...selectedItem } : item)
+              prev.map(item => item.id === updatedItem.id ? updatedItem : item)
             );
+          }
+          setSelectedItem(updatedItem);
+        }}
+        onDelete={() => {
+          if (selectedItem && selectedFolder?.id) {
+            setFolderItems(prev => prev.filter(i => i.id !== selectedItem.id));
           }
         }}
       />

@@ -680,7 +680,15 @@ export default function Browse() {
           setModalVisible(false);
           setSelectedItem(null);
         }}
-        onUpdate={() => selectedItem && handleItemUpdate(selectedItem)}
+        onUpdate={(updatedItem) => {
+          setItems(prev => prev.map(i => i.id === updatedItem.id ? updatedItem : i));
+          setSelectedItem(updatedItem);
+        }}
+        onDelete={() => {
+          if (selectedItem) {
+            setItems(prev => prev.filter(i => i.id !== selectedItem.id));
+          }
+        }}
       />
     </View>
   );
