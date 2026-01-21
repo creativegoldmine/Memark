@@ -36,7 +36,7 @@ export function LogoHeader() {
 const styles = StyleSheet.create({
   header: {
     height: 60,
-    width: 100,
+    width: 1,
     paddingHorizontal: 4,
     borderBottomWidth: 1,
     flexDirection: 'row',
