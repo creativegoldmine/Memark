@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Home, FolderOpen, Search, Settings } from 'lucide-react-native';
+import { Home, FolderOpen, Search, Settings, Library } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 
 export default function TabLayout() {
@@ -33,6 +33,13 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="browse"
+        options={{
+          title: 'Library',
+          tabBarIcon: ({ size, color }) => <Library size={22} color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="collections"
         options={{
           title: 'Folders',
@@ -51,12 +58,6 @@ export default function TabLayout() {
         options={{
           title: 'Settings',
           tabBarIcon: ({ size, color }) => <Settings size={22} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="browse"
-        options={{
-          href: null,
         }}
       />
     </Tabs>

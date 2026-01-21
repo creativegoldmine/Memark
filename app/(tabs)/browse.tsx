@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity, RefreshControl, Platform } from 'react-native';
-import { Search as SearchIcon, Filter, X } from 'lucide-react-native';
+import { Search as SearchIcon, Filter, X, Calendar, SortDesc, SortAsc } from 'lucide-react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -10,6 +11,7 @@ import { SocialEmbedCard } from '@/components/SocialEmbedCard';
 import { LogoHeader } from '@/components/LogoHeader';
 import { InAppBrowser } from '@/components/InAppBrowser';
 import { LinkPreviewModal } from '@/components/LinkPreviewModal';
+import { ItemCardSkeleton } from '@/components/SkeletonLoader';
 
 const FILTER_TYPES = ['All', 'Article', 'Video', 'Note', 'Screenshot', 'Task'];
 const FILTER_CATEGORIES = ['All', 'Work', 'Personal', 'Inspiration', 'Finance', 'Learning'];
@@ -23,11 +25,14 @@ export default function Browse() {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [showFilters, setShowFilters] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [browserVisible, setBrowserVisible] = useState(false);
   const [browserUrl, setBrowserUrl] = useState('');
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+  const subscriptionRef = useRef<any>(null);
 
   const handleOpenUrl = (url: string) => {
     if (Platform.OS !== 'web') {
@@ -49,17 +54,42 @@ export default function Browse() {
     setItems(prev => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
   };
 
+  const toggleSortOrder = () => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc');
+  };
+
+  const formatDateHeader = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const itemDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+    if (itemDate.getTime() === today.getTime()) return 'Today';
+    if (itemDate.getTime() === yesterday.getTime()) return 'Yesterday';
+    if (now.getTime() - date.getTime() < 7 * 24 * 60 * 60 * 1000) {
+      return date.toLocaleDateString('en-US', { weekday: 'long' });
+    }
+    return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined });
+  };
+
   const fetchItems = useCallback(async () => {
     if (!user?.id) return;
 
-    const { data, error } = await supabase
+    setLoading(true);
+    const { data, error: fetchError } = await supabase
       .from('items')
       .select('*')
       .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: sortOrder === 'asc' });
 
-    if (error) {
-      setError(error.message);
+    if (fetchError) {
+      setError(fetchError.message);
+      setLoading(false);
       return;
     }
 
@@ -67,13 +97,42 @@ export default function Browse() {
       setError(null);
       setItems(data);
     }
-  }, [user?.id]);
+    setLoading(false);
+  }, [user?.id, sortOrder]);
 
   useEffect(() => {
     if (user?.id) {
       fetchItems();
     }
   }, [user?.id, fetchItems]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    subscriptionRef.current = supabase
+      .channel('browse_items_changes')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'items',
+        filter: `user_id=eq.${user.id}`
+      }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          const newItem = payload.new as Item;
+          setItems(prev => sortOrder === 'desc' ? [newItem, ...prev] : [...prev, newItem]);
+        } else if (payload.eventType === 'UPDATE') {
+          const updatedItem = payload.new as Item;
+          setItems(prev => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
+        } else if (payload.eventType === 'DELETE') {
+          setItems(prev => prev.filter(item => item.id !== payload.old.id));
+        }
+      })
+      .subscribe();
+
+    return () => {
+      subscriptionRef.current?.unsubscribe();
+    };
+  }, [user?.id, sortOrder]);
 
   const filteredItems = useMemo(() => {
     let filtered = items;
@@ -99,6 +158,23 @@ export default function Browse() {
 
     return filtered;
   }, [items, searchQuery, selectedType, selectedCategory]);
+
+  const groupedItems = useMemo(() => {
+    const groups: { date: string; items: Item[] }[] = [];
+    let currentDate = '';
+
+    filteredItems.forEach((item) => {
+      const dateKey = formatDateHeader(item.created_at);
+      if (dateKey !== currentDate) {
+        currentDate = dateKey;
+        groups.push({ date: dateKey, items: [item] });
+      } else {
+        groups[groups.length - 1].items.push(item);
+      }
+    });
+
+    return groups;
+  }, [filteredItems]);
 
   const clearSearch = () => {
     setSearchQuery('');
@@ -140,6 +216,19 @@ export default function Browse() {
     );
   };
 
+  if (loading && items.length === 0) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
+        <LogoHeader />
+        <View style={styles.skeletonContainer}>
+          <ItemCardSkeleton />
+          <ItemCardSkeleton />
+          <ItemCardSkeleton />
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <LogoHeader />
@@ -169,6 +258,17 @@ export default function Browse() {
             </TouchableOpacity>
           )}
         </View>
+
+        <TouchableOpacity
+          style={[styles.sortButton, { backgroundColor: theme.surface }]}
+          onPress={toggleSortOrder}
+        >
+          {sortOrder === 'desc' ? (
+            <SortDesc size={20} color={theme.textSecondary} />
+          ) : (
+            <SortAsc size={20} color={theme.textSecondary} />
+          )}
+        </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.filterButton, { backgroundColor: showFilters ? theme.primary : theme.surface }]}
@@ -253,12 +353,31 @@ export default function Browse() {
       >
         {filteredItems.length > 0 ? (
           <>
-            <Text style={[styles.resultsCount, { color: theme.textSecondary }]}>
-              {filteredItems.length} result{filteredItems.length !== 1 ? 's' : ''}
-            </Text>
-            {filteredItems.map((item) => (
-              <View key={item.id}>
-                {renderItemCard(item, () => handleItemPress(item), handleOpenUrl)}
+            <View style={styles.resultsHeader}>
+              <Text style={[styles.resultsCount, { color: theme.textSecondary }]}>
+                {filteredItems.length} item{filteredItems.length !== 1 ? 's' : ''}
+              </Text>
+              <Text style={[styles.sortLabel, { color: theme.textTertiary }]}>
+                {sortOrder === 'desc' ? 'Newest first' : 'Oldest first'}
+              </Text>
+            </View>
+            {groupedItems.map((group, groupIndex) => (
+              <View key={group.date}>
+                <View style={[styles.dateHeader, { backgroundColor: theme.surface }]}>
+                  <Calendar size={14} color={theme.primary} />
+                  <Text style={[styles.dateHeaderText, { color: theme.text }]}>{group.date}</Text>
+                  <Text style={[styles.dateCount, { color: theme.textTertiary }]}>
+                    {group.items.length}
+                  </Text>
+                </View>
+                {group.items.map((item, index) => (
+                  <Animated.View
+                    key={item.id}
+                    entering={FadeInDown.delay((groupIndex * group.items.length + index) * 30).duration(200)}
+                  >
+                    {renderItemCard(item, () => handleItemPress(item), handleOpenUrl)}
+                  </Animated.View>
+                ))}
               </View>
             ))}
           </>
@@ -268,12 +387,12 @@ export default function Browse() {
             <Text style={[styles.emptyTitle, { color: theme.text }]}>
               {searchQuery || selectedType !== 'All' || selectedCategory !== 'All'
                 ? 'No results found'
-                : 'Start searching'}
+                : 'No items yet'}
             </Text>
             <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
               {searchQuery || selectedType !== 'All' || selectedCategory !== 'All'
                 ? 'Try adjusting your search or filters'
-                : 'Search across all your saved content'}
+                : 'Send something to MeMark to get started'}
             </Text>
           </View>
         )}
@@ -301,6 +420,9 @@ export default function Browse() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  skeletonContainer: {
+    padding: 16,
   },
   errorBanner: {
     flexDirection: 'row',
@@ -331,7 +453,7 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     padding: 16,
-    gap: 12,
+    gap: 8,
   },
   searchBar: {
     flex: 1,
@@ -346,6 +468,13 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 16,
+  },
+  sortButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   filterButton: {
     width: 48,
@@ -397,9 +526,37 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 100,
   },
+  resultsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
   resultsCount: {
     fontSize: 14,
+    fontWeight: '600',
+  },
+  sortLabel: {
+    fontSize: 12,
+  },
+  dateHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
     marginBottom: 12,
+    marginTop: 8,
+  },
+  dateHeaderText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  dateCount: {
+    fontSize: 12,
+    fontWeight: '500',
   },
   emptyState: {
     alignItems: 'center',
