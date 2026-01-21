@@ -36,6 +36,7 @@ export function LogoHeader() {
 const styles = StyleSheet.create({
   header: {
     height: 60,
+    width: 20,
     paddingHorizontal: 4,
     borderBottomWidth: 1,
     flexDirection: 'row',
@@ -45,7 +46,7 @@ const styles = StyleSheet.create({
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.08,
-      shadowRadius:4,
+      shadowRadius:12,
     } : {
       elevation: 4,
     }),
