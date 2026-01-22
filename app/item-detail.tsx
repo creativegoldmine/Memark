@@ -124,8 +124,8 @@ export default function ItemDetail() {
       ? `${supabaseUrl}/profile/${profile.username}?ref=${user?.id || 'guest'}`
       : `memark.app?ref=${user?.id || 'guest'}`;
 
-    const itemUrl = item.raw_content.startsWith('http') ? item.raw_content : '';
-    const tags = item.tags.length > 0 ? `\n\nTags: ${item.tags.join(', ')}` : '';
+    const itemUrl = item.raw_content && item.raw_content.startsWith('http') ? item.raw_content : '';
+    const tags = item.tags && item.tags.length > 0 ? `\n\nTags: ${item.tags.join(', ')}` : '';
 
     const shareText = `${item.title || 'Untitled'}\n\n${item.summary || ''}${itemUrl ? '\n\n' + itemUrl : ''}${tags}\n\nvia Memark ${referralLink}`;
 
@@ -276,7 +276,7 @@ export default function ItemDetail() {
   const renderContent = () => {
     if (!item) return null;
 
-    const isLink = item.type === 'article' || item.raw_content.startsWith('http');
+    const isLink = item.type === 'article' || (item.raw_content && item.raw_content.startsWith('http'));
     const isVideo = item.type === 'video';
     const isNote = item.type === 'note' || item.type === 'text';
 

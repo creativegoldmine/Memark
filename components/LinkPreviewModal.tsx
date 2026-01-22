@@ -424,7 +424,7 @@ export function LinkPreviewModal({ visible, item, onClose, onUpdate, onDelete }:
               <View style={styles.sectionButtonLeft}>
                 <Tag size={18} color={theme.primary} />
                 <Text style={[styles.sectionButtonText, { color: theme.text }]}>
-                  Tags {currentTags.length > 0 && `(${currentTags.length})`}
+                  Tags{currentTags.length > 0 ? ` (${currentTags.length})` : ''}
                 </Text>
               </View>
               <ChevronRight
@@ -477,7 +477,7 @@ export function LinkPreviewModal({ visible, item, onClose, onUpdate, onDelete }:
               <View style={styles.sectionButtonLeft}>
                 <Folder size={18} color={theme.primary} />
                 <Text style={[styles.sectionButtonText, { color: theme.text }]}>
-                  Folders {itemFolders.length > 0 && `(${itemFolders.length})`}
+                  Folders{itemFolders.length > 0 ? ` (${itemFolders.length})` : ''}
                 </Text>
               </View>
               <ChevronRight
@@ -618,7 +618,7 @@ export function LinkPreviewModal({ visible, item, onClose, onUpdate, onDelete }:
             {item.last_viewed_at && (
               <Text style={[styles.viewInfo, { color: theme.textTertiary }]}>
                 Last viewed {formatDate(item.last_viewed_at)}
-                {item.view_count && item.view_count > 1 && ` - ${item.view_count} views`}
+                {item.view_count && item.view_count > 1 ? ` - ${item.view_count} views` : ''}
               </Text>
             )}
           </ScrollView>

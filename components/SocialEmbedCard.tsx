@@ -35,6 +35,7 @@ export function SocialEmbedCard({ item, onPress, onOpenUrl, viewMode = 'list' }:
   const hasMetadata = item.og_image || item.og_title || item.og_description;
 
   const handleDefaultPress = onPress || (() => {
+    if (!item.raw_content) return;
     const urlMatch = item.raw_content.match(/https?:\/\/[^\s]+/);
     const url = urlMatch ? urlMatch[0] : item.raw_content;
     if (onOpenUrl) {
@@ -132,6 +133,7 @@ export function SocialEmbedCard({ item, onPress, onOpenUrl, viewMode = 'list' }:
   }
 
   const extractUrl = () => {
+    if (!item.raw_content) return null;
     if (item.raw_content.startsWith('http')) {
       return item.raw_content;
     }

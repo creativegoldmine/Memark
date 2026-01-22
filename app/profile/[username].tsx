@@ -85,7 +85,7 @@ export default function PublicProfile() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
 
-    if (item.raw_content.startsWith('http')) {
+    if (item.raw_content && item.raw_content.startsWith('http')) {
       router.push(`/item-detail?id=${item.id}`);
     }
   };
@@ -95,7 +95,7 @@ export default function PublicProfile() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
 
-    const itemUrl = item.raw_content.startsWith('http') ? item.raw_content : '';
+    const itemUrl = item.raw_content && item.raw_content.startsWith('http') ? item.raw_content : '';
     const profileUrl = `${supabaseUrl}/profile/${profile?.username}`;
     const shareText = `${item.title || 'Check this out'}\n\n${item.summary || ''}\n\n${itemUrl}\n\nShared from Memark ${profileUrl}`;
 
@@ -278,7 +278,7 @@ export default function PublicProfile() {
                     )}
 
                     <View style={styles.itemFooter}>
-                      {item.raw_content.startsWith('http') && (
+                      {item.raw_content && item.raw_content.startsWith('http') && (
                         <TouchableOpacity
                           style={styles.linkButton}
                           onPress={() => handleItemPress(item)}

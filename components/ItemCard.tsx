@@ -149,6 +149,7 @@ export function ItemCard({
   };
 
   const extractUrl = () => {
+    if (!item.raw_content) return null;
     if (item.raw_content.startsWith('http')) {
       return item.raw_content;
     }
