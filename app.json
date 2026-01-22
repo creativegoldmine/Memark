@@ -74,11 +74,7 @@
           "icon": "./assets/images/copy_of_memark_(2).png",
           "color": "#8B5CF6"
         }
-      ],
-      "react-native-gesture-handler",
-      "react-native-reanimated",
-      "react-native-screens",
-      "react-native-safe-area-context"
+      ]
     ],
     "experiments": {
       "typedRoutes": true
