@@ -30,7 +30,8 @@
               "NSExtensionActivationSupportsText": true
             }
           }
-        }
+        },
+        "UIBackgroundModes": ["remote-notification"]
       }
     },
     "android": {
@@ -39,6 +40,7 @@
         "foregroundImage": "./assets/images/copy_of_memark_(2).png",
         "backgroundColor": "#8B5CF6"
       },
+      "permissions": ["NOTIFICATIONS"],
       "intentFilters": [
         {
           "action": "SEND",
@@ -62,9 +64,29 @@
       "output": "single",
       "favicon": "./assets/images/copy_of_memark_(2).png"
     },
-    "plugins": ["expo-router", "expo-font", "expo-web-browser"],
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-web-browser",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/copy_of_memark_(2).png",
+          "color": "#8B5CF6"
+        }
+      ],
+      "react-native-gesture-handler",
+      "react-native-reanimated",
+      "react-native-screens",
+      "react-native-safe-area-context"
+    ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "00000000-0000-0000-0000-000000000000"
+      }
     }
   }
 }

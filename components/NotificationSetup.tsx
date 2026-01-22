@@ -71,24 +71,33 @@ export function NotificationSetup() {
         return;
       }
 
-      const token = (await Notifications.getExpoPushTokenAsync()).data;
-      console.log('Push token:', token);
+      try {
+        const token = (await Notifications.getExpoPushTokenAsync()).data;
+        console.log('Push token:', token);
 
-      const { data: prefs } = await supabase
-        .from('notification_preferences')
-        .select('push_tokens')
-        .eq('user_id', user.id)
-        .single();
-
-      const existingTokens = prefs?.push_tokens || [];
-      if (!existingTokens.includes(token)) {
-        await supabase
+        const { data: prefs } = await supabase
           .from('notification_preferences')
-          .upsert({
-            user_id: user.id,
-            push_tokens: [...existingTokens, token],
-            enable_push_notifications: true,
-          });
+          .select('push_tokens')
+          .eq('user_id', user.id)
+          .single();
+
+        const existingTokens = prefs?.push_tokens || [];
+        if (!existingTokens.includes(token)) {
+          await supabase
+            .from('notification_preferences')
+            .upsert({
+              user_id: user.id,
+              push_tokens: [...existingTokens, token],
+              enable_push_notifications: true,
+            });
+        }
+      } catch (tokenError: any) {
+        if (tokenError?.message?.includes('projectId')) {
+          console.warn('Push notifications require EAS project setup. Skipping for now.');
+        } else {
+          console.error('Error getting push token:', tokenError);
+        }
+        return;
       }
 
       if (Platform.OS === 'android') {
