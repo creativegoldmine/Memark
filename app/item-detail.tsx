@@ -120,22 +120,48 @@ export default function ItemDetail() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
 
-    const referralLink = profile?.username
-      ? `${supabaseUrl}/profile/${profile.username}?ref=${user?.id || 'guest'}`
-      : `memark.app?ref=${user?.id || 'guest'}`;
-
-    const itemUrl = item.raw_content && item.raw_content.startsWith('http') ? item.raw_content : '';
-    const tags = item.tags && item.tags.length > 0 ? `\n\nTags: ${item.tags.join(', ')}` : '';
-
-    const shareText = `${item.title || 'Untitled'}\n\n${item.summary || ''}${itemUrl ? '\n\n' + itemUrl : ''}${tags}\n\nvia Memark ${referralLink}`;
-
     try {
+      // Set item to public if not already
+      if (!item.is_public) {
+        const { error: updateError } = await supabase
+          .from('items')
+          .update({ is_public: true })
+          .eq('id', item.id);
+
+        if (updateError) throw updateError;
+        setItem({ ...item, is_public: true });
+      }
+
+      // Increment shares count
+      await supabase.rpc('increment_shares_count', { item_id: item.id });
+
+      // Create public post URL
+      const publicPostUrl = `https://memark.app/post/${item.id}`;
+
+      // Share the public URL
       await Share.share({
-        message: shareText,
-        title: item.title || 'Share Item',
+        message: `${item.title || 'Check this out'}\n\n${publicPostUrl}`,
+        url: publicPostUrl,
+        title: item.title || 'Share from Memark',
       });
+
+      // Update local state with new shares count
+      const { data: updatedItem } = await supabase
+        .from('items')
+        .select('shares_count')
+        .eq('id', item.id)
+        .maybeSingle();
+
+      if (updatedItem) {
+        setItem({ ...item, shares_count: updatedItem.shares_count, is_public: true });
+      }
+
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
     } catch (err) {
       console.error('Share error:', err);
+      Alert.alert('Error', 'Failed to share item');
     }
   };
 
@@ -544,6 +570,14 @@ export default function ItemDetail() {
                   <Eye size={12} color={theme.textTertiary} />
                   <Text style={[styles.viewCountText, { color: theme.textTertiary }]}>
                     {item.view_count}
+                  </Text>
+                </View>
+              )}
+              {item.shares_count && item.shares_count > 0 && (
+                <View style={styles.viewCount}>
+                  <Share2 size={12} color={theme.textTertiary} />
+                  <Text style={[styles.viewCountText, { color: theme.textTertiary }]}>
+                    {item.shares_count}
                   </Text>
                 </View>
               )}

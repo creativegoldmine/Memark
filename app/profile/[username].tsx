@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Share, Platform, Image } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ExternalLink, Share2, Globe, ArrowLeft } from 'lucide-react-native';
+import { ExternalLink, Share2, Globe, ArrowLeft, Eye } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -95,14 +95,18 @@ export default function PublicProfile() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
 
-    const itemUrl = item.raw_content && item.raw_content.startsWith('http') ? item.raw_content : '';
-    const profileUrl = `${supabaseUrl}/profile/${profile?.username}`;
-    const shareText = `${item.title || 'Check this out'}\n\n${item.summary || ''}\n\n${itemUrl}\n\nShared from Memark ${profileUrl}`;
-
     try {
+      // Increment shares count
+      await supabase.rpc('increment_shares_count', { item_id: item.id });
+
+      // Create public post URL
+      const publicPostUrl = `https://memark.app/post/${item.id}`;
+
+      // Share the public URL
       await Share.share({
-        message: shareText,
-        title: item.title || 'Share Item',
+        message: `${item.title || item.preview_title || 'Check this out'}\n\n${publicPostUrl}`,
+        url: publicPostUrl,
+        title: item.title || item.preview_title || 'Share from Memark',
       });
     } catch (err) {
       console.error('Share error:', err);
@@ -278,20 +282,40 @@ export default function PublicProfile() {
                     )}
 
                     <View style={styles.itemFooter}>
-                      {item.raw_content && item.raw_content.startsWith('http') && (
+                      <View style={styles.itemStats}>
+                        {item.view_count && item.view_count > 0 && (
+                          <View style={styles.statItem}>
+                            <Eye size={14} color={theme.textTertiary} />
+                            <Text style={[styles.statText, { color: theme.textTertiary }]}>
+                              {item.view_count}
+                            </Text>
+                          </View>
+                        )}
+                        {item.shares_count && item.shares_count > 0 && (
+                          <View style={styles.statItem}>
+                            <Share2 size={14} color={theme.textTertiary} />
+                            <Text style={[styles.statText, { color: theme.textTertiary }]}>
+                              {item.shares_count}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                      <View style={styles.itemActions}>
+                        {item.raw_content && item.raw_content.startsWith('http') && (
+                          <TouchableOpacity
+                            style={styles.linkButton}
+                            onPress={() => handleItemPress(item)}
+                          >
+                            <ExternalLink size={16} color={theme.primary} />
+                          </TouchableOpacity>
+                        )}
                         <TouchableOpacity
-                          style={styles.linkButton}
-                          onPress={() => handleItemPress(item)}
+                          style={styles.shareItemButton}
+                          onPress={() => handleShareItem(item)}
                         >
-                          <ExternalLink size={16} color={theme.primary} />
+                          <Share2 size={16} color={theme.textSecondary} />
                         </TouchableOpacity>
-                      )}
-                      <TouchableOpacity
-                        style={styles.shareItemButton}
-                        onPress={() => handleShareItem(item)}
-                      >
-                        <Share2 size={16} color={theme.textSecondary} />
-                      </TouchableOpacity>
+                      </View>
                     </View>
                   </View>
                 </TouchableOpacity>
@@ -549,7 +573,24 @@ const styles = StyleSheet.create({
   },
   itemFooter: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  itemStats: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  statItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  statText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  itemActions: {
+    flexDirection: 'row',
     gap: 12,
   },
   linkButton: {

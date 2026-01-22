@@ -62,6 +62,7 @@ export interface Item {
   last_viewed_at?: string;
   last_reviewed_at?: string;
   view_count?: number;
+  shares_count?: number;
   is_archived?: boolean;
   is_public?: boolean;
   preview_title?: string;
