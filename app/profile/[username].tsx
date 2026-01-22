@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Share, Platform, Image } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ExternalLink, Share2, Globe, ArrowLeft, Eye } from 'lucide-react-native';
+import { Share2, Globe, ArrowLeft } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/contexts/ThemeContext';
 import { supabase, Profile, Item, supabaseUrl } from '@/lib/supabase';
+import { ItemCard } from '@/components/ItemCard';
+import { InAppBrowser } from '@/components/InAppBrowser';
+import * as Clipboard from 'expo-clipboard';
 
 export default function PublicProfile() {
   const router = useRouter();
@@ -15,6 +18,8 @@ export default function PublicProfile() {
   const [publicItems, setPublicItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [browserVisible, setBrowserVisible] = useState(false);
+  const [browserUrl, setBrowserUrl] = useState('');
 
   const username = params.username as string;
 
@@ -71,12 +76,26 @@ export default function PublicProfile() {
     const shareText = `Check out ${profile.username}'s Memark profile!\n\n${profile.bio || 'Curated collection of great content'}\n\n${profileUrl}`;
 
     try {
-      await Share.share({
-        message: shareText,
-        title: `${profile.username} on Memark`,
-      });
+      if (Platform.OS === 'web') {
+        await Clipboard.setStringAsync(profileUrl);
+        alert('Profile link copied!');
+      } else {
+        await Share.share({
+          message: shareText,
+          title: `${profile.username} on Memark`,
+        });
+      }
     } catch (err) {
       console.error('Share error:', err);
+    }
+  };
+
+  const handleOpenUrl = (url: string) => {
+    if (Platform.OS === 'web') {
+      window.open(url, '_blank');
+    } else {
+      setBrowserUrl(url);
+      setBrowserVisible(true);
     }
   };
 
@@ -84,33 +103,7 @@ export default function PublicProfile() {
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-
-    if (item.raw_content && item.raw_content.startsWith('http')) {
-      router.push(`/item-detail?id=${item.id}`);
-    }
-  };
-
-  const handleShareItem = async (item: Item) => {
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    }
-
-    try {
-      // Increment shares count
-      await supabase.rpc('increment_shares_count', { item_id: item.id });
-
-      // Create public post URL
-      const publicPostUrl = `https://memark.app/post/${item.id}`;
-
-      // Share the public URL
-      await Share.share({
-        message: `${item.title || item.preview_title || 'Check this out'}\n\n${publicPostUrl}`,
-        url: publicPostUrl,
-        title: item.title || item.preview_title || 'Share from Memark',
-      });
-    } catch (err) {
-      console.error('Share error:', err);
-    }
+    router.push(`/post/${item.id}`);
   };
 
   if (loading) {
@@ -144,203 +137,119 @@ export default function PublicProfile() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <LinearGradient
-        colors={[theme.primary + '15', theme.background]}
-        style={styles.gradientBg}
-      />
+    <>
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
+        <LinearGradient
+          colors={[theme.primary + '15', theme.background]}
+          style={styles.gradientBg}
+        />
 
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-            <ArrowLeft size={24} color={theme.textSecondary} />
-          </TouchableOpacity>
-        </View>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.header}>
+            <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+              <ArrowLeft size={24} color={theme.textSecondary} />
+            </TouchableOpacity>
+          </View>
 
-        <View style={styles.profileHeader}>
-          <View style={[styles.avatarContainer, { borderColor: theme.primary }]}>
-            {profile.avatar_url ? (
-              <Image
-                source={{ uri: profile.avatar_url }}
-                style={styles.avatar}
-              />
-            ) : (
-              <View style={[styles.avatarPlaceholder, { backgroundColor: theme.primary }]}>
-                <Text style={styles.avatarText}>
-                  {profile.username.charAt(0).toUpperCase()}
+          <View style={styles.profileHeader}>
+            <View style={[styles.avatarContainer, { borderColor: theme.primary }]}>
+              {profile.avatar_url ? (
+                <Image
+                  source={{ uri: profile.avatar_url }}
+                  style={styles.avatar}
+                />
+              ) : (
+                <View style={[styles.avatarPlaceholder, { backgroundColor: theme.primary }]}>
+                  <Text style={styles.avatarText}>
+                    {profile.username.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            <Text style={[styles.username, { color: theme.text }]}>@{profile.username}</Text>
+
+            {profile.bio && (
+              <Text style={[styles.bio, { color: theme.textSecondary }]}>{profile.bio}</Text>
+            )}
+
+            <View style={styles.statsRow}>
+              <View style={[styles.statBox, { backgroundColor: theme.surface }]}>
+                <Text style={[styles.statNumber, { color: theme.primary }]}>
+                  {publicItems.length}
                 </Text>
+                <Text style={[styles.statLabel, { color: theme.textSecondary }]}>
+                  Public Marks
+                </Text>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.shareButton, { backgroundColor: theme.primary }]}
+              onPress={handleShareProfile}
+            >
+              <Share2 size={18} color="#FFFFFF" />
+              <Text style={styles.shareButtonText}>Share Profile</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.itemsSection}>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>Public Collection</Text>
+
+            {publicItems.length === 0 ? (
+              <View style={[styles.emptyState, { backgroundColor: theme.surface }]}>
+                <Globe size={48} color={theme.textTertiary} />
+                <Text style={[styles.emptyTitle, { color: theme.text }]}>No public marks yet</Text>
+                <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
+                  This user hasn't shared anything publicly
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.itemsList}>
+                {publicItems.map((item) => (
+                  <View key={item.id}>
+                    <ItemCard
+                      item={item}
+                      onPress={() => handleItemPress(item)}
+                      onOpenUrl={handleOpenUrl}
+                      viewMode="list"
+                      showActions={false}
+                    />
+                  </View>
+                ))}
               </View>
             )}
           </View>
 
-          <Text style={[styles.username, { color: theme.text }]}>@{profile.username}</Text>
-
-          {profile.bio && (
-            <Text style={[styles.bio, { color: theme.textSecondary }]}>{profile.bio}</Text>
-          )}
-
-          <View style={styles.statsRow}>
-            <View style={[styles.statBox, { backgroundColor: theme.surface }]}>
-              <Text style={[styles.statNumber, { color: theme.primary }]}>
-                {publicItems.length}
-              </Text>
-              <Text style={[styles.statLabel, { color: theme.textSecondary }]}>
-                Public Marks
-              </Text>
-            </View>
+          <View style={styles.footer}>
+            <Text style={[styles.footerText, { color: theme.textTertiary }]}>
+              Powered by Memark
+            </Text>
+            <TouchableOpacity
+              style={[styles.ctaButton, { backgroundColor: theme.primary }]}
+              onPress={() => {
+                if (Platform.OS !== 'web') {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                }
+                router.push('/signup');
+              }}
+            >
+              <Text style={styles.ctaButtonText}>Create Your Profile</Text>
+            </TouchableOpacity>
           </View>
+        </ScrollView>
+      </View>
 
-          <TouchableOpacity
-            style={[styles.shareButton, { backgroundColor: theme.primary }]}
-            onPress={handleShareProfile}
-          >
-            <Share2 size={18} color="#FFFFFF" />
-            <Text style={styles.shareButtonText}>Share Profile</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.itemsSection}>
-          <Text style={[styles.sectionTitle, { color: theme.text }]}>Public Collection</Text>
-
-          {publicItems.length === 0 ? (
-            <View style={[styles.emptyState, { backgroundColor: theme.surface }]}>
-              <Globe size={48} color={theme.textTertiary} />
-              <Text style={[styles.emptyTitle, { color: theme.text }]}>No public marks yet</Text>
-              <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
-                This user hasn't shared anything publicly
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.itemsGrid}>
-              {publicItems.map((item) => (
-                <TouchableOpacity
-                  key={item.id}
-                  style={[styles.itemCard, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}
-                  onPress={() => handleItemPress(item)}
-                  activeOpacity={0.7}
-                >
-                  {(item.og_image || item.preview_image_url || item.image_preview) ? (
-                    <View style={styles.itemImageContainer}>
-                      <Image
-                        source={{ uri: item.og_image || item.preview_image_url || item.image_preview }}
-                        style={styles.itemImage}
-                        resizeMode="cover"
-                      />
-                      <LinearGradient
-                        colors={['transparent', 'rgba(0,0,0,0.6)']}
-                        style={styles.imageGradient}
-                      />
-                    </View>
-                  ) : (
-                    <View style={[styles.itemImageContainer, { backgroundColor: theme.primary + '10', justifyContent: 'center', alignItems: 'center' }]}>
-                      <Image
-                        source={require('@/assets/images/copy_of_memark.png')}
-                        style={{ width: 120, height: 120, opacity: 0.4 }}
-                        resizeMode="contain"
-                      />
-                    </View>
-                  )}
-
-                  <View style={styles.itemContent}>
-                    <View style={styles.itemHeader}>
-                      {item.type && (
-                        <View style={[styles.typeChip, { backgroundColor: theme.primary + '15' }]}>
-                          <Text style={[styles.typeText, { color: theme.primary }]}>
-                            {item.type}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-
-                    <Text style={[styles.itemTitle, { color: theme.text }]} numberOfLines={2}>
-                      {item.preview_title || item.title || 'Untitled'}
-                    </Text>
-
-                    {(item.preview_desc || item.summary) && (
-                      <Text style={[styles.itemSummary, { color: theme.textSecondary }]} numberOfLines={3}>
-                        {item.preview_desc || item.summary}
-                      </Text>
-                    )}
-
-                    {item.tags && item.tags.length > 0 && (
-                      <View style={styles.itemTags}>
-                        {item.tags.slice(0, 3).map((tag, index) => (
-                          <View
-                            key={index}
-                            style={[styles.tag, { backgroundColor: theme.accent + '10', borderColor: theme.accent + '30' }]}
-                          >
-                            <Text style={[styles.tagText, { color: theme.accent }]} numberOfLines={1}>
-                              #{tag}
-                            </Text>
-                          </View>
-                        ))}
-                      </View>
-                    )}
-
-                    <View style={styles.itemFooter}>
-                      <View style={styles.itemStats}>
-                        {item.view_count && item.view_count > 0 && (
-                          <View style={styles.statItem}>
-                            <Eye size={14} color={theme.textTertiary} />
-                            <Text style={[styles.statText, { color: theme.textTertiary }]}>
-                              {item.view_count}
-                            </Text>
-                          </View>
-                        )}
-                        {item.shares_count && item.shares_count > 0 && (
-                          <View style={styles.statItem}>
-                            <Share2 size={14} color={theme.textTertiary} />
-                            <Text style={[styles.statText, { color: theme.textTertiary }]}>
-                              {item.shares_count}
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                      <View style={styles.itemActions}>
-                        {item.raw_content && item.raw_content.startsWith('http') && (
-                          <TouchableOpacity
-                            style={styles.linkButton}
-                            onPress={() => handleItemPress(item)}
-                          >
-                            <ExternalLink size={16} color={theme.primary} />
-                          </TouchableOpacity>
-                        )}
-                        <TouchableOpacity
-                          style={styles.shareItemButton}
-                          onPress={() => handleShareItem(item)}
-                        >
-                          <Share2 size={16} color={theme.textSecondary} />
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-        </View>
-
-        <View style={styles.footer}>
-          <Text style={[styles.footerText, { color: theme.textTertiary }]}>
-            Powered by Memark
-          </Text>
-          <TouchableOpacity
-            style={[styles.ctaButton, { backgroundColor: theme.primary }]}
-            onPress={() => {
-              if (Platform.OS !== 'web') {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              }
-            }}
-          >
-            <Text style={styles.ctaButtonText}>Create Your Profile</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </View>
+      <InAppBrowser
+        visible={browserVisible}
+        url={browserUrl}
+        onClose={() => setBrowserVisible(false)}
+      />
+    </>
   );
 }
 
@@ -501,103 +410,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
-  itemsGrid: {
-    gap: 16,
-  },
-  itemCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    overflow: 'hidden',
-  },
-  itemImageContainer: {
-    width: '100%',
-    height: 180,
-    position: 'relative',
-  },
-  itemImage: {
-    width: '100%',
-    height: '100%',
-  },
-  imageGradient: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 80,
-  },
-  itemContent: {
-    padding: 16,
-  },
-  itemHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  typeChip: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  typeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-  },
-  itemTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 8,
-    lineHeight: 24,
-  },
-  itemSummary: {
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: 12,
-  },
-  itemTags: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginBottom: 12,
-  },
-  tag: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    borderWidth: 1,
-    maxWidth: 100,
-  },
-  tagText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  itemFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  itemStats: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  statItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  statText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  itemActions: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  linkButton: {
-    padding: 8,
-  },
-  shareItemButton: {
-    padding: 8,
+  itemsList: {
+    gap: 0,
   },
   footer: {
     marginTop: 48,
