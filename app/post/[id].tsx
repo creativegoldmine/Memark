@@ -9,12 +9,15 @@ import {
   Linking,
   ActivityIndicator,
   Platform,
+  Share,
+  Alert,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { ExternalLink, Eye, Share2, User, ArrowLeft } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
+import * as Haptics from 'expo-haptics';
 
 import { Item, Profile } from '@/lib/supabase';
 
@@ -100,6 +103,38 @@ export default function PublicPostScreen() {
     }
   };
 
+  const handleSharePost = async () => {
+    try {
+      if (Platform.OS !== 'web') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      }
+
+      const shareUrl = `${process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://memark.app'}/post/${id}`;
+      const shareMessage = item?.title
+        ? `Check out "${item.title}" on Memark`
+        : 'Check out this post on Memark';
+
+      await Share.share({
+        message: Platform.OS === 'ios' ? shareMessage : `${shareMessage}\n${shareUrl}`,
+        url: Platform.OS === 'ios' ? shareUrl : undefined,
+        title: item?.title || 'Memark Post',
+      });
+
+      await supabase.rpc('increment_shares_count', { item_id: id });
+
+      setItem(prev => prev ? { ...prev, shares_count: (prev.shares_count || 0) + 1 } : null);
+
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    } catch (err: any) {
+      if (err.message !== 'User did not share') {
+        console.error('Error sharing post:', err);
+        Alert.alert('Error', 'Failed to share post');
+      }
+    }
+  };
+
   if (loading) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
@@ -127,10 +162,13 @@ export default function PublicPostScreen() {
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: theme.background }]} contentContainerStyle={styles.content}>
-      {/* Header with back button */}
+      {/* Header with back button and share button */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.headerButton} onPress={() => router.back()}>
           <ArrowLeft size={24} color={theme.text} />
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.shareButton, { backgroundColor: theme.primary }]} onPress={handleSharePost}>
+          <Share2 size={20} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
 
@@ -248,6 +286,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     padding: 16,
     paddingTop: Platform.OS === 'ios' ? 60 : 16,
   },
@@ -256,6 +297,18 @@ const styles = StyleSheet.create({
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  shareButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   featuredImage: {
     width: '100%',
