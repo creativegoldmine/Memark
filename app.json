@@ -7,7 +7,6 @@
     "icon": "./assets/images/copy_of_memark_(2).png",
     "scheme": "memark",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "splash": {
       "image": "./assets/images/copy_of_memark.png",
       "resizeMode": "contain",
