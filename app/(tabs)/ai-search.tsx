@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,8 +9,11 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Send, Sparkles } from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
+import * as Clipboard from 'expo-clipboard';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase, Item, supabaseUrl } from '@/lib/supabase';
@@ -20,7 +23,8 @@ import { LogoHeader } from '@/components/LogoHeader';
 import { LoadingLogo } from '@/components/LoadingLogo';
 import { LinkPreviewModal } from '@/components/LinkPreviewModal';
 import { InAppBrowser } from '@/components/InAppBrowser';
-import * as Haptics from 'expo-haptics';
+import { ReminderPickerModal } from '@/components/ReminderPickerModal';
+import { createReminder, getPendingRemindersForItems } from '@/lib/reminders';
 
 interface Message {
   id: string;
@@ -45,6 +49,9 @@ export default function AISearch() {
   const [modalVisible, setModalVisible] = useState(false);
   const [browserVisible, setBrowserVisible] = useState(false);
   const [browserUrl, setBrowserUrl] = useState('');
+  const [reminderModalVisible, setReminderModalVisible] = useState(false);
+  const [selectedReminderItem, setSelectedReminderItem] = useState<Item | null>(null);
+  const [itemReminders, setItemReminders] = useState<Record<string, boolean>>({});
   const scrollViewRef = useRef<ScrollView>(null);
 
   const handleOpenUrl = (url: string) => {
@@ -53,6 +60,52 @@ export default function AISearch() {
     }
     setBrowserUrl(url);
     setBrowserVisible(true);
+  };
+
+  const handleCopyUrl = async (item: Item) => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    const url = item.raw_content?.startsWith('http')
+      ? item.raw_content
+      : item.raw_content?.match(/https?:\/\/[^\s]+/)?.[0];
+
+    if (url) {
+      await Clipboard.setStringAsync(url);
+      Alert.alert('Copied!', 'Link copied to clipboard');
+    } else {
+      Alert.alert('No URL', 'This item does not have a URL to copy');
+    }
+  };
+
+  const handleSetReminder = (item: Item) => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    setSelectedReminderItem(item);
+    setReminderModalVisible(true);
+  };
+
+  const handleSelectReminderDate = async (date: Date) => {
+    if (!user?.id || !selectedReminderItem) return;
+
+    const { data, error } = await createReminder(user.id, selectedReminderItem.id, date);
+
+    if (error) {
+      Alert.alert('Error', 'Failed to set reminder. Please try again.');
+      return;
+    }
+
+    if (data) {
+      setItemReminders(prev => ({ ...prev, [selectedReminderItem.id]: true }));
+      Alert.alert(
+        'Reminder Set!',
+        `You'll be reminded about this on ${date.toLocaleDateString()} at ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+      );
+    }
+
+    setReminderModalVisible(false);
+    setSelectedReminderItem(null);
   };
 
   const renderItemCard = (item: Item, onPress: () => void, onOpenUrl: (url: string) => void) => {
@@ -79,6 +132,10 @@ export default function AISearch() {
         onPress={onPress}
         onOpenUrl={onOpenUrl}
         viewMode="list"
+        showActions={true}
+        onCopyUrl={handleCopyUrl}
+        onSetReminder={handleSetReminder}
+        hasReminder={itemReminders[item.id] || false}
       />
     );
   };
@@ -304,6 +361,16 @@ export default function AISearch() {
         url={browserUrl}
         visible={browserVisible}
         onClose={() => setBrowserVisible(false)}
+      />
+
+      <ReminderPickerModal
+        visible={reminderModalVisible}
+        onClose={() => {
+          setReminderModalVisible(false);
+          setSelectedReminderItem(null);
+        }}
+        onSelectDate={handleSelectReminderDate}
+        itemTitle={selectedReminderItem?.og_title || selectedReminderItem?.title || selectedReminderItem?.raw_content}
       />
     </KeyboardAvoidingView>
   );

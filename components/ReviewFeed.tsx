@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   RefreshControl,
   Platform,
+  Alert,
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import {
@@ -20,11 +21,14 @@ import {
   Target,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
+import * as Clipboard from 'expo-clipboard';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase, Item } from '@/lib/supabase';
 import { ItemCard } from './ItemCard';
 import { LoadingLogo } from './LoadingLogo';
+import { ReminderPickerModal } from './ReminderPickerModal';
+import { createReminder, getPendingRemindersForItems } from '@/lib/reminders';
 
 interface ReviewItem extends Item {
   days_overdue?: number;
@@ -48,6 +52,9 @@ export function ReviewFeed({ onItemPress, limit = 20 }: ReviewFeedProps) {
     total_reviewed: 0,
     streak: 0,
   });
+  const [reminderModalVisible, setReminderModalVisible] = useState(false);
+  const [selectedReminderItem, setSelectedReminderItem] = useState<Item | null>(null);
+  const [itemReminders, setItemReminders] = useState<Record<string, boolean>>({});
 
   const triggerHaptic = () => {
     if (Platform.OS !== 'web') {
@@ -287,6 +294,63 @@ export function ReviewFeed({ onItemPress, limit = 20 }: ReviewFeedProps) {
     return intervals[Math.min(stage - 1, intervals.length - 1)];
   };
 
+  const handleCopyUrl = async (item: Item) => {
+    triggerHaptic();
+    const url = item.raw_content?.startsWith('http')
+      ? item.raw_content
+      : item.raw_content?.match(/https?:\/\/[^\s]+/)?.[0];
+
+    if (url) {
+      await Clipboard.setStringAsync(url);
+      Alert.alert('Copied!', 'Link copied to clipboard');
+    } else {
+      Alert.alert('No URL', 'This item does not have a URL to copy');
+    }
+  };
+
+  const handleSetReminder = (item: Item) => {
+    triggerHaptic();
+    setSelectedReminderItem(item);
+    setReminderModalVisible(true);
+  };
+
+  const handleSelectReminderDate = async (date: Date) => {
+    if (!user?.id || !selectedReminderItem) return;
+
+    const { data, error } = await createReminder(user.id, selectedReminderItem.id, date);
+
+    if (error) {
+      Alert.alert('Error', 'Failed to set reminder. Please try again.');
+      return;
+    }
+
+    if (data) {
+      setItemReminders(prev => ({ ...prev, [selectedReminderItem.id]: true }));
+      Alert.alert(
+        'Reminder Set!',
+        `You'll be reminded about this on ${date.toLocaleDateString()} at ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+      );
+    }
+
+    setReminderModalVisible(false);
+    setSelectedReminderItem(null);
+  };
+
+  const fetchReminders = useCallback(async () => {
+    if (!user?.id || items.length === 0) return;
+
+    const itemIds = items.map(i => i.id);
+    const { data } = await getPendingRemindersForItems(user.id, itemIds);
+
+    if (data) {
+      setItemReminders(data);
+    }
+  }, [user?.id, items]);
+
+  useEffect(() => {
+    fetchReminders();
+  }, [fetchReminders]);
+
   useEffect(() => {
     loadReviewItems();
   }, [user?.id]);
@@ -371,6 +435,10 @@ export function ReviewFeed({ onItemPress, limit = 20 }: ReviewFeedProps) {
                   item={item}
                   onPress={() => onItemPress?.(item)}
                   showReviewBadge
+                  showActions={true}
+                  onCopyUrl={handleCopyUrl}
+                  onSetReminder={handleSetReminder}
+                  hasReminder={itemReminders[item.id] || false}
                 />
 
                 <View style={styles.reviewActions}>
@@ -424,6 +492,16 @@ export function ReviewFeed({ onItemPress, limit = 20 }: ReviewFeedProps) {
           contentContainerStyle={styles.listContent}
         />
       )}
+
+      <ReminderPickerModal
+        visible={reminderModalVisible}
+        onClose={() => {
+          setReminderModalVisible(false);
+          setSelectedReminderItem(null);
+        }}
+        onSelectDate={handleSelectReminderDate}
+        itemTitle={selectedReminderItem?.og_title || selectedReminderItem?.title || selectedReminderItem?.raw_content}
+      />
     </View>
   );
 }

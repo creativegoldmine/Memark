@@ -1,8 +1,9 @@
-import { View, Text, StyleSheet, TouchableOpacity, Image, Platform, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Platform, Dimensions, Alert } from 'react-native';
 import { FlatList } from 'react-native-gesture-handler';
 import Animated, { FadeIn, FadeInRight, useAnimatedStyle, withSpring, useSharedValue, runOnJS } from 'react-native-reanimated';
-import { Archive, Check, ChevronRight, Clock, ExternalLink, Star, X } from 'lucide-react-native';
+import { Archive, Check, ChevronRight, Clock, ExternalLink, Star, X, Copy } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
+import * as Clipboard from 'expo-clipboard';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Item } from '@/lib/supabase';
 
@@ -62,6 +63,24 @@ export function ReviewCarousel({
     } catch {
       return '';
     }
+  };
+
+  const handleCopyUrl = async (item: Item) => {
+    triggerHaptic();
+    const url = item.raw_content?.startsWith('http')
+      ? item.raw_content
+      : item.raw_content?.match(/https?:\/\/[^\s]+/)?.[0] || item.url;
+
+    if (url) {
+      await Clipboard.setStringAsync(url);
+      Alert.alert('Copied!', 'Link copied to clipboard');
+    } else {
+      Alert.alert('No URL', 'This item does not have a URL to copy');
+    }
+  };
+
+  const hasUrl = (item: Item) => {
+    return item.url || item.raw_content?.startsWith('http') || item.raw_content?.match(/https?:\/\/[^\s]+/);
   };
 
   const renderItem = ({ item, index }: { item: Item; index: number }) => {
@@ -143,6 +162,15 @@ export function ReviewCarousel({
             >
               <Star size={16} color={isStarred ? theme.warning : theme.textTertiary} fill={isStarred ? theme.warning : 'transparent'} />
             </TouchableOpacity>
+
+            {hasUrl(item) && (
+              <TouchableOpacity
+                style={[styles.actionButton, { backgroundColor: theme.surface }]}
+                onPress={() => handleCopyUrl(item)}
+              >
+                <Copy size={16} color={theme.primary} />
+              </TouchableOpacity>
+            )}
 
             <TouchableOpacity
               style={[styles.actionButton, { backgroundColor: theme.surface }]}
