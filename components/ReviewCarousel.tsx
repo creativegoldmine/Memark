@@ -143,17 +143,6 @@ export function ReviewCarousel({
         {showActions && (
           <View style={[styles.actions, { borderTopColor: theme.border }]}>
             <TouchableOpacity
-              style={[styles.actionButton, { backgroundColor: theme.success + '15' }]}
-              onPress={() => {
-                triggerHaptic();
-                onMarkReviewed(item);
-              }}
-            >
-              <Check size={16} color={theme.success} />
-              <Text style={[styles.actionText, { color: theme.success }]}>Done</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
               style={[styles.actionButton, { backgroundColor: isStarred ? theme.warning + '30' : theme.surface }]}
               onPress={() => {
                 triggerHaptic();

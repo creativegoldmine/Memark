@@ -19,6 +19,9 @@ import {
   TrendingUp,
   Flame,
   Target,
+  Copy,
+  Bell,
+  BellRing,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
@@ -435,10 +438,6 @@ export function ReviewFeed({ onItemPress, limit = 20 }: ReviewFeedProps) {
                   item={item}
                   onPress={() => onItemPress?.(item)}
                   showReviewBadge
-                  showActions={true}
-                  onCopyUrl={handleCopyUrl}
-                  onSetReminder={handleSetReminder}
-                  hasReminder={itemReminders[item.id] || false}
                 />
 
                 <View style={styles.reviewActions}>
@@ -459,11 +458,22 @@ export function ReviewFeed({ onItemPress, limit = 20 }: ReviewFeedProps) {
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    style={[styles.actionButton, styles.reviewedButton, { backgroundColor: theme.success }]}
-                    onPress={() => handleMarkReviewed(item)}
+                    style={[styles.actionButton, { backgroundColor: theme.surface }]}
+                    onPress={() => handleCopyUrl(item)}
                   >
-                    <CheckCircle size={18} color="#FFFFFF" />
-                    <Text style={[styles.actionText, { color: '#FFFFFF' }]}>Reviewed</Text>
+                    <Copy size={18} color={theme.primary} />
+                    <Text style={[styles.actionText, { color: theme.primary }]}>Copy</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.actionButton, { backgroundColor: itemReminders[item.id] ? theme.primary + '20' : theme.surface }]}
+                    onPress={() => handleSetReminder(item)}
+                  >
+                    {itemReminders[item.id] ? (
+                      <BellRing size={18} color={theme.primary} />
+                    ) : (
+                      <Bell size={18} color={theme.textSecondary} />
+                    )}
                   </TouchableOpacity>
                 </View>
 
@@ -595,13 +605,10 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   skipButton: {
-    flex: 0.8,
+    flex: 1,
   },
   snoozeButton: {
-    flex: 0.8,
-  },
-  reviewedButton: {
-    flex: 1.4,
+    flex: 1,
   },
   actionText: {
     fontSize: 14,

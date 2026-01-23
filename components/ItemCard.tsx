@@ -562,18 +562,6 @@ export function ItemCard({
               <Text style={[styles.actionBtnText, { color: theme.warning }]}>7d</Text>
             </TouchableOpacity>
           )}
-          {onMarkReviewed && (
-            <TouchableOpacity
-              style={[styles.actionBtn, { backgroundColor: isDueForReview ? theme.success : theme.success + '15' }]}
-              onPress={() => {
-                triggerHaptic();
-                onMarkReviewed(item);
-              }}
-            >
-              <Check size={16} color={isDueForReview ? '#FFFFFF' : theme.success} />
-              <Text style={[styles.actionBtnText, { color: isDueForReview ? '#FFFFFF' : theme.success }]}>Done</Text>
-            </TouchableOpacity>
-          )}
           {onStar && (
             <TouchableOpacity
               style={[styles.actionBtn, { backgroundColor: isStarred ? theme.warning + '25' : theme.surface }]}
