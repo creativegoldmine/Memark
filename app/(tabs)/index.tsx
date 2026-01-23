@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, RefreshControl, Platform, useWindowDimensions, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, RefreshControl, Platform, useWindowDimensions, ScrollView, Alert } from 'react-native';
 import { Flame, Plus, Eye, Clock, Archive, Star, Check, LayoutGrid, List, Grid2x2 as Grid, X } from 'lucide-react-native';
 import Animated, { FadeInDown, FadeIn, useSharedValue, useAnimatedScrollHandler } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import * as Clipboard from 'expo-clipboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -17,6 +18,8 @@ import { ItemCardSkeleton } from '@/components/SkeletonLoader';
 import { InAppBrowser } from '@/components/InAppBrowser';
 import { AIChatAssistant, AIChatButton } from '@/components/AIChatAssistant';
 import { AddMarkModal } from '@/components/AddMarkModal';
+import { ReminderPickerModal } from '@/components/ReminderPickerModal';
+import { createReminder, getPendingRemindersForItems } from '@/lib/reminders';
 
 const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
 
@@ -38,6 +41,9 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState('all');
   const [chatVisible, setChatVisible] = useState(false);
   const [addMarkVisible, setAddMarkVisible] = useState(false);
+  const [reminderModalVisible, setReminderModalVisible] = useState(false);
+  const [selectedReminderItem, setSelectedReminderItem] = useState<Item | null>(null);
+  const [itemReminders, setItemReminders] = useState<Record<string, boolean>>({});
   const [stats, setStats] = useState({
     todayCount: 0,
     unreviewed: 0,
@@ -214,6 +220,61 @@ export default function Home() {
     ));
   };
 
+  const handleCopyUrl = async (item: Item) => {
+    const url = item.raw_content?.startsWith('http')
+      ? item.raw_content
+      : item.raw_content?.match(/https?:\/\/[^\s]+/)?.[0];
+
+    if (url) {
+      await Clipboard.setStringAsync(url);
+      Alert.alert('Copied!', 'Link copied to clipboard');
+    } else {
+      Alert.alert('No URL', 'This item does not have a URL to copy');
+    }
+  };
+
+  const handleSetReminder = (item: Item) => {
+    setSelectedReminderItem(item);
+    setReminderModalVisible(true);
+  };
+
+  const handleSelectReminderDate = async (date: Date) => {
+    if (!user?.id || !selectedReminderItem) return;
+
+    const { data, error } = await createReminder(user.id, selectedReminderItem.id, date);
+
+    if (error) {
+      Alert.alert('Error', 'Failed to set reminder. Please try again.');
+      return;
+    }
+
+    if (data) {
+      setItemReminders(prev => ({ ...prev, [selectedReminderItem.id]: true }));
+      Alert.alert(
+        'Reminder Set!',
+        `You'll be reminded about this on ${date.toLocaleDateString()} at ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+      );
+    }
+
+    setReminderModalVisible(false);
+    setSelectedReminderItem(null);
+  };
+
+  const fetchReminders = useCallback(async () => {
+    if (!user?.id || items.length === 0) return;
+
+    const itemIds = items.map(i => i.id);
+    const { data } = await getPendingRemindersForItems(user.id, itemIds);
+
+    if (data) {
+      setItemReminders(data);
+    }
+  }, [user?.id, items]);
+
+  useEffect(() => {
+    fetchReminders();
+  }, [fetchReminders]);
+
   useEffect(() => {
     if (user?.id) {
       fetchItems();
@@ -317,6 +378,9 @@ export default function Home() {
         onMarkReviewed={handleMarkReviewed}
         onArchive={handleArchive}
         onStar={handleStar}
+        onCopyUrl={handleCopyUrl}
+        onSetReminder={handleSetReminder}
+        hasReminder={itemReminders[item.id] || false}
       />
     );
   };
@@ -521,6 +585,16 @@ export default function Home() {
           setPage(0);
           fetchItems(0, false);
         }}
+      />
+
+      <ReminderPickerModal
+        visible={reminderModalVisible}
+        onClose={() => {
+          setReminderModalVisible(false);
+          setSelectedReminderItem(null);
+        }}
+        onSelectDate={handleSelectReminderDate}
+        itemTitle={selectedReminderItem?.og_title || selectedReminderItem?.title || selectedReminderItem?.raw_content}
       />
     </View>
   );

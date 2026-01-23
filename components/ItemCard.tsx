@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Platform, ActivityIndicator } from 'react-native';
-import { Link2, Video, FileText, MessageSquare, Image as ImageIcon, CheckSquare, ChevronDown, ChevronUp, Star, ExternalLink, Play, Archive, Folder, Tag, Trash2, Check, RotateCcw, SkipForward, Clock } from 'lucide-react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Platform, ActivityIndicator, Alert } from 'react-native';
+import { Link2, Video, FileText, MessageSquare, Image as ImageIcon, CheckSquare, ChevronDown, ChevronUp, Star, ExternalLink, Play, Archive, Folder, Tag, Trash2, Check, RotateCcw, SkipForward, Clock, Copy, Bell } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import * as Clipboard from 'expo-clipboard';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Item } from '@/lib/supabase';
 import { VideoPlayerModal } from './VideoPlayerModal';
@@ -21,7 +22,10 @@ interface ItemCardProps {
   onAddToFolder?: (item: Item) => void;
   onSkip?: (item: Item) => void;
   onSnooze?: (item: Item, days: number) => void;
+  onCopyUrl?: (item: Item) => void;
+  onSetReminder?: (item: Item) => void;
   isDueForReview?: boolean;
+  hasReminder?: boolean;
 }
 
 export function ItemCard({
@@ -38,7 +42,10 @@ export function ItemCard({
   onAddToFolder,
   onSkip,
   onSnooze,
+  onCopyUrl,
+  onSetReminder,
   isDueForReview = false,
+  hasReminder = false,
 }: ItemCardProps) {
   const { theme } = useTheme();
   const router = useRouter();
@@ -139,6 +146,31 @@ export function ItemCard({
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
     setVideoModalVisible(true);
+  };
+
+  const handleCopyUrl = async (e: any) => {
+    e.stopPropagation();
+    triggerHaptic();
+
+    const url = extractUrl();
+    if (url) {
+      await Clipboard.setStringAsync(url);
+      Alert.alert('Copied!', 'Link copied to clipboard');
+      if (onCopyUrl) {
+        onCopyUrl(item);
+      }
+    } else {
+      Alert.alert('No URL', 'This item does not have a URL to copy');
+    }
+  };
+
+  const handleSetReminder = (e: any) => {
+    e.stopPropagation();
+    triggerHaptic();
+
+    if (onSetReminder) {
+      onSetReminder(item);
+    }
   };
 
   const getVideoUrl = () => {
@@ -551,6 +583,22 @@ export function ItemCard({
               }}
             >
               <Star size={16} color={isStarred ? theme.warning : theme.textTertiary} fill={isStarred ? theme.warning : 'transparent'} />
+            </TouchableOpacity>
+          )}
+          {onCopyUrl && extractUrl() && (
+            <TouchableOpacity
+              style={[styles.actionBtn, { backgroundColor: theme.surface }]}
+              onPress={handleCopyUrl}
+            >
+              <Copy size={16} color={theme.primary} />
+            </TouchableOpacity>
+          )}
+          {onSetReminder && (
+            <TouchableOpacity
+              style={[styles.actionBtn, { backgroundColor: hasReminder ? theme.warning + '20' : theme.surface }]}
+              onPress={handleSetReminder}
+            >
+              <Bell size={16} color={hasReminder ? theme.warning : theme.textTertiary} fill={hasReminder ? theme.warning : 'transparent'} />
             </TouchableOpacity>
           )}
           {onAddToFolder && (

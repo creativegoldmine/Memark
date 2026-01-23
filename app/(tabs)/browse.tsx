@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity, RefreshControl, Platform } from 'react-native';
+import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity, RefreshControl, Platform, Alert } from 'react-native';
 import { Search as SearchIcon, Filter, X, Calendar, SortDesc, SortAsc, Target, Clock, CheckCircle, Flame, Star, ChevronDown, ChevronUp } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import * as Clipboard from 'expo-clipboard';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase, Item } from '@/lib/supabase';
@@ -12,6 +13,8 @@ import { LogoHeader } from '@/components/LogoHeader';
 import { InAppBrowser } from '@/components/InAppBrowser';
 import { LinkPreviewModal } from '@/components/LinkPreviewModal';
 import { ItemCardSkeleton } from '@/components/SkeletonLoader';
+import { ReminderPickerModal } from '@/components/ReminderPickerModal';
+import { createReminder, getPendingRemindersForItems } from '@/lib/reminders';
 
 const FILTER_TYPES = ['All', 'Article', 'Video', 'Note', 'Screenshot', 'Task'];
 const FILTER_CATEGORIES = ['All', 'Work', 'Personal', 'Inspiration', 'Finance', 'Learning'];
@@ -33,6 +36,9 @@ export default function Browse() {
   const [browserUrl, setBrowserUrl] = useState('');
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [reminderModalVisible, setReminderModalVisible] = useState(false);
+  const [selectedReminderItem, setSelectedReminderItem] = useState<Item | null>(null);
+  const [itemReminders, setItemReminders] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
   const [reviewStats, setReviewStats] = useState({
@@ -94,6 +100,63 @@ export default function Browse() {
       setItems(prev => prev.map(i => i.id === item.id ? { ...i, is_archived: !isArchived, status: isArchived ? 'active' : 'archived' } as Item : i));
     }
   };
+
+  const handleCopyUrl = async (item: Item) => {
+    triggerHaptic();
+    const url = item.raw_content?.startsWith('http')
+      ? item.raw_content
+      : item.raw_content?.match(/https?:\/\/[^\s]+/)?.[0];
+
+    if (url) {
+      await Clipboard.setStringAsync(url);
+      Alert.alert('Copied!', 'Link copied to clipboard');
+    } else {
+      Alert.alert('No URL', 'This item does not have a URL to copy');
+    }
+  };
+
+  const handleSetReminder = (item: Item) => {
+    triggerHaptic();
+    setSelectedReminderItem(item);
+    setReminderModalVisible(true);
+  };
+
+  const handleSelectReminderDate = async (date: Date) => {
+    if (!user?.id || !selectedReminderItem) return;
+
+    const { data, error } = await createReminder(user.id, selectedReminderItem.id, date);
+
+    if (error) {
+      Alert.alert('Error', 'Failed to set reminder. Please try again.');
+      return;
+    }
+
+    if (data) {
+      setItemReminders(prev => ({ ...prev, [selectedReminderItem.id]: true }));
+      Alert.alert(
+        'Reminder Set!',
+        `You'll be reminded about this on ${date.toLocaleDateString()} at ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+      );
+    }
+
+    setReminderModalVisible(false);
+    setSelectedReminderItem(null);
+  };
+
+  const fetchReminders = useCallback(async () => {
+    if (!user?.id || items.length === 0) return;
+
+    const itemIds = items.map(i => i.id);
+    const { data } = await getPendingRemindersForItems(user.id, itemIds);
+
+    if (data) {
+      setItemReminders(data);
+    }
+  }, [user?.id, items]);
+
+  useEffect(() => {
+    fetchReminders();
+  }, [fetchReminders]);
 
   const handleDelete = async (item: Item) => {
     triggerHaptic();
@@ -395,6 +458,9 @@ export default function Browse() {
         onMarkReviewed={handleMarkReviewed}
         onStar={handleStar}
         onArchive={handleArchive}
+        onCopyUrl={handleCopyUrl}
+        onSetReminder={handleSetReminder}
+        hasReminder={itemReminders[item.id] || false}
         onDelete={handleDelete}
         onSkip={isDueForReview ? handleSkip : undefined}
         onSnooze={isDueForReview ? handleSnooze : undefined}
@@ -689,6 +755,16 @@ export default function Browse() {
             setItems(prev => prev.filter(i => i.id !== selectedItem.id));
           }
         }}
+      />
+
+      <ReminderPickerModal
+        visible={reminderModalVisible}
+        onClose={() => {
+          setReminderModalVisible(false);
+          setSelectedReminderItem(null);
+        }}
+        onSelectDate={handleSelectReminderDate}
+        itemTitle={selectedReminderItem?.og_title || selectedReminderItem?.title || selectedReminderItem?.raw_content}
       />
     </View>
   );
