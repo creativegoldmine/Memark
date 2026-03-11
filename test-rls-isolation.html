@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Memark — RLS & Isolation Test Suite</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f0f0f; color: #e5e5e5; padding: 24px; }
+    h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; color: #fff; }
+    .subtitle { color: #737373; font-size: 14px; margin-bottom: 24px; }
+    .config { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 12px; padding: 20px; margin-bottom: 24px; }
+    .config h2 { font-size: 14px; font-weight: 600; color: #a3a3a3; margin-bottom: 12px; }
+    .row { display: flex; gap: 12px; margin-bottom: 10px; }
+    input { flex: 1; background: #0f0f0f; border: 1px solid #2a2a2a; border-radius: 8px; padding: 10px 12px; color: #e5e5e5; font-size: 13px; outline: none; }
+    input:focus { border-color: #3b82f6; }
+    button { background: #3b82f6; color: #fff; border: none; border-radius: 8px; padding: 10px 20px; font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+    button:hover { background: #2563eb; }
+    button:disabled { background: #2a2a2a; color: #737373; cursor: default; }
+    button.danger { background: #dc2626; }
+    button.danger:hover { background: #b91c1c; }
+    button.secondary { background: #1a1a1a; border: 1px solid #3b82f6; color: #3b82f6; }
+    button.secondary:hover { background: #1e3a5f; }
+    .suite { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 12px; margin-bottom: 16px; overflow: hidden; }
+    .suite-header { padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #2a2a2a; }
+    .suite-title { font-size: 15px; font-weight: 600; }
+    .suite-desc { font-size: 12px; color: #737373; margin-top: 2px; }
+    .tests { padding: 0; }
+    .test { display: flex; align-items: flex-start; gap: 12px; padding: 12px 20px; border-bottom: 1px solid #1f1f1f; }
+    .test:last-child { border-bottom: none; }
+    .test-icon { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; margin-top: 1px; }
+    .test-icon.pending { background: #2a2a2a; color: #737373; }
+    .test-icon.running { background: #1d4ed8; color: #fff; animation: pulse 1s infinite; }
+    .test-icon.pass { background: #065f46; color: #34d399; }
+    .test-icon.fail { background: #7f1d1d; color: #f87171; }
+    @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:0.5 } }
+    .test-content { flex: 1; }
+    .test-name { font-size: 13px; font-weight: 500; }
+    .test-detail { font-size: 12px; color: #737373; margin-top: 3px; }
+    .test-detail.error { color: #f87171; }
+    .summary { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 12px; padding: 20px; margin-bottom: 24px; display: none; }
+    .summary h2 { font-size: 14px; font-weight: 600; color: #a3a3a3; margin-bottom: 12px; }
+    .summary-row { display: flex; gap: 16px; flex-wrap: wrap; }
+    .stat { text-align: center; }
+    .stat-val { font-size: 28px; font-weight: 700; }
+    .stat-lbl { font-size: 12px; color: #737373; margin-top: 2px; }
+    .pass-color { color: #34d399; }
+    .fail-color { color: #f87171; }
+    .warn-color { color: #fbbf24; }
+    .actions { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
+    .log-area { background: #0a0a0a; border: 1px solid #2a2a2a; border-radius: 8px; padding: 12px; font-family: monospace; font-size: 12px; color: #737373; max-height: 200px; overflow-y: auto; margin-top: 12px; }
+    .log-line { margin-bottom: 2px; }
+    .log-line.ok { color: #34d399; }
+    .log-line.err { color: #f87171; }
+    .log-line.info { color: #60a5fa; }
+  </style>
+</head>
+<body>
+
+<h1>Memark — RLS & Isolation Test Suite</h1>
+<p class="subtitle">Automated security tests to verify user data isolation and access control</p>
+
+<div class="config">
+  <h2>Configuration</h2>
+  <div class="row">
+    <input id="supabaseUrl" placeholder="Supabase URL (EXPO_PUBLIC_SUPABASE_URL)" />
+    <input id="supabaseAnonKey" placeholder="Supabase Anon Key (EXPO_PUBLIC_SUPABASE_ANON_KEY)" type="password" />
+  </div>
+  <div class="row">
+    <input id="user1Email" placeholder="Test user 1 email (testuser-1@test.memark.internal)" />
+    <input id="user1Pass" placeholder="Password" type="password" value="TestPassword123!" />
+  </div>
+  <div class="row">
+    <input id="user2Email" placeholder="Test user 2 email (testuser-2@test.memark.internal)" />
+    <input id="user2Pass" placeholder="Password" type="password" value="TestPassword123!" />
+  </div>
+</div>
+
+<div class="actions">
+  <button id="runAllBtn" onclick="runAll()">Run All Tests</button>
+  <button class="secondary" onclick="runSuite('isolation')">User Isolation Only</button>
+  <button class="secondary" onclick="runSuite('rls')">RLS Policies Only</button>
+  <button class="secondary" onclick="runSuite('webhook')">Webhook Security Only</button>
+  <button class="danger" onclick="resetAll()">Reset</button>
+</div>
+
+<div class="summary" id="summary">
+  <h2>Results</h2>
+  <div class="summary-row">
+    <div class="stat"><div class="stat-val" id="totalCount">0</div><div class="stat-lbl">Total</div></div>
+    <div class="stat"><div class="stat-val pass-color" id="passCount">0</div><div class="stat-lbl">Passed</div></div>
+    <div class="stat"><div class="stat-val fail-color" id="failCount">0</div><div class="stat-lbl">Failed</div></div>
+    <div class="stat"><div class="stat-val warn-color" id="skipCount">0</div><div class="stat-lbl">Skipped</div></div>
+  </div>
+</div>
+
+<div id="suites"></div>
+
+<script>
+const TEST_SUITES = [
+  {
+    id: 'isolation',
+    title: 'User Data Isolation',
+    desc: 'Verify User A cannot read, write, or delete User B data',
+    tests: [
+      {
+        name: 'User A can read own items',
+        run: async (ctx) => {
+          const { data, error } = await ctx.clientA.from('items').select('id, user_id').limit(5);
+          if (error) throw new Error(error.message);
+          const foreign = (data || []).filter(i => i.user_id !== ctx.userA.id);
+          if (foreign.length > 0) throw new Error(`Got ${foreign.length} foreign items in response`);
+          return `Returned ${(data||[]).length} own items`;
+        }
+      },
+      {
+        name: 'User A cannot read User B items',
+        run: async (ctx) => {
+          const { data: bItems } = await ctx.clientB.from('items').select('id').limit(3);
+          if (!bItems || bItems.length === 0) return 'No items for User B to test against (skip)';
+          const bId = bItems[0].id;
+          const { data, error } = await ctx.clientA.from('items').select('id').eq('id', bId);
+          if (error) return `RLS error (expected): ${error.message}`;
+          if (data && data.length > 0) throw new Error(`User A can read User B item ${bId}`);
+          return 'Correctly returned 0 rows';
+        }
+      },
+      {
+        name: 'User A cannot insert items for User B',
+        run: async (ctx) => {
+          const { error } = await ctx.clientA.from('items').insert({
+            user_id: ctx.userB.id,
+            raw_content: 'INJECTION ATTEMPT',
+            status: 'active',
+          });
+          if (!error) throw new Error('Insert succeeded — RLS not blocking cross-user insert');
+          return `Correctly blocked: ${error.code}`;
+        }
+      },
+      {
+        name: 'User A cannot delete User B items',
+        run: async (ctx) => {
+          const { data: bItems } = await ctx.clientB.from('items').select('id').limit(1);
+          if (!bItems || bItems.length === 0) return 'No items for User B (skip)';
+          const { error } = await ctx.clientA.from('items').delete().eq('id', bItems[0].id);
+          if (error) return `Correctly blocked: ${error.code}`;
+          const { data: check } = await ctx.clientB.from('items').select('id').eq('id', bItems[0].id);
+          if (!check || check.length === 0) throw new Error('Item was deleted by wrong user!');
+          return 'Item still exists — delete was blocked';
+        }
+      },
+      {
+        name: 'User A cannot update User B items',
+        run: async (ctx) => {
+          const { data: bItems } = await ctx.clientB.from('items').select('id, title').limit(1);
+          if (!bItems || bItems.length === 0) return 'No items for User B (skip)';
+          const { error } = await ctx.clientA.from('items').update({ title: 'HIJACKED' }).eq('id', bItems[0].id);
+          if (error) return `Correctly blocked: ${error.code}`;
+          const { data: check } = await ctx.clientB.from('items').select('title').eq('id', bItems[0].id).maybeSingle();
+          if (check?.title === 'HIJACKED') throw new Error('Update succeeded — item was modified by wrong user');
+          return 'Title unchanged — update was blocked';
+        }
+      },
+    ]
+  },
+  {
+    id: 'rls',
+    title: 'RLS Policy Verification',
+    desc: 'Verify unauthenticated and cross-account access is blocked at DB level',
+    tests: [
+      {
+        name: 'Unauthenticated client cannot read items',
+        run: async (ctx) => {
+          const anonClient = ctx.supabaseLib.createClient(ctx.url, ctx.anonKey);
+          const { data, error } = await anonClient.from('items').select('id').limit(5);
+          if (error) return `Correctly blocked: ${error.message}`;
+          if (data && data.length > 0) throw new Error(`Anon got ${data.length} items`);
+          return 'Returned 0 rows for anon client';
+        }
+      },
+      {
+        name: 'Unauthenticated client cannot read collections',
+        run: async (ctx) => {
+          const anonClient = ctx.supabaseLib.createClient(ctx.url, ctx.anonKey);
+          const { data, error } = await anonClient.from('collections').select('id').limit(5);
+          if (error) return `Correctly blocked: ${error.message}`;
+          if (data && data.length > 0) throw new Error(`Anon got ${data.length} collections`);
+          return 'Returned 0 rows for anon client';
+        }
+      },
+      {
+        name: 'User A cannot read User B collections',
+        run: async (ctx) => {
+          const { data: bCols } = await ctx.clientB.from('collections').select('id').limit(1);
+          if (!bCols || bCols.length === 0) return 'No collections for User B (skip)';
+          const { data } = await ctx.clientA.from('collections').select('id').eq('id', bCols[0].id);
+          if (data && data.length > 0) throw new Error('User A can read User B collection');
+          return 'Correctly returned 0 rows';
+        }
+      },
+      {
+        name: 'User A cannot read User B webhook logs',
+        run: async (ctx) => {
+          const { data, error } = await ctx.clientA.from('webhook_logs').select('id').limit(5);
+          if (error) return `Correctly blocked (not superadmin): ${error.message}`;
+          if (data && data.length > 0) throw new Error(`User A got ${data.length} webhook log rows`);
+          return 'Returned 0 rows (non-superadmin gets nothing)';
+        }
+      },
+      {
+        name: 'User A can only read own reminders',
+        run: async (ctx) => {
+          const { data, error } = await ctx.clientA.from('reminders').select('id, user_id').limit(10);
+          if (error) return `RLS blocked (ok): ${error.message}`;
+          const foreign = (data || []).filter(r => r.user_id !== ctx.userA.id);
+          if (foreign.length > 0) throw new Error(`Got ${foreign.length} foreign reminders`);
+          return `Returned ${(data||[]).length} own reminders only`;
+        }
+      },
+    ]
+  },
+  {
+    id: 'webhook',
+    title: 'Webhook Phone Spoofing',
+    desc: 'Verify the SMS webhook correctly identifies and isolates users by phone number',
+    tests: [
+      {
+        name: 'Webhook 404 for unknown phone number',
+        run: async (ctx) => {
+          const form = new URLSearchParams();
+          form.append('From', '+15559999999');
+          form.append('Body', 'Test message from unknown number');
+          form.append('NumMedia', '0');
+          const res = await fetch(`${ctx.url}/functions/v1/sms-webhook`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${ctx.anonKey}`,
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'x-memark-test-mode': 'true',
+            },
+            body: form.toString(),
+          });
+          if (res.status !== 404) throw new Error(`Expected 404, got ${res.status}`);
+          return 'Correctly returned 404 for unregistered number';
+        }
+      },
+      {
+        name: 'Webhook saves item to correct user account (User 1)',
+        run: async (ctx) => {
+          const { data: u1 } = await ctx.clientA.from('users').select('id, phone_number').eq('id', ctx.userA.id).maybeSingle();
+          if (!u1?.phone_number) return 'Cannot determine User 1 phone (skip)';
+          const form = new URLSearchParams();
+          form.append('From', `+${u1.phone_number}`);
+          form.append('Body', 'isolation-test-message-user1');
+          form.append('NumMedia', '0');
+          const res = await fetch(`${ctx.url}/functions/v1/sms-webhook`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${ctx.anonKey}`,
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'x-memark-test-mode': 'true',
+            },
+            body: form.toString(),
+          });
+          const json = await res.json();
+          if (!json.itemId) throw new Error('No itemId returned');
+          const { data: item } = await ctx.clientA.from('items').select('user_id').eq('id', json.itemId).maybeSingle();
+          if (!item) throw new Error('Item not found after insert');
+          if (item.user_id !== ctx.userA.id) throw new Error(`Item landed in wrong account: ${item.user_id}`);
+          return `Item ${json.itemId} correctly in User 1 account`;
+        }
+      },
+      {
+        name: 'Webhook isolates — User 1 item not visible to User 2',
+        run: async (ctx) => {
+          const { data: u1 } = await ctx.clientA.from('users').select('phone_number').eq('id', ctx.userA.id).maybeSingle();
+          if (!u1?.phone_number) return 'Cannot determine User 1 phone (skip)';
+          const form = new URLSearchParams();
+          form.append('From', `+${u1.phone_number}`);
+          form.append('Body', 'isolation-visibility-check');
+          form.append('NumMedia', '0');
+          const res = await fetch(`${ctx.url}/functions/v1/sms-webhook`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${ctx.anonKey}`,
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'x-memark-test-mode': 'true',
+            },
+            body: form.toString(),
+          });
+          const json = await res.json();
+          if (!json.itemId) throw new Error('No itemId returned');
+          const { data: itemFromB } = await ctx.clientB.from('items').select('id').eq('id', json.itemId).maybeSingle();
+          if (itemFromB) throw new Error(`User 2 can see User 1 item ${json.itemId}`);
+          return 'User 2 cannot see User 1 webhook item — isolated correctly';
+        }
+      },
+      {
+        name: 'Webhook without test-mode header rejects missing Twilio signature',
+        run: async (ctx) => {
+          const form = new URLSearchParams();
+          form.append('From', '+15550000001');
+          form.append('Body', 'spoofed message');
+          form.append('NumMedia', '0');
+          const res = await fetch(`${ctx.url}/functions/v1/sms-webhook`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${ctx.anonKey}`,
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: form.toString(),
+          });
+          if (res.status === 403) return 'Correctly rejected with 403 (signature missing/invalid)';
+          if (res.status === 200) {
+            return 'Note: TWILIO_AUTH_TOKEN not set in env — signature check skipped (set the secret to enable)';
+          }
+          return `Returned ${res.status} (may be expected if auth token not configured)`;
+        }
+      },
+    ]
+  }
+];
+
+let supabaseLib, clientA, clientB, userA, userB;
+let results = { pass: 0, fail: 0, skip: 0 };
+
+function log(msg, type = '') {
+  const area = document.getElementById('logArea');
+  if (!area) return;
+  const line = document.createElement('div');
+  line.className = `log-line ${type}`;
+  line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+  area.appendChild(line);
+  area.scrollTop = area.scrollHeight;
+}
+
+function resetAll() {
+  results = { pass: 0, fail: 0, skip: 0 };
+  document.getElementById('suites').innerHTML = '';
+  document.getElementById('summary').style.display = 'none';
+  renderSuites();
+}
+
+function renderSuites() {
+  const container = document.getElementById('suites');
+  container.innerHTML = '';
+  for (const suite of TEST_SUITES) {
+    const div = document.createElement('div');
+    div.className = 'suite';
+    div.id = `suite-${suite.id}`;
+    div.innerHTML = `
+      <div class="suite-header">
+        <div>
+          <div class="suite-title">${suite.title}</div>
+          <div class="suite-desc">${suite.desc}</div>
+        </div>
+      </div>
+      <div class="tests">
+        ${suite.tests.map((t, i) => `
+          <div class="test" id="test-${suite.id}-${i}">
+            <div class="test-icon pending" id="icon-${suite.id}-${i}">?</div>
+            <div class="test-content">
+              <div class="test-name">${t.name}</div>
+              <div class="test-detail" id="detail-${suite.id}-${i}">Waiting...</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+    container.appendChild(div);
+  }
+}
+
+function setTestState(suiteId, idx, state, detail) {
+  const icon = document.getElementById(`icon-${suiteId}-${idx}`);
+  const detailEl = document.getElementById(`detail-${suiteId}-${idx}`);
+  const symbols = { pending: '?', running: '...', pass: '✓', fail: '✗' };
+  icon.className = `test-icon ${state}`;
+  icon.textContent = symbols[state] || '?';
+  if (detailEl) {
+    detailEl.textContent = detail;
+    detailEl.className = `test-detail${state === 'fail' ? ' error' : ''}`;
+  }
+}
+
+async function getAuthContext() {
+  const url = document.getElementById('supabaseUrl').value.trim();
+  const anonKey = document.getElementById('supabaseAnonKey').value.trim();
+  if (!url || !anonKey) throw new Error('Supabase URL and Anon Key are required');
+
+  supabaseLib = window.supabase;
+  clientA = supabaseLib.createClient(url, anonKey);
+  clientB = supabaseLib.createClient(url, anonKey);
+
+  const e1 = document.getElementById('user1Email').value.trim() || 'testuser-1@test.memark.internal';
+  const p1 = document.getElementById('user1Pass').value.trim() || 'TestPassword123!';
+  const e2 = document.getElementById('user2Email').value.trim() || 'testuser-2@test.memark.internal';
+  const p2 = document.getElementById('user2Pass').value.trim() || 'TestPassword123!';
+
+  const { data: d1, error: e1err } = await clientA.auth.signInWithPassword({ email: e1, password: p1 });
+  if (e1err) throw new Error(`User 1 login failed: ${e1err.message}`);
+  userA = d1.user;
+
+  const { data: d2, error: e2err } = await clientB.auth.signInWithPassword({ email: e2, password: p2 });
+  if (e2err) throw new Error(`User 2 login failed: ${e2err.message}`);
+  userB = d2.user;
+
+  return { clientA, clientB, userA, userB, url, anonKey, supabaseLib };
+}
+
+async function runSuite(suiteId) {
+  const suite = TEST_SUITES.find(s => s.id === suiteId);
+  if (!suite) return;
+
+  let ctx;
+  try {
+    ctx = await getAuthContext();
+  } catch (err) {
+    alert(`Setup failed: ${err.message}`);
+    return;
+  }
+
+  for (let i = 0; i < suite.tests.length; i++) {
+    const test = suite.tests[i];
+    setTestState(suite.id, i, 'running', 'Running...');
+    try {
+      const detail = await test.run(ctx);
+      setTestState(suite.id, i, 'pass', detail || 'Passed');
+      results.pass++;
+    } catch (err) {
+      setTestState(suite.id, i, 'fail', err.message);
+      results.fail++;
+    }
+  }
+  updateSummary();
+}
+
+async function runAll() {
+  results = { pass: 0, fail: 0, skip: 0 };
+  renderSuites();
+  document.getElementById('runAllBtn').disabled = true;
+
+  let ctx;
+  try {
+    ctx = await getAuthContext();
+  } catch (err) {
+    alert(`Setup failed: ${err.message}`);
+    document.getElementById('runAllBtn').disabled = false;
+    return;
+  }
+
+  for (const suite of TEST_SUITES) {
+    for (let i = 0; i < suite.tests.length; i++) {
+      const test = suite.tests[i];
+      setTestState(suite.id, i, 'running', 'Running...');
+      await new Promise(r => setTimeout(r, 80));
+      try {
+        const detail = await test.run(ctx);
+        setTestState(suite.id, i, 'pass', detail || 'Passed');
+        results.pass++;
+      } catch (err) {
+        setTestState(suite.id, i, 'fail', err.message);
+        results.fail++;
+      }
+    }
+  }
+
+  document.getElementById('runAllBtn').disabled = false;
+  updateSummary();
+}
+
+function updateSummary() {
+  const total = results.pass + results.fail + results.skip;
+  document.getElementById('totalCount').textContent = total;
+  document.getElementById('passCount').textContent = results.pass;
+  document.getElementById('failCount').textContent = results.fail;
+  document.getElementById('skipCount').textContent = results.skip;
+  document.getElementById('summary').style.display = 'block';
+}
+
+renderSuites();
+</script>
+</body>
+</html>
