@@ -10,20 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import {
-  ArrowLeft,
-  Send,
-  Zap,
-  Trash2,
-  RefreshCw,
-  CheckCircle,
-  XCircle,
-  AlertTriangle,
-  BarChart3,
-  Shield,
-  MessageSquare,
-  Users,
-} from 'lucide-react-native';
+import { ArrowLeft, Send, Zap, Trash2, RefreshCw, CircleCheck as CheckCircle, Circle as XCircle, TriangleAlert as AlertTriangle, ChartBar as BarChart3, Shield, MessageSquare, Users } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { supabase } from '@/lib/supabase';
 
