@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform, Switch, TextInput, Share } from 'react-native';
-import { User, Phone, Mail, LogOut, Moon, Sun, Sparkles, Settings, MessageSquare, Copy, Upload, FileText, RefreshCw, Shield, ShieldAlert, Globe, Lock, ExternalLink, Crown, Edit3, Bell } from 'lucide-react-native';
+import { User, Phone, Mail, LogOut, Moon, Sun, Sparkles, Settings, MessageSquare, Copy, Upload, FileText, RefreshCw, Shield, ShieldAlert, Globe, Lock, ExternalLink, Crown, CreditCard as Edit3, Bell, Check } from 'lucide-react-native';
+import * as Clipboard from 'expo-clipboard';
 import { LoadingLogo } from '@/components/LoadingLogo';
 import { LogoHeader } from '@/components/LogoHeader';
 import { useRouter } from 'expo-router';
@@ -30,8 +31,19 @@ export default function ProfileScreen() {
   const [upgradeModalVisible, setUpgradeModalVisible] = useState(false);
   const [notificationPrefs, setNotificationPrefs] = useState<any>(null);
   const [bookmarkImportVisible, setBookmarkImportVisible] = useState(false);
+  const [smsCopied, setSmsCopied] = useState(false);
 
   const isPro = dbUser?.plan_type === 'pro' || dbUser?.plan_type === 'premium';
+
+  const handleCopySmsNumber = async () => {
+    await Clipboard.setStringAsync('+18623553847');
+    setSmsCopied(true);
+    if (Platform.OS !== 'web') {
+      const { impactAsync, ImpactFeedbackStyle } = await import('expo-haptics');
+      impactAsync(ImpactFeedbackStyle.Light);
+    }
+    setTimeout(() => setSmsCopied(false), 2000);
+  };
 
   useEffect(() => {
     const checkAdminStatus = async () => {
@@ -655,24 +667,70 @@ export default function ProfileScreen() {
             <View style={[styles.numberContainer, { backgroundColor: theme.background, borderColor: theme.border }]}>
               <Text style={[styles.memarkNumber, { color: theme.primary }]}>+1 (862) 355-3847</Text>
               <TouchableOpacity
-                style={[styles.copyButton, { backgroundColor: theme.primary }]}
-                onPress={() => Alert.alert('Copied!', 'MeMark number copied to clipboard')}
+                style={[styles.copyButton, { backgroundColor: smsCopied ? theme.success : theme.primary }]}
+                onPress={handleCopySmsNumber}
               >
-                <Copy size={16} color="#FFFFFF" />
+                {smsCopied ? <Check size={16} color="#FFFFFF" /> : <Copy size={16} color="#FFFFFF" />}
               </TouchableOpacity>
             </View>
+            {smsCopied && (
+              <Text style={[styles.copiedHint, { color: theme.success }]}>Number copied! Open Messages and paste.</Text>
+            )}
             <Text style={[styles.smsNote, { color: theme.textTertiary }]}>
               Your phone number ({dbUser?.phone_number}) is linked to your account
             </Text>
           </View>
 
-          <TouchableOpacity style={[styles.upgradeCard, { backgroundColor: theme.primary + '15', borderColor: theme.primary + '30' }]}>
-            <Text style={[styles.upgradeTitle, { color: theme.primary }]}>Get Your Own Number</Text>
-            <Text style={[styles.upgradeDescription, { color: theme.textSecondary }]}>
-              Upgrade to Premium for a dedicated personal number
-            </Text>
+          <TouchableOpacity
+            style={[styles.upgradeCard, { backgroundColor: theme.primary + '15', borderColor: theme.primary + '30' }]}
+            onPress={() => setUpgradeModalVisible(true)}
+          >
+            <Crown size={16} color={theme.primary} />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.upgradeTitle, { color: theme.primary }]}>Upgrade to Pro — $9.99/mo</Text>
+              <Text style={[styles.upgradeDescription, { color: theme.textSecondary }]}>
+                Unlimited saves, AI synthesis, daily digests
+              </Text>
+            </View>
+            <ExternalLink size={14} color={theme.primary} />
           </TouchableOpacity>
         </View>
+
+        {dbUser?.referral_code && (
+          <View style={[styles.section, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+            <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Refer & Earn</Text>
+            <View style={[styles.referralCard, { backgroundColor: theme.surface }]}>
+              <Text style={[styles.referralDesc, { color: theme.textSecondary }]}>
+                Share Memark and get 1 month free for every 3 friends who sign up.
+              </Text>
+              <View style={[styles.referralCodeBox, { backgroundColor: theme.background, borderColor: theme.border }]}>
+                <Text style={[styles.referralCode, { color: theme.text }]}>{dbUser.referral_code}</Text>
+                <TouchableOpacity
+                  style={[styles.copyButton, { backgroundColor: theme.primary }]}
+                  onPress={async () => {
+                    const { default: Clipboard } = await import('expo-clipboard');
+                    await Clipboard.setStringAsync(`https://memark.app?ref=${dbUser.referral_code}`);
+                    Alert.alert('Link copied!', 'Share it with friends to earn free Pro time.');
+                  }}
+                >
+                  <Copy size={14} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity
+                style={[styles.shareReferralBtn, { backgroundColor: theme.primary }]}
+                onPress={async () => {
+                  const { Share: RNShare } = await import('react-native');
+                  RNShare.share({
+                    message: `I've been using Memark to save everything — text any link to +1 (862) 355-3847 and AI organizes it instantly. Sign up free: https://memark.app?ref=${dbUser.referral_code}`,
+                    title: 'Try Memark',
+                  });
+                }}
+              >
+                <Text style={styles.shareReferralBtnText}>Share your invite link</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         {notificationPrefs && (
           <View style={[styles.section, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
@@ -1185,18 +1243,60 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontStyle: 'italic',
   },
+  copiedHint: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 6,
+    textAlign: 'center',
+  },
   upgradeCard: {
     padding: 16,
     borderRadius: 12,
     borderWidth: 1.5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   upgradeTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   upgradeDescription: {
+    fontSize: 13,
+  },
+  referralCard: {
+    borderRadius: 12,
+    padding: 16,
+    gap: 12,
+  },
+  referralDesc: {
     fontSize: 14,
+    lineHeight: 20,
+  },
+  referralCodeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  referralCode: {
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  shareReferralBtn: {
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  shareReferralBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
   },
   adminToggle: {
     padding: 16,

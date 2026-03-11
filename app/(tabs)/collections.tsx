@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, TextInput, Modal, Platform, Dimensions, useWindowDimensions, Alert } from 'react-native';
-import { Grid, List, ChevronRight, Plus, X, Trash2, Search as SearchIcon, LayoutGrid, Sparkles } from 'lucide-react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, TextInput, Modal, Platform, Dimensions, useWindowDimensions, Alert, Share } from 'react-native';
+import { Grid2x2 as Grid, List, ChevronRight, Plus, X, Trash2, Search as SearchIcon, LayoutGrid, Sparkles, Share2 } from 'lucide-react-native';
 import Animated, { useSharedValue, useAnimatedScrollHandler, FadeIn, FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
@@ -104,6 +104,18 @@ export default function Collections() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
     setSelectedFolder(folder);
+  };
+
+  const handleShareFolder = async (folder: Folder) => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    const shareText = `Check out my "${folder.name}" collection on Memark — ${folder.itemCount} curated saves.\n\nhttps://memark.app\n\nSave anything via SMS: +1 (862) 355-3847`;
+    try {
+      await Share.share({ message: shareText, title: `${folder.name} — Memark Collection` });
+    } catch (err) {
+      console.error('Share error:', err);
+    }
   };
 
   const handleIconSelect = (iconName: string) => {
@@ -665,13 +677,21 @@ export default function Collections() {
                           </Text>
                         </View>
                       </View>
-                      {!folder.is_auto_generated ? (
-                        <TouchableOpacity onPress={() => deleteFolder(folder.id)}>
-                          <Trash2 size={16} color={theme.textTertiary} />
+                      <View style={styles.folderActions}>
+                        <TouchableOpacity
+                          style={styles.folderActionBtn}
+                          onPress={() => handleShareFolder(folder)}
+                        >
+                          <Share2 size={15} color={theme.primary} />
                         </TouchableOpacity>
-                      ) : (
-                        <ChevronRight size={18} color={theme.textTertiary} />
-                      )}
+                        {!folder.is_auto_generated ? (
+                          <TouchableOpacity onPress={() => deleteFolder(folder.id)}>
+                            <Trash2 size={16} color={theme.textTertiary} />
+                          </TouchableOpacity>
+                        ) : (
+                          <ChevronRight size={18} color={theme.textTertiary} />
+                        )}
+                      </View>
                     </TouchableOpacity>
                   </Animated.View>
                 );
@@ -979,6 +999,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     flex: 1,
+  },
+  folderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  folderActionBtn: {
+    padding: 4,
   },
   listIconWrap: {
     width: 36,

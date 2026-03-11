@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, RefreshControl, Platform, useWindowDimensions, ScrollView, Alert } from 'react-native';
-import { Flame, Plus, Eye, Clock, Archive, Star, Check, LayoutGrid, List, Grid2x2 as Grid, X } from 'lucide-react-native';
+import { Flame, Plus, Eye, Clock, Archive, Star, Check, LayoutGrid, List, Grid2x2 as Grid, X, MessageSquare, Copy, Sparkles, ArrowRight, Crown, TrendingUp } from 'lucide-react-native';
+import * as ClipboardLib from 'expo-clipboard';
+import { PLAN_LIMITS, getItemLimitPercent, isPaidPlan } from '@/lib/stripe';
+import { UpgradeModal } from '@/components/UpgradeModal';
 import Animated, { FadeInDown, FadeIn, useSharedValue, useAnimatedScrollHandler } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
@@ -44,6 +47,8 @@ export default function Home() {
   const [reminderModalVisible, setReminderModalVisible] = useState(false);
   const [selectedReminderItem, setSelectedReminderItem] = useState<Item | null>(null);
   const [itemReminders, setItemReminders] = useState<Record<string, boolean>>({});
+  const [smsCopied, setSmsCopied] = useState(false);
+  const [upgradeModalVisible, setUpgradeModalVisible] = useState(false);
   const [stats, setStats] = useState({
     todayCount: 0,
     unreviewed: 0,
@@ -238,6 +243,16 @@ export default function Home() {
     setReminderModalVisible(true);
   };
 
+  const handleCopySmsNumber = async () => {
+    await ClipboardLib.setStringAsync('+18623553847');
+    setSmsCopied(true);
+    if (Platform.OS !== 'web') {
+      const { impactAsync, ImpactFeedbackStyle } = await import('expo-haptics');
+      impactAsync(ImpactFeedbackStyle.Light);
+    }
+    setTimeout(() => setSmsCopied(false), 3000);
+  };
+
   const handleSelectReminderDate = async (date: Date) => {
     if (!user?.id || !selectedReminderItem) return;
 
@@ -411,6 +426,30 @@ export default function Home() {
         </View>
       )}
 
+      {(() => {
+        if (!dbUser || isPaidPlan(dbUser.plan_type)) return null;
+        const pct = getItemLimitPercent(dbUser.plan_type, stats.totalItems);
+        if (pct < 80) return null;
+        const isAtLimit = pct >= 100;
+        return (
+          <TouchableOpacity
+            style={[
+              styles.limitBanner,
+              { backgroundColor: isAtLimit ? theme.error + '15' : theme.warning + '15', borderColor: isAtLimit ? theme.error + '40' : theme.warning + '40' }
+            ]}
+            onPress={() => setUpgradeModalVisible(true)}
+          >
+            <TrendingUp size={16} color={isAtLimit ? theme.error : theme.warning} />
+            <Text style={[styles.limitBannerText, { color: isAtLimit ? theme.error : theme.warning }]}>
+              {isAtLimit
+                ? `You've hit your 100 item limit. Upgrade to save more.`
+                : `${stats.totalItems}/100 free items used. Upgrade for unlimited.`}
+            </Text>
+            <Crown size={16} color={isAtLimit ? theme.error : theme.warning} />
+          </TouchableOpacity>
+        );
+      })()}
+
       <TopicTabs
         tabs={topicTabs}
         activeTab={activeTab}
@@ -471,6 +510,25 @@ export default function Home() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />
         }
       >
+        {stats.totalItems >= 3 && activeTab === 'all' && (
+          <TouchableOpacity
+            style={[styles.askLibraryCard, { backgroundColor: theme.primary + '10', borderColor: theme.primary + '30' }]}
+            onPress={() => setChatVisible(true)}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.askLibraryIcon, { backgroundColor: theme.primary + '20' }]}>
+              <Sparkles size={22} color={theme.primary} />
+            </View>
+            <View style={styles.askLibraryText}>
+              <Text style={[styles.askLibraryTitle, { color: theme.text }]}>Ask My Library</Text>
+              <Text style={[styles.askLibrarySubtitle, { color: theme.textSecondary }]}>
+                "What do I know about startups?" or "Find my coding tutorials"
+              </Text>
+            </View>
+            <ArrowRight size={18} color={theme.primary} />
+          </TouchableOpacity>
+        )}
+
         {unreviewedItems.length > 0 && activeTab === 'all' && (
           <ReviewCarousel
             items={unreviewedItems}
@@ -495,16 +553,78 @@ export default function Home() {
           </View>
 
           {filteredItems.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Text style={[styles.emptyTitle, { color: theme.text }]}>
-                {activeTab === 'unreviewed' ? 'All caught up!' : 'No items yet'}
-              </Text>
-              <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
-                {activeTab === 'unreviewed'
-                  ? 'You have reviewed all your marks'
-                  : 'Send something to yourself to get started'}
-              </Text>
-            </View>
+            activeTab === 'unreviewed' ? (
+              <View style={styles.emptyState}>
+                <Text style={[styles.emptyTitle, { color: theme.text }]}>All caught up!</Text>
+                <Text style={[styles.emptyText, { color: theme.textSecondary }]}>You have reviewed all your marks</Text>
+              </View>
+            ) : (
+              <View style={[styles.activationCard, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
+                <View style={[styles.activationIconRow, { backgroundColor: theme.primary + '15' }]}>
+                  <MessageSquare size={32} color={theme.primary} />
+                </View>
+                <Text style={[styles.activationTitle, { color: theme.text }]}>
+                  Your knowledge vault is ready
+                </Text>
+                <Text style={[styles.activationSubtitle, { color: theme.textSecondary }]}>
+                  Text any link, article, video, or thought to your Memark number. AI organizes it instantly.
+                </Text>
+
+                <View style={[styles.activationNumberBox, { backgroundColor: theme.surface, borderColor: theme.primary + '40' }]}>
+                  <View style={styles.activationNumberTop}>
+                    <View style={[styles.activationBadge, { backgroundColor: theme.primary + '20' }]}>
+                      <Text style={[styles.activationBadgeText, { color: theme.primary }]}>YOUR MEMARK NUMBER</Text>
+                    </View>
+                  </View>
+                  <Text style={[styles.activationNumber, { color: theme.primary }]}>+1 (862) 355-3847</Text>
+                  <TouchableOpacity
+                    style={[styles.activationCopyBtn, { backgroundColor: smsCopied ? theme.success : theme.primary }]}
+                    onPress={handleCopySmsNumber}
+                  >
+                    {smsCopied ? (
+                      <>
+                        <Check size={16} color="#FFFFFF" />
+                        <Text style={styles.activationCopyBtnText}>Copied to clipboard!</Text>
+                      </>
+                    ) : (
+                      <>
+                        <Copy size={16} color="#FFFFFF" />
+                        <Text style={styles.activationCopyBtnText}>Copy number</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                  {smsCopied && (
+                    <Text style={[styles.activationCopiedHint, { color: theme.success }]}>
+                      Now paste it in Messages and text a link!
+                    </Text>
+                  )}
+                </View>
+
+                <View style={styles.activationSteps}>
+                  {[
+                    { emoji: '1', text: 'Copy the number above' },
+                    { emoji: '2', text: 'Text it any link or thought' },
+                    { emoji: '3', text: 'AI organizes & reminds you' },
+                  ].map((step, i) => (
+                    <View key={i} style={styles.activationStep}>
+                      <View style={[styles.activationStepNum, { backgroundColor: theme.primary + '20' }]}>
+                        <Text style={[styles.activationStepNumText, { color: theme.primary }]}>{step.emoji}</Text>
+                      </View>
+                      <Text style={[styles.activationStepText, { color: theme.textSecondary }]}>{step.text}</Text>
+                    </View>
+                  ))}
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.activationAddBtn, { borderColor: theme.border }]}
+                  onPress={() => setAddMarkVisible(true)}
+                >
+                  <Plus size={16} color={theme.textSecondary} />
+                  <Text style={[styles.activationAddBtnText, { color: theme.textSecondary }]}>Or add a mark manually</Text>
+                  <ArrowRight size={14} color={theme.textTertiary} />
+                </TouchableOpacity>
+              </View>
+            )
           ) : (
             filteredItems.map((item, index) => (
               <Animated.View key={item.id} entering={FadeInDown.delay(index * 50).duration(300)}>
@@ -596,6 +716,12 @@ export default function Home() {
         onSelectDate={handleSelectReminderDate}
         itemTitle={selectedReminderItem?.og_title || selectedReminderItem?.title || selectedReminderItem?.raw_content}
       />
+
+      <UpgradeModal
+        visible={upgradeModalVisible}
+        onClose={() => setUpgradeModalVisible(false)}
+        feature="Unlimited saves"
+      />
     </View>
   );
 }
@@ -603,6 +729,53 @@ export default function Home() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  askLibraryCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 4,
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  askLibraryIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  askLibraryText: {
+    flex: 1,
+  },
+  askLibraryTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  askLibrarySubtitle: {
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  limitBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    marginHorizontal: 12,
+    marginTop: 4,
+    marginBottom: 4,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  limitBannerText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
   },
   errorBanner: {
     flexDirection: 'row',
@@ -698,6 +871,124 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 14,
+    textAlign: 'center',
+  },
+  activationCard: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 24,
+    alignItems: 'center',
+  },
+  activationIconRow: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  activationTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  activationSubtitle: {
+    fontSize: 15,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 24,
+  },
+  activationNumberBox: {
+    width: '100%',
+    borderRadius: 16,
+    borderWidth: 1.5,
+    padding: 20,
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  activationNumberTop: {
+    marginBottom: 12,
+  },
+  activationBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  activationBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+  },
+  activationNumber: {
+    fontSize: 28,
+    fontWeight: '800',
+    letterSpacing: 1,
+    marginBottom: 16,
+  },
+  activationCopyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    borderRadius: 12,
+    width: '100%',
+    justifyContent: 'center',
+  },
+  activationCopyBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  activationCopiedHint: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: 10,
+    textAlign: 'center',
+  },
+  activationSteps: {
+    width: '100%',
+    gap: 12,
+    marginBottom: 20,
+  },
+  activationStep: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  activationStepNum: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  activationStepNumText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  activationStepText: {
+    fontSize: 14,
+    flex: 1,
+  },
+  activationAddBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    borderWidth: 1,
+    width: '100%',
+    justifyContent: 'center',
+  },
+  activationAddBtnText: {
+    fontSize: 14,
+    flex: 1,
     textAlign: 'center',
   },
   loadingMore: {

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Platform, Share, Switch, Modal, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, ArrowRight, Share2, ExternalLink, RefreshCw, Star, Eye, Globe, Lock, Crown, BookOpen, X } from 'lucide-react-native';
+import { ArrowLeft, ArrowRight, Share2, ExternalLink, RefreshCw, Star, Eye, Globe, Lock, Crown, BookOpen, X, Link2 } from 'lucide-react-native';
 import { WebView } from 'react-native-webview';
 import * as Haptics from 'expo-haptics';
 import * as Linking from 'expo-linking';
@@ -28,6 +28,7 @@ export default function ItemDetail() {
   const [canGoBack, setCanGoBack] = useState(false);
   const [canGoForward, setCanGoForward] = useState(false);
   const [currentUrl, setCurrentUrl] = useState('');
+  const [relatedItems, setRelatedItems] = useState<Item[]>([]);
 
   const itemId = params.id as string;
   const isPro = dbUser?.plan_type === 'pro' || dbUser?.plan_type === 'premium';
@@ -36,6 +37,12 @@ export default function ItemDetail() {
     loadItem();
     loadUserProfile();
   }, [itemId, user?.id]);
+
+  useEffect(() => {
+    if (item && user?.id) {
+      loadRelatedItems(item);
+    }
+  }, [item?.id, user?.id]);
 
   const loadUserProfile = async () => {
     if (!user?.id) return;
@@ -52,6 +59,47 @@ export default function ItemDetail() {
       }
     } catch (err) {
       console.error('Error loading profile:', err);
+    }
+  };
+
+  const loadRelatedItems = async (currentItem: Item) => {
+    if (!user?.id) return;
+    try {
+      const tags = currentItem.tags || [];
+      const category = currentItem.category;
+      const topics = (currentItem as any).content_topics || [];
+
+      const { data } = await supabase
+        .from('items')
+        .select('id, title, og_title, summary, category, tags, platform_type, og_image, raw_content, created_at')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .neq('id', currentItem.id)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (!data || data.length === 0) return;
+
+      const scored = data.map((candidate: any) => {
+        let score = 0;
+        if (category && candidate.category === category) score += 30;
+        const candidateTags: string[] = candidate.tags || [];
+        const sharedTags = tags.filter((t: string) => candidateTags.includes(t));
+        score += sharedTags.length * 15;
+        const candidateTopics: string[] = candidate.content_topics || [];
+        const sharedTopics = topics.filter((t: string) => candidateTopics.includes(t));
+        score += sharedTopics.length * 20;
+        return { ...candidate, _score: score };
+      });
+
+      const related = scored
+        .filter((i: any) => i._score > 0)
+        .sort((a: any, b: any) => b._score - a._score)
+        .slice(0, 3);
+
+      setRelatedItems(related as Item[]);
+    } catch (err) {
+      console.error('Error loading related items:', err);
     }
   };
 
@@ -591,6 +639,28 @@ export default function ItemDetail() {
 
       <View style={styles.content}>
         {renderContent()}
+        {relatedItems.length > 0 && (
+          <View style={[styles.relatedSection, { borderTopColor: theme.border }]}>
+            <Text style={[styles.relatedTitle, { color: theme.textSecondary }]}>Also in your library</Text>
+            {relatedItems.map((related) => (
+              <TouchableOpacity
+                key={related.id}
+                style={[styles.relatedItem, { backgroundColor: theme.surface, borderColor: theme.border }]}
+                onPress={() => router.push({ pathname: '/item-detail', params: { id: related.id } })}
+              >
+                <View style={styles.relatedItemContent}>
+                  <Text style={[styles.relatedItemTitle, { color: theme.text }]} numberOfLines={2}>
+                    {related.og_title || related.title || related.raw_content?.substring(0, 80)}
+                  </Text>
+                  {related.category && (
+                    <Text style={[styles.relatedItemCategory, { color: theme.primary }]}>{related.category}</Text>
+                  )}
+                </View>
+                <ArrowRight size={16} color={theme.textTertiary} />
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
       </View>
 
       <Modal visible={showUpgradeModal} animationType="slide" transparent>
@@ -736,6 +806,42 @@ const styles = StyleSheet.create({
   },
   feedbackContainer: {
     marginTop: 12,
+  },
+  relatedSection: {
+    marginTop: 24,
+    paddingTop: 20,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    gap: 10,
+    paddingBottom: 20,
+  },
+  relatedTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  relatedItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  relatedItemContent: {
+    flex: 1,
+    gap: 4,
+  },
+  relatedItemTitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    lineHeight: 18,
+  },
+  relatedItemCategory: {
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'capitalize',
   },
   typeChip: {
     paddingHorizontal: 10,
