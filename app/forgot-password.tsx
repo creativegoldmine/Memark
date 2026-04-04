@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Mail, CheckCircle } from 'lucide-react-native';
+import { ArrowLeft, Mail, CircleCheck as CheckCircle } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
+import { ErrorMessage } from '@/components/ErrorMessage';
 import { supabase } from '@/lib/supabase';
 import * as Linking from 'expo-linking';
 
@@ -13,16 +14,19 @@ export default function ForgotPassword() {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
+  const [error, setError] = useState('');
 
   const handleResetPassword = async () => {
+    setError('');
+
     if (!email) {
-      Alert.alert('Error', 'Please enter your email address');
+      setError('Please enter your email address');
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      Alert.alert('Error', 'Please enter a valid email address');
+      setError('Please enter a valid email address');
       return;
     }
 
@@ -32,22 +36,20 @@ export default function ForgotPassword() {
         ? `${window.location.origin}/reset-password`
         : Linking.createURL('reset-password');
 
-      const { error } = await supabase.auth.resetPasswordForEmail(
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(
         email.toLowerCase().trim(),
         {
           redirectTo: redirectUrl,
         }
       );
 
-      if (error) {
-        console.error('Password reset error:', error);
-        Alert.alert('Error', error.message || 'Failed to send reset email. Please try again.');
+      if (resetError) {
+        setError(resetError.message || 'Failed to send reset email. Please try again.');
       } else {
         setEmailSent(true);
       }
     } catch (err) {
-      console.error('Unexpected error:', err);
-      Alert.alert('Error', 'An unexpected error occurred. Please try again.');
+      setError('An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -116,6 +118,8 @@ export default function ForgotPassword() {
         <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
           No worries! Enter your email address and we'll send you a link to reset your password.
         </Text>
+
+        <ErrorMessage message={error} visible={!!error} />
 
         <View style={styles.form}>
           <View style={styles.inputContainer}>

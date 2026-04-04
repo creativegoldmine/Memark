@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Hop as Home, FolderOpen, Search, Settings, Library, Brain } from 'lucide-react-native';
+import { House, FolderOpen, Search, Settings, Library, Brain } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 
 export default function TabLayout() {
@@ -29,7 +29,7 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ size, color }) => <Home size={22} color={color} />,
+          tabBarIcon: ({ size, color }) => <House size={22} color={color} />,
         }}
       />
       <Tabs.Screen

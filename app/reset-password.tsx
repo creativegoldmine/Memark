@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Lock, CheckCircle, Eye, EyeOff } from 'lucide-react-native';
+import { ArrowLeft, Lock, CircleCheck as CheckCircle, Eye, EyeOff } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
+import { ErrorMessage } from '@/components/ErrorMessage';
 import { supabase } from '@/lib/supabase';
 import * as Linking from 'expo-linking';
 
@@ -17,6 +18,7 @@ export default function ResetPassword() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [hasSession, setHasSession] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (Platform.OS === 'web') {
@@ -52,10 +54,8 @@ export default function ResetPassword() {
     const errorDescription = params.get('error_description');
 
     if (error) {
-      console.error('Auth error:', error, errorDescription);
-      Alert.alert('Error', errorDescription || 'The reset link is invalid or has expired. Please request a new one.');
+      setError(errorDescription || 'The reset link is invalid or has expired. Please request a new one.');
       window.history.replaceState({}, document.title, window.location.pathname);
-      router.replace('/forgot-password');
       return;
     }
 
@@ -67,17 +67,13 @@ export default function ResetPassword() {
         });
 
         if (sessionError) {
-          console.error('Session error:', sessionError);
-          Alert.alert('Error', 'Failed to verify reset link. Please request a new one.');
-          router.replace('/forgot-password');
+          setError('Failed to verify reset link. Please request a new one.');
         } else {
           window.history.replaceState({}, document.title, window.location.pathname);
           checkSession();
         }
-      } catch (error) {
-        console.error('Error setting session:', error);
-        Alert.alert('Error', 'An error occurred. Please try again.');
-        router.replace('/forgot-password');
+      } catch (err) {
+        setError('An error occurred. Please try again.');
       }
     } else {
       checkSession();
@@ -102,36 +98,36 @@ export default function ResetPassword() {
   };
 
   const handleResetPassword = async () => {
+    setError('');
+
     if (!newPassword || !confirmPassword) {
-      Alert.alert('Error', 'Please fill in all fields');
+      setError('Please fill in all fields');
       return;
     }
 
     if (newPassword.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters long');
+      setError('Password must be at least 6 characters long');
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
+      setError('Passwords do not match');
       return;
     }
 
     setLoading(true);
     try {
-      const { error } = await supabase.auth.updateUser({
+      const { error: updateError } = await supabase.auth.updateUser({
         password: newPassword,
       });
 
-      if (error) {
-        console.error('Password update error:', error);
-        Alert.alert('Error', error.message || 'Failed to update password. Please try again.');
+      if (updateError) {
+        setError(updateError.message || 'Failed to update password. Please try again.');
       } else {
         setPasswordUpdated(true);
       }
     } catch (err) {
-      console.error('Unexpected error:', err);
-      Alert.alert('Error', 'An unexpected error occurred. Please try again.');
+      setError('An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -168,6 +164,7 @@ export default function ResetPassword() {
       <View style={[styles.container, { backgroundColor: theme.background }]}>
         <View style={styles.content}>
           <View style={styles.errorContainer}>
+            <ErrorMessage message={error} visible={!!error} />
             <Text style={[styles.title, { color: theme.text }]}>Invalid Link</Text>
             <Text style={[styles.subtitle, { color: theme.textSecondary, textAlign: 'center' }]}>
               This password reset link is invalid or has expired.{'\n'}
@@ -199,6 +196,8 @@ export default function ResetPassword() {
         <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
           Enter your new password below.
         </Text>
+
+        <ErrorMessage message={error} visible={!!error} />
 
         <View style={styles.form}>
           <View style={styles.inputContainer}>

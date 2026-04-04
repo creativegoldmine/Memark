@@ -52,10 +52,10 @@ export default function Login() {
         } else {
           setError(signInError.message || 'Failed to sign in. Please try again.');
         }
-        setLoading(false);
       }
     } catch (err) {
       setError('An unexpected error occurred. Please try again.');
+    } finally {
       setLoading(false);
     }
   };
