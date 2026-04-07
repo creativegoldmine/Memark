@@ -18,6 +18,7 @@ export default function ResetPassword() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [hasSession, setHasSession] = useState(false);
+  const [checking, setChecking] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -43,19 +44,20 @@ export default function ResetPassword() {
 
     const hash = window.location.hash;
     if (!hash) {
-      checkSession();
+      await checkSession();
       return;
     }
 
     const params = new URLSearchParams(hash.substring(1));
     const accessToken = params.get('access_token');
     const refreshToken = params.get('refresh_token');
-    const error = params.get('error');
+    const hashError = params.get('error');
     const errorDescription = params.get('error_description');
 
-    if (error) {
+    if (hashError) {
       setError(errorDescription || 'The reset link is invalid or has expired. Please request a new one.');
       window.history.replaceState({}, document.title, window.location.pathname);
+      setChecking(false);
       return;
     }
 
@@ -68,15 +70,17 @@ export default function ResetPassword() {
 
         if (sessionError) {
           setError('Failed to verify reset link. Please request a new one.');
+          setChecking(false);
         } else {
           window.history.replaceState({}, document.title, window.location.pathname);
-          checkSession();
+          await checkSession();
         }
       } catch (err) {
         setError('An error occurred. Please try again.');
+        setChecking(false);
       }
     } else {
-      checkSession();
+      await checkSession();
     }
   };
 
@@ -95,6 +99,7 @@ export default function ResetPassword() {
   const checkSession = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     setHasSession(!!session);
+    setChecking(false);
   };
 
   const handleResetPassword = async () => {
@@ -155,6 +160,14 @@ export default function ResetPassword() {
             </TouchableOpacity>
           </View>
         </View>
+      </View>
+    );
+  }
+
+  if (checking) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.background, justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={[styles.subtitle, { color: theme.textSecondary }]}>Verifying reset link...</Text>
       </View>
     );
   }

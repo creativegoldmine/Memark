@@ -43,18 +43,26 @@ export default function Login() {
       const { error: signInError } = await signIn(email.toLowerCase().trim(), password);
 
       if (signInError) {
-        if (signInError.message?.includes('Invalid login credentials')) {
+        const msg = signInError.message || '';
+        if (msg.includes('Invalid login credentials')) {
           setError('Invalid email or password. Please check your credentials and try again.');
-        } else if (signInError.message?.includes('Email not confirmed')) {
+        } else if (msg.includes('Email not confirmed')) {
           setError('Please confirm your email address before signing in.');
-        } else if (signInError.message?.includes('network')) {
-          setError('Network error. Please check your connection and try again.');
+        } else if (msg.includes('network') || msg.includes('fetch') || msg.includes('Failed to fetch')) {
+          setError('Unable to connect to the server. Please check your internet connection and try again.');
+        } else if (msg.includes('Invalid API key') || msg.includes('apikey')) {
+          setError('Service configuration error. Please try again later.');
         } else {
-          setError(signInError.message || 'Failed to sign in. Please try again.');
+          setError(msg || 'Failed to sign in. Please try again.');
         }
       }
-    } catch (err) {
-      setError('An unexpected error occurred. Please try again.');
+    } catch (err: any) {
+      const errMsg = err?.message || '';
+      if (errMsg.includes('fetch') || errMsg.includes('network') || errMsg.includes('Failed to fetch')) {
+        setError('Unable to connect to the server. Please check your internet connection.');
+      } else {
+        setError('An unexpected error occurred. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
