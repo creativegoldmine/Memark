@@ -48,25 +48,15 @@ Deno.serve(async (req: Request) => {
       },
     });
 
-    // Get user by email
-    const { data: users, error: listError } = await supabaseAdmin.auth.admin.listUsers();
-    
-    if (listError) {
-      console.error("Error listing users:", listError);
-      return new Response(
-        JSON.stringify({ error: "Failed to find user" }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
+    const { data: dbUser, error: dbError } = await supabaseAdmin
+      .from('users')
+      .select('id')
+      .ilike('email', email)
+      .maybeSingle();
 
-    const user = users.users.find(u => u.email === email);
-
-    if (!user) {
+    if (dbError || !dbUser) {
       return new Response(
-        JSON.stringify({ error: "User not found" }),
+        JSON.stringify({ error: "User not found with email: " + email }),
         {
           status: 404,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -74,9 +64,8 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Update password using admin API
     const { data, error } = await supabaseAdmin.auth.admin.updateUserById(
-      user.id,
+      dbUser.id,
       { password: newPassword }
     );
 
