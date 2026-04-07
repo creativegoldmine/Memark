@@ -112,7 +112,7 @@ export default function Home() {
     ).length;
 
     const unreviewed = allItems.filter(
-      (item) => !(item as any).last_reviewed_at
+      (item) => !item.last_reviewed_at
     ).length;
 
     setStats({
@@ -173,7 +173,7 @@ export default function Home() {
       .from('items')
       .update({
         last_reviewed_at: now,
-        review_count: ((item as any).review_count || 0) + 1
+        review_count: (item.review_count || 0) + 1
       })
       .eq('id', item.id);
 
@@ -207,13 +207,13 @@ export default function Home() {
     setStats(prev => ({
       ...prev,
       totalItems: prev.totalItems - 1,
-      unreviewed: (item as any).last_reviewed_at ? prev.unreviewed : prev.unreviewed - 1
+      unreviewed: item.last_reviewed_at ? prev.unreviewed : prev.unreviewed - 1
     }));
   };
 
   const handleStar = async (item: Item) => {
     if (!user?.id) return;
-    const isStarred = !(item as any).is_starred;
+    const isStarred = !item.is_starred;
 
     await supabase
       .from('items')
@@ -367,8 +367,8 @@ export default function Home() {
   }, [items]);
 
   const renderItemCard = (item: Item, onPress: () => void, onOpenUrl: (url: string) => void) => {
-    const platformType = (item as any).platform_type;
-    const embedHtml = (item as any).embed_html;
+    const platformType = item.platform_type;
+    const embedHtml = item.embed_html;
     const hasMetadata = item.og_image || item.og_title || item.og_description;
     const shouldUseSocialEmbed = platformType && ['youtube', 'twitter', 'instagram', 'tiktok', 'vimeo', 'facebook'].includes(platformType) && (embedHtml || hasMetadata);
 

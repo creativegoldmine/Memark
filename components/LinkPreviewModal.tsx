@@ -47,8 +47,8 @@ export function LinkPreviewModal({ visible, item, onClose, onUpdate, onDelete }:
     if (item) {
       setCurrentTags(item.tags || []);
       setIsPublic(item.is_public || false);
-      setIsStarred((item as any).is_starred || false);
-      setIsReviewed(!!(item as any).last_reviewed_at);
+      setIsStarred(item.is_starred || false);
+      setIsReviewed(!!item.last_reviewed_at);
       loadItemFolders();
     }
   }, [item]);
@@ -240,7 +240,7 @@ export function LinkPreviewModal({ visible, item, onClose, onUpdate, onDelete }:
     setIsReviewed(true);
     triggerHaptic();
 
-    const reviewCount = ((item as any).review_count || 0) + 1;
+    const reviewCount = (item.review_count || 0) + 1;
     const nextReviewDays = Math.min(Math.pow(2, reviewCount), 30);
     const nextReviewDate = new Date();
     nextReviewDate.setDate(nextReviewDate.getDate() + nextReviewDays);
@@ -322,7 +322,7 @@ export function LinkPreviewModal({ visible, item, onClose, onUpdate, onDelete }:
     if (item.og_image) return item.og_image;
     if (item.image_preview) return item.image_preview;
     if (item.preview_image_url) return item.preview_image_url;
-    const mediaUrl = (item as any).media_url;
+    const mediaUrl = item.media_url;
     if (mediaUrl && /\.(jpg|jpeg|png|gif|webp)(\?.*)?$/i.test(mediaUrl)) {
       return mediaUrl;
     }

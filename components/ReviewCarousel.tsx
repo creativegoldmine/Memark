@@ -84,7 +84,7 @@ export function ReviewCarousel({
   };
 
   const renderItem = ({ item, index }: { item: Item; index: number }) => {
-    const isStarred = (item as any).is_starred;
+    const isStarred = item.is_starred;
 
     return (
       <Animated.View

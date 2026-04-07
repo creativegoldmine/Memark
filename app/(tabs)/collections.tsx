@@ -130,7 +130,7 @@ export default function Collections() {
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-    const isStarred = !(item as any).is_starred;
+    const isStarred = !item.is_starred;
 
     await supabase
       .from('items')
@@ -147,7 +147,7 @@ export default function Collections() {
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-    const isArchived = !(item as any).is_archived;
+    const isArchived = !item.is_archived;
 
     await supabase
       .from('items')
@@ -362,8 +362,8 @@ export default function Collections() {
   };
 
   const renderItemCard = (item: Item, onPress: () => void, onOpenUrl: (url: string) => void, viewMode: 'grid' | 'list') => {
-    const platformType = (item as any).platform_type;
-    const embedHtml = (item as any).embed_html;
+    const platformType = item.platform_type;
+    const embedHtml = item.embed_html;
     const hasMetadata = item.og_image || item.og_title || item.og_description;
 
     const shouldUseSocialEmbed = platformType && ['youtube', 'twitter', 'instagram', 'tiktok', 'vimeo', 'facebook'].includes(platformType) && (embedHtml || hasMetadata);

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity, RefreshControl, Platform, Alert } from 'react-native';
-import { Search as SearchIcon, Filter, X, Calendar, SortDesc, SortAsc, Target, Clock, CheckCircle, Flame, Star, ChevronDown, ChevronUp } from 'lucide-react-native';
+import { Search as SearchIcon, ListFilter as Filter, X, Calendar, Dessert as SortDesc, Import as SortAsc, Target, Clock, CircleCheck as CheckCircle, Flame, Star, ChevronDown, ChevronUp } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
@@ -77,7 +77,7 @@ export default function Browse() {
 
   const handleStar = async (item: Item) => {
     triggerHaptic();
-    const isStarred = (item as any).is_starred;
+    const isStarred = item.is_starred;
     const { error } = await supabase
       .from('items')
       .update({ is_starred: !isStarred })
@@ -90,7 +90,7 @@ export default function Browse() {
 
   const handleArchive = async (item: Item) => {
     triggerHaptic();
-    const isArchived = (item as any).is_archived;
+    const isArchived = item.is_archived;
     const { error } = await supabase
       .from('items')
       .update({ is_archived: !isArchived, status: isArchived ? 'active' : 'archived' })
@@ -178,7 +178,7 @@ export default function Browse() {
     const nextReviewDate = new Date();
     nextReviewDate.setDate(nextReviewDate.getDate() + daysUntilNext);
 
-    const timesReviewed = (item as any).times_reviewed || 0;
+    const timesReviewed = item.times_reviewed || 0;
     const { error } = await supabase
       .from('items')
       .update({
@@ -285,7 +285,7 @@ export default function Browse() {
       const dueToday = data.filter((item) => {
         if (!item.next_review_date) return false;
         const reviewDate = new Date(item.next_review_date);
-        return reviewDate <= now && (item as any).status !== 'archived';
+        return reviewDate <= now && item.status !== 'archived';
       }).length;
 
       const overdue = data.filter((item) => {
@@ -293,7 +293,7 @@ export default function Browse() {
         const reviewDate = new Date(item.next_review_date);
         const yesterday = new Date(now);
         yesterday.setDate(yesterday.getDate() - 1);
-        return reviewDate < yesterday && (item as any).status !== 'archived';
+        return reviewDate < yesterday && item.status !== 'archived';
       }).length;
 
       const totalReviewed = data.filter((item) => item.last_reviewed_at).length;
@@ -352,21 +352,21 @@ export default function Browse() {
           filtered = filtered.filter((item) => {
             if (!item.next_review_date) return false;
             const reviewDate = new Date(item.next_review_date);
-            return reviewDate <= now && (item as any).status !== 'archived';
+            return reviewDate <= now && item.status !== 'archived';
           });
           break;
         case 'Starred':
-          filtered = filtered.filter((item) => (item as any).is_starred);
+          filtered = filtered.filter((item) => item.is_starred);
           break;
         case 'Unreviewed':
           filtered = filtered.filter((item) => !item.last_reviewed_at);
           break;
         case 'Archived':
-          filtered = filtered.filter((item) => (item as any).is_archived || (item as any).status === 'archived');
+          filtered = filtered.filter((item) => item.is_archived || item.status === 'archived');
           break;
       }
     } else {
-      filtered = filtered.filter((item) => (item as any).status !== 'archived' && !(item as any).is_archived);
+      filtered = filtered.filter((item) => item.status !== 'archived' && !item.is_archived);
     }
 
     if (searchQuery) {
@@ -418,7 +418,7 @@ export default function Browse() {
   const isItemDueForReview = (item: Item) => {
     if (!item.next_review_date) return false;
     const reviewDate = new Date(item.next_review_date);
-    return reviewDate <= new Date() && (item as any).status !== 'archived';
+    return reviewDate <= new Date() && item.status !== 'archived';
   };
 
   const onRefresh = useCallback(async () => {
@@ -428,8 +428,8 @@ export default function Browse() {
   }, [fetchItems]);
 
   const renderItemCard = (item: Item, onPress: () => void, onOpenUrl: (url: string) => void) => {
-    const platformType = (item as any).platform_type;
-    const embedHtml = (item as any).embed_html;
+    const platformType = item.platform_type;
+    const embedHtml = item.embed_html;
     const hasMetadata = item.og_image || item.og_title || item.og_description;
     const isDueForReview = isItemDueForReview(item);
 

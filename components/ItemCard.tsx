@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Platform, ActivityIndicator, Alert } from 'react-native';
-import { Link2, Video, FileText, MessageSquare, Image as ImageIcon, CheckSquare, ChevronDown, ChevronUp, Star, ExternalLink, Play, Archive, Folder, Tag, Trash2, Check, RotateCcw, SkipForward, Clock, Copy, Bell } from 'lucide-react-native';
+import { Link2, Video, FileText, MessageSquare, Image as ImageIcon, SquareCheck as CheckSquare, ChevronDown, ChevronUp, Star, ExternalLink, Play, Archive, Folder, Tag, Trash2, Check, RotateCcw, SkipForward, Clock, Copy, Bell } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
@@ -55,9 +55,9 @@ export function ItemCard({
   const [videoModalVisible, setVideoModalVisible] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  const isStarred = (item as any).is_starred;
-  const isArchived = (item as any).is_archived;
-  const lastReviewed = (item as any).last_reviewed_at;
+  const isStarred = item.is_starred;
+  const isArchived = item.is_archived;
+  const lastReviewed = item.last_reviewed_at;
 
   const triggerHaptic = () => {
     if (Platform.OS !== 'web') {
@@ -174,8 +174,8 @@ export function ItemCard({
   };
 
   const getVideoUrl = () => {
-    if ((item as any).video_url) {
-      return (item as any).video_url;
+    if (item.video_url) {
+      return item.video_url;
     }
     return extractUrl();
   };
@@ -233,9 +233,9 @@ export function ItemCard({
   };
 
   const getImageUrl = () => {
-    const mediaUrls = (item as any).media_urls;
-    const mediaUrl = (item as any).media_url;
-    const isManual = (item as any).is_manual;
+    const mediaUrls = item.media_urls;
+    const mediaUrl = item.media_url;
+    const isManual = item.is_manual;
 
     if (item.og_image) {
       return item.og_image;
@@ -375,38 +375,38 @@ export function ItemCard({
             <Text style={styles.reviewBadgeText}>Review</Text>
           </View>
         )}
-        {(item.video_url || (item as any).platform_type === 'youtube' || (item as any).platform_type === 'vimeo' || (item as any).platform_type === 'tiktok') && (
+        {(item.video_url || item.platform_type === 'youtube' || item.platform_type === 'vimeo' || item.platform_type === 'tiktok') && (
           <TouchableOpacity style={styles.videoBadge} onPress={handleVideoPlay} activeOpacity={0.8}>
             <View style={styles.playButton}>
               <Play size={32} color="#8B5CF6" fill="#8B5CF6" />
             </View>
-            {(item as any).content_duration && (
+            {item.content_duration && (
               <View style={[styles.durationBadge, { backgroundColor: 'rgba(0, 0, 0, 0.75)' }]}>
-                <Text style={styles.durationText}>{(item as any).content_duration}</Text>
+                <Text style={styles.durationText}>{item.content_duration}</Text>
               </View>
             )}
           </TouchableOpacity>
         )}
-        {((item as any).platform_type || item.embed_type) && !item.video_url && (item as any).platform_type !== 'youtube' && (item as any).platform_type !== 'vimeo' && (
+        {(item.platform_type || item.embed_type) && !item.video_url && item.platform_type !== 'youtube' && item.platform_type !== 'vimeo' && (
           <View style={[styles.embedBadge, { backgroundColor: theme.primary }]}>
             <Text style={styles.embedBadgeText}>
-              {(item as any).platform_type === 'twitter' || item.embed_type === 'twitter' ? '𝕏' :
-               (item as any).platform_type === 'instagram' ? '📷' :
-               (item as any).platform_type === 'tiktok' ? '🎵' :
-               (item as any).platform_type === 'reddit' ? '🤖' :
-               (item as any).platform_type === 'linkedin' ? '💼' :
-               (item as any).platform_type === 'github' ? '💻' :
-               (item as any).platform_type === 'medium' ? 'M' :
+              {item.platform_type === 'twitter' || item.embed_type === 'twitter' ? '𝕏' :
+               item.platform_type === 'instagram' ? '📷' :
+               item.platform_type === 'tiktok' ? '🎵' :
+               item.platform_type === 'reddit' ? '🤖' :
+               item.platform_type === 'linkedin' ? '💼' :
+               item.platform_type === 'github' ? '💻' :
+               item.platform_type === 'medium' ? 'M' :
                item.embed_type === 'youtube' ? '▶' : '🔗'}
             </Text>
           </View>
         )}
-        {((item as any).media_count > 1 || ((item as any).media_urls && (item as any).media_urls.length > 1)) && (
+        {(item.media_count > 1 || (item.media_urls && item.media_urls.length > 1)) && (
           <View style={[styles.mediaCountBadge, { backgroundColor: 'rgba(0, 0, 0, 0.75)' }]}>
-            <Text style={styles.mediaCountText}>1/{(item as any).media_count || (item as any).media_urls.length}</Text>
+            <Text style={styles.mediaCountText}>1/{item.media_count || item.media_urls.length}</Text>
           </View>
         )}
-        {(item as any).is_thread && (
+        {item.is_thread && (
           <View style={[styles.threadBadge, { backgroundColor: theme.primary }]}>
             <Text style={styles.threadBadgeText}>🧵 Thread</Text>
           </View>
@@ -430,9 +430,9 @@ export function ItemCard({
           )}
         </View>
 
-        {(item.og_site_name || (item as any).author_name) && (
+        {(item.og_site_name || item.author_name) && (
           <Text style={[styles.siteName, { color: theme.textTertiary }]}>
-            {(item as any).author_name ? `${(item as any).author_name}${item.og_site_name ? ` • ${item.og_site_name}` : ''}` : item.og_site_name}
+            {item.author_name ? `${item.author_name}${item.og_site_name ? ` • ${item.og_site_name}` : ''}` : item.og_site_name}
           </Text>
         )}
 
@@ -653,7 +653,7 @@ export function ItemCard({
     <VideoPlayerModal
       visible={videoModalVisible}
       videoUrl={getVideoUrl() || ''}
-      platformType={(item as any).platform_type}
+      platformType={item.platform_type}
       title={item.og_title || item.preview_title || item.title}
       onClose={() => setVideoModalVisible(false)}
     />

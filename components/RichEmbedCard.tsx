@@ -16,8 +16,8 @@ export function RichEmbedCard({ item, onPress, onOpenUrl, viewMode = 'list' }: R
   const [embedLoaded, setEmbedLoaded] = useState(false);
   const [embedError, setEmbedError] = useState(false);
 
-  const platformType = (item as any).platform_type;
-  const embedHtml = (item as any).embed_html;
+  const platformType = item.platform_type;
+  const embedHtml = item.embed_html;
 
   if (Platform.OS !== 'web') {
     return (
@@ -238,8 +238,8 @@ export function RichEmbedCard({ item, onPress, onOpenUrl, viewMode = 'list' }: R
     <View style={styles.card}>
       {renderEmbed()}
       <View style={styles.metadata}>
-        {(item as any).author_name && (
-          <Text style={styles.author}>{(item as any).author_name}</Text>
+        {item.author_name && (
+          <Text style={styles.author}>{item.author_name}</Text>
         )}
         <Text style={styles.title}>
           {item.og_title || item.preview_title || item.title || 'Untitled'}

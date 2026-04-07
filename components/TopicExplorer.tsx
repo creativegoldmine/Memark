@@ -97,8 +97,8 @@ export function TopicExplorer({ visible, onClose }: TopicExplorerProps) {
   };
 
   const renderItemCard = (item: Item) => {
-    const platformType = (item as any).platform_type;
-    const embedHtml = (item as any).embed_html;
+    const platformType = item.platform_type;
+    const embedHtml = item.embed_html;
     const hasMetadata = item.og_image || item.og_title || item.og_description;
     const shouldUseSocialEmbed =
       platformType &&

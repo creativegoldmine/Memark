@@ -60,13 +60,21 @@ Deno.serve(async (req: Request) => {
       content: message,
     });
 
-    const conversationHistory = includeContext
-      ? await getConversationHistory(currentSessionId, supabase)
-      : [];
+    const [conversationHistory, userContext] = await Promise.all([
+      includeContext ? getConversationHistory(currentSessionId, supabase) : Promise.resolve([]),
+      getUserContext(userId, supabase),
+    ]);
 
-    const userContext = await getUserContext(userId, supabase);
+    const { searchQuery, platformFilter, dateFrom, dateTo } = parseQueryFilters(message);
 
-    const relevantItems = await findRelevantItems(userId, message, userContext, supabase);
+    const relevantItems = await findRelevantItems(
+      userId,
+      searchQuery,
+      platformFilter,
+      dateFrom,
+      dateTo,
+      supabase
+    );
 
     const response = await generateAIResponse(
       message,
@@ -87,6 +95,8 @@ Deno.serve(async (req: Request) => {
         items_referenced: response.itemsReferenced,
         intent: response.intent,
         confidence: response.confidence,
+        search_query: searchQuery,
+        total_results: relevantItems.length,
       },
       tokens_used: tokenCount,
     });
@@ -99,6 +109,7 @@ Deno.serve(async (req: Request) => {
         itemsReferenced: response.itemsReferenced,
         intent: response.intent,
         suggestions: response.suggestions,
+        totalResults: relevantItems.length,
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -116,6 +127,106 @@ Deno.serve(async (req: Request) => {
   }
 });
 
+function parseQueryFilters(message: string): {
+  searchQuery: string;
+  platformFilter: string | null;
+  dateFrom: string | null;
+  dateTo: string | null;
+} {
+  const lower = message.toLowerCase();
+  let searchQuery = message;
+  let platformFilter: string | null = null;
+  let dateFrom: string | null = null;
+  let dateTo: string | null = null;
+
+  const platformMap: Record<string, string> = {
+    'youtube': 'youtube',
+    'video': 'youtube',
+    'twitter': 'twitter',
+    'tweet': 'twitter',
+    'tweets': 'twitter',
+    'x.com': 'twitter',
+    'instagram': 'instagram',
+    'insta': 'instagram',
+    'tiktok': 'tiktok',
+    'tik tok': 'tiktok',
+    'vimeo': 'vimeo',
+    'facebook': 'facebook',
+    'reddit': 'reddit',
+    'linkedin': 'linkedin',
+    'github': 'github',
+    'medium': 'medium',
+  };
+
+  for (const [keyword, platform] of Object.entries(platformMap)) {
+    if (lower.includes(keyword)) {
+      platformFilter = platform;
+      break;
+    }
+  }
+
+  const now = new Date();
+
+  if (lower.includes('today')) {
+    const start = new Date(now);
+    start.setHours(0, 0, 0, 0);
+    dateFrom = start.toISOString();
+  } else if (lower.includes('yesterday')) {
+    const start = new Date(now);
+    start.setDate(start.getDate() - 1);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(now);
+    end.setDate(end.getDate() - 1);
+    end.setHours(23, 59, 59, 999);
+    dateFrom = start.toISOString();
+    dateTo = end.toISOString();
+  } else if (lower.includes('last week') || lower.includes('this week') || lower.includes('past week')) {
+    const start = new Date(now);
+    start.setDate(start.getDate() - 7);
+    dateFrom = start.toISOString();
+  } else if (lower.includes('last month') || lower.includes('this month') || lower.includes('past month')) {
+    const start = new Date(now);
+    start.setMonth(start.getMonth() - 1);
+    dateFrom = start.toISOString();
+  } else if (lower.includes('last year') || lower.includes('this year') || lower.includes('past year')) {
+    const start = new Date(now);
+    start.setFullYear(start.getFullYear() - 1);
+    dateFrom = start.toISOString();
+  } else {
+    const monthMatch = lower.match(/(?:in|from|saved in|during)\s+(january|february|march|april|may|june|july|august|september|october|november|december)/);
+    if (monthMatch) {
+      const months: Record<string, number> = {
+        january: 0, february: 1, march: 2, april: 3, may: 4, june: 5,
+        july: 6, august: 7, september: 8, october: 9, november: 10, december: 11,
+      };
+      const monthNum = months[monthMatch[1]];
+      const year = monthNum > now.getMonth() ? now.getFullYear() - 1 : now.getFullYear();
+      dateFrom = new Date(year, monthNum, 1).toISOString();
+      dateTo = new Date(year, monthNum + 1, 0, 23, 59, 59).toISOString();
+    }
+  }
+
+  const stopWords = [
+    'show', 'me', 'find', 'search', 'for', 'my', 'the', 'a', 'an',
+    'about', 'marks', 'content', 'items', 'that', 'which', 'related',
+    'to', 'from', 'in', 'on', 'all', 'saved', 'bookmarks', 'posts',
+    'get', 'list', 'give', 'what', 'are', 'is', 'can', 'you',
+    'today', 'yesterday', 'last', 'week', 'month', 'year', 'this',
+    'past', 'recent', 'latest', 'old', 'new',
+  ];
+  const cleaned = searchQuery
+    .split(/\s+/)
+    .filter(w => w.length > 1 && !stopWords.includes(w.toLowerCase()))
+    .join(' ')
+    .trim();
+
+  if (cleaned.length > 0) {
+    searchQuery = cleaned;
+  }
+
+  return { searchQuery, platformFilter, dateFrom, dateTo };
+}
+
 async function getConversationHistory(sessionId: string, supabase: any): Promise<ChatMessage[]> {
   const { data: messages } = await supabase
     .from('chat_messages')
@@ -128,12 +239,6 @@ async function getConversationHistory(sessionId: string, supabase: any): Promise
 }
 
 async function getUserContext(userId: string, supabase: any) {
-  const { data: user } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', userId)
-    .single();
-
   const { data: items, count: totalItems } = await supabase
     .from('items')
     .select('semantic_category, content_topics, platform_type', { count: 'exact' })
@@ -184,89 +289,26 @@ async function getUserContext(userId: string, supabase: any) {
 async function findRelevantItems(
   userId: string,
   query: string,
-  userContext: any,
+  platformFilter: string | null,
+  dateFrom: string | null,
+  dateTo: string | null,
   supabase: any
 ) {
-  const queryLower = query.toLowerCase();
-  const isSearchQuery =
-    queryLower.includes('show me') ||
-    queryLower.includes('find') ||
-    queryLower.includes('search') ||
-    queryLower.includes('marks about') ||
-    queryLower.includes('content about') ||
-    queryLower.includes('items about');
+  const { data: items, error } = await supabase.rpc('search_user_items', {
+    p_user_id: userId,
+    p_query: query,
+    p_platform: platformFilter,
+    p_date_from: dateFrom,
+    p_date_to: dateTo,
+    p_limit: 20,
+  });
 
-  if (!isSearchQuery) {
+  if (error) {
+    console.error('search_user_items RPC error:', error);
     return [];
   }
 
-  const { data: items } = await supabase
-    .from('items')
-    .select('id, title, summary, raw_content, tags, content_topics, semantic_category, platform_type, created_at, score')
-    .eq('user_id', userId)
-    .eq('status', 'active')
-    .order('created_at', { ascending: false })
-    .limit(100);
-
-  if (!items || items.length === 0) return [];
-
-  const queryWords = queryLower
-    .split(' ')
-    .filter(w => w.length > 3)
-    .filter(w => !['show', 'find', 'about', 'marks', 'content', 'items', 'that', 'which', 'related'].includes(w));
-
-  const scoredItems = items.map((item: any) => {
-    const searchText = `
-      ${item.title || ''}
-      ${item.summary || ''}
-      ${item.raw_content || ''}
-      ${item.tags?.join(' ') || ''}
-      ${item.content_topics?.join(' ') || ''}
-      ${item.semantic_category || ''}
-    `.toLowerCase();
-
-    let relevanceScore = 0;
-
-    queryWords.forEach(word => {
-      if (searchText.includes(word)) {
-        relevanceScore += 10;
-      }
-
-      if (item.content_topics) {
-        item.content_topics.forEach((topic: string) => {
-          if (topic.toLowerCase().includes(word) || word.includes(topic.toLowerCase())) {
-            relevanceScore += 20;
-          }
-        });
-      }
-    });
-
-    if (queryLower.includes('positive') || queryLower.includes('good') || queryLower.includes('helpful')) {
-      if (item.score && item.score > 70) relevanceScore += 5;
-    }
-
-    if (queryLower.includes('negative') || queryLower.includes('critical')) {
-      if (item.score && item.score < 50) relevanceScore += 5;
-    }
-
-    if (queryLower.includes('educational') || queryLower.includes('learn') || queryLower.includes('tutorial')) {
-      if (item.tags?.some((t: string) => ['educational', 'tutorial', 'guide', 'learning'].includes(t.toLowerCase()))) {
-        relevanceScore += 15;
-      }
-    }
-
-    if (queryLower.includes('recent') || queryLower.includes('latest')) {
-      const daysSinceCreated = (Date.now() - new Date(item.created_at).getTime()) / (1000 * 60 * 60 * 24);
-      if (daysSinceCreated < 7) relevanceScore += 10;
-    }
-
-    return { ...item, relevanceScore };
-  });
-
-  return scoredItems
-    .filter(item => item.relevanceScore > 0)
-    .sort((a, b) => b.relevanceScore - a.relevanceScore)
-    .slice(0, 10);
+  return items || [];
 }
 
 async function generateAIResponse(
@@ -281,58 +323,58 @@ async function generateAIResponse(
 ## Your Capabilities:
 
 1. FIND MARKS: Help users find specific content with natural language queries
-   - Understand complex filters (sentiment, intent, topic, platform, recency)
-   - Support queries like "show me positive Trump content" or "coding tutorials for success"
-   - Return relevant items with explanations
+   - Search across ALL saved marks - titles, content, summaries, tags, topics, descriptions, authors
+   - Understand filters: platform (YouTube, Twitter, etc.), date ranges, categories, topics
+   - Support queries like "cooking videos from last week" or "that article about AI"
+   - Always reference found items by their position number
 
 2. ANSWER QUESTIONS ABOUT MEMARK: Explain features and help users
-   - How folders work
-   - What tags and categories do
-   - How to organize content
-   - Subscription features
 
 3. PROVIDE INSIGHTS: Analyze the user's knowledge vault
    - Topic distribution and patterns
-   - Learning gaps or opportunities
    - Organization suggestions
-   - Usage trends
 
-4. RECOMMENDATIONS: Suggest actions
-   - Folder organization based on clusters
-   - Content to review
-   - Items to revisit
-   - Export/sharing opportunities
+4. RECOMMENDATIONS: Suggest actions based on their vault
 
 ## User Context:
 - Total saved items: ${userContext.totalItems}
-- Top topics: ${userContext.topTopics.map((t: any) => `${t.topic} (${t.count})`).join(', ')}
-- Platforms used: ${userContext.platforms.map((p: any) => `${p.platform} (${p.count})`).join(', ')}
-- Active clusters: ${userContext.clusters.map((c: any) => `${c.primary_topic} (${c.item_count} items)`).join(', ')}
-- Active insights: ${userContext.activeInsights.length}
+- Top topics: ${userContext.topTopics.map((t: any) => `${t.topic} (${t.count})`).join(', ') || 'None yet'}
+- Platforms used: ${userContext.platforms.map((p: any) => `${p.platform} (${p.count})`).join(', ') || 'None yet'}
+- Active clusters: ${userContext.clusters.map((c: any) => `${c.primary_topic} (${c.item_count} items)`).join(', ') || 'None yet'}
 
 ## Communication Style:
-- Be conversational and friendly
-- Use clear, concise language
-- Avoid technical jargon unless needed
-- Provide specific, actionable responses
-- When showing items, explain WHY they match
-- Ask clarifying questions if query is ambiguous
+- Be conversational and friendly but concise
+- When showing items, briefly explain WHY each matches the query
+- Mention if items contain video, images, or other media the user can play/view
+- If no items found, suggest alternative search terms
+- Ask clarifying questions if the query is very vague
 
 ## Important:
-- If searching for items, reference the relevant_items provided
-- Be specific about what you found and why it matches
-- For Memark questions, give practical, helpful answers
-- Suggest next steps or related actions when appropriate`;
+- ALWAYS reference items by the IDs provided in the context
+- The system performs deep full-text search across all fields automatically
+- When items have media (videos, images, embeds), mention they can be viewed inline
+- Be specific about match count: "I found X marks matching your search"`;
 
   let contextMessage = '';
   if (relevantItems.length > 0) {
-    contextMessage = `\n\nRELEVANT ITEMS FOUND (${relevantItems.length}):\n${relevantItems.map((item: any, idx: number) =>
-      `${idx + 1}. "${item.title || item.raw_content?.substring(0, 60)}"
+    contextMessage = `\n\nSEARCH RESULTS (${relevantItems.length} items found):\n${relevantItems.slice(0, 15).map((item: any, idx: number) => {
+      const hasVideo = item.video_url || item.platform_type === 'youtube' || item.platform_type === 'vimeo' || item.platform_type === 'tiktok';
+      const hasImages = item.og_image || (item.media_urls && JSON.stringify(item.media_urls) !== '[]') || (item.carousel_images && JSON.stringify(item.carousel_images) !== '[]');
+      const hasEmbed = item.embed_html;
+      const mediaIndicators = [
+        hasVideo ? '[VIDEO]' : '',
+        hasImages ? '[IMAGE]' : '',
+        hasEmbed ? '[EMBED]' : '',
+      ].filter(Boolean).join(' ');
+
+      return `${idx + 1}. ID:${item.id} "${item.title || item.og_title || (item.raw_content || '').substring(0, 80)}"
+         ${mediaIndicators}
+         Platform: ${item.platform_type || 'web'} | Category: ${item.semantic_category || item.category || 'N/A'}
          Topics: ${item.content_topics?.join(', ') || 'N/A'}
-         Platform: ${item.platform_type || 'N/A'}
-         Score: ${item.score || 'N/A'}
-         Relevance: ${item.relevanceScore}`
-    ).join('\n')}`;
+         Tags: ${item.tags?.join(', ') || 'N/A'}
+         Saved: ${item.created_at ? new Date(item.created_at).toLocaleDateString() : 'N/A'}
+         Relevance: ${(item.relevance_score || 0).toFixed(3)}`;
+    }).join('\n')}`;
   }
 
   const messages: any[] = [
@@ -351,11 +393,13 @@ async function generateAIResponse(
       model: 'gpt-4o-mini',
       messages,
       temperature: 0.7,
-      max_tokens: 800,
+      max_tokens: 1000,
     }),
   });
 
   if (!response.ok) {
+    const errorBody = await response.text();
+    console.error('OpenAI API error:', errorBody);
     throw new Error('Failed to generate AI response');
   }
 
@@ -363,7 +407,7 @@ async function generateAIResponse(
   const content = data.choices[0].message.content;
 
   const intent = detectIntent(userMessage);
-  const itemsReferenced = relevantItems.slice(0, 5).map(item => item.id);
+  const itemsReferenced = relevantItems.slice(0, 10).map((item: any) => item.id);
   const suggestions = generateSuggestions(intent, userContext, relevantItems);
 
   return {
@@ -378,41 +422,42 @@ async function generateAIResponse(
 function detectIntent(message: string): string {
   const lower = message.toLowerCase();
 
-  if (lower.includes('show') || lower.includes('find') || lower.includes('search')) {
+  const searchWords = ['show', 'find', 'search', 'look', 'where', 'get', 'list', 'give', 'pull up', 'bring up', 'marks about', 'items about'];
+  if (searchWords.some(w => lower.includes(w))) {
     return 'search';
   }
-  if (lower.includes('how') || lower.includes('what') || lower.includes('explain')) {
+  if (lower.includes('how') || lower.includes('what is') || lower.includes('explain') || lower.includes('why')) {
     return 'question';
   }
   if (lower.includes('suggest') || lower.includes('recommend') || lower.includes('should i')) {
     return 'recommendation';
   }
-  if (lower.includes('organize') || lower.includes('folder') || lower.includes('categorize')) {
+  if (lower.includes('organize') || lower.includes('folder') || lower.includes('categorize') || lower.includes('sort')) {
     return 'organization';
   }
 
-  return 'conversation';
+  return 'search';
 }
 
 function generateSuggestions(intent: string, userContext: any, relevantItems: any[]): string[] {
   const suggestions: string[] = [];
 
-  if (intent === 'search' && relevantItems.length > 0) {
+  if (relevantItems.length > 0) {
     suggestions.push('Open one of these items');
     suggestions.push('Create a collection from these results');
-    suggestions.push('Refine search with more specific terms');
+    if (relevantItems.length > 5) {
+      suggestions.push('Narrow your search with more specific terms');
+    }
+  } else {
+    suggestions.push('Try different search terms');
+    suggestions.push('Show me all my recent marks');
   }
 
   if (userContext.clusters.length > 0 && userContext.clusters.some((c: any) => c.status === 'suggested')) {
     suggestions.push('Review suggested folder organizations');
   }
 
-  if (userContext.activeInsights.length > 0) {
-    suggestions.push('Check your AI insights');
-  }
-
   if (userContext.totalItems > 50) {
-    suggestions.push('Show me my most important marks');
     suggestions.push('What topics do I save most?');
   }
 

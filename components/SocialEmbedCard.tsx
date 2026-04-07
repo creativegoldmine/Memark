@@ -26,9 +26,9 @@ export function SocialEmbedCard({ item, onPress, onOpenUrl, viewMode = 'list' }:
   const [embedError, setEmbedError] = useState(false);
   const [webViewHeight, setWebViewHeight] = useState(400);
 
-  const platformType = (item as any).platform_type;
-  const embedHtml = (item as any).embed_html;
-  const embedMetadata = (item as any).embed_metadata;
+  const platformType = item.platform_type;
+  const embedHtml = item.embed_html;
+  const embedMetadata = item.embed_metadata;
 
   const shouldEmbed = platformType && embedHtml && ['youtube', 'twitter', 'instagram', 'tiktok', 'vimeo', 'facebook'].includes(platformType);
 
@@ -98,16 +98,16 @@ export function SocialEmbedCard({ item, onPress, onOpenUrl, viewMode = 'list' }:
               </View>
             </View>
           )}
-          {(item as any).carousel_images && (item as any).carousel_images.length > 1 && (
+          {item.carousel_images && item.carousel_images.length > 1 && (
             <View style={[styles.mediaCountBadge, { position: 'absolute', bottom: 12, right: 12, backgroundColor: 'rgba(0, 0, 0, 0.75)' }]}>
-              <Text style={styles.mediaCountText}>1/{(item as any).carousel_images.length}</Text>
+              <Text style={styles.mediaCountText}>1/{item.carousel_images.length}</Text>
             </View>
           )}
         </TouchableOpacity>
         <View style={[styles.metadata, { backgroundColor: theme.cardBackground }]}>
-          {(item as any).author_name && (
+          {item.author_name && (
             <Text style={[styles.author, { color: theme.textSecondary }]}>
-              {(item as any).author_name}
+              {item.author_name}
             </Text>
           )}
           <Text style={[styles.title, { color: theme.text }]}>
@@ -157,9 +157,9 @@ export function SocialEmbedCard({ item, onPress, onOpenUrl, viewMode = 'list' }:
       <View style={[styles.card, { borderColor: theme.border, backgroundColor: theme.cardBackground }]}>
         {renderWebEmbed()}
         <View style={[styles.metadata, { backgroundColor: theme.cardBackground }]}>
-          {(item as any).author_name && (
+          {item.author_name && (
             <Text style={[styles.author, { color: theme.textSecondary }]}>
-              {(item as any).author_name}
+              {item.author_name}
             </Text>
           )}
           <Text style={[styles.title, { color: theme.text }]}>
@@ -191,9 +191,9 @@ export function SocialEmbedCard({ item, onPress, onOpenUrl, viewMode = 'list' }:
         {renderMobileEmbed()}
       </View>
       <View style={[styles.metadata, { backgroundColor: theme.cardBackground }]}>
-        {(item as any).author_name && (
+        {item.author_name && (
           <Text style={[styles.author, { color: theme.textSecondary }]}>
-            {(item as any).author_name}
+            {item.author_name}
           </Text>
         )}
         <Text style={[styles.title, { color: theme.text }]}>

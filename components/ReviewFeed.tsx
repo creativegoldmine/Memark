@@ -10,19 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import {
-  Clock,
-  CheckCircle,
-  XCircle,
-  RotateCcw,
-  Calendar,
-  TrendingUp,
-  Flame,
-  Target,
-  Copy,
-  Bell,
-  BellRing,
-} from 'lucide-react-native';
+import { Clock, CircleCheck as CheckCircle, Circle as XCircle, RotateCcw, Calendar, TrendingUp, Flame, Target, Copy, Bell, BellRing } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -145,12 +133,12 @@ export function ReviewFeed({ onItemPress, limit = 20 }: ReviewFeedProps) {
 
     priority += (item.review_stage || 1) * 5;
 
-    const relevanceScore = (item as any).relevance_score;
+    const relevanceScore = item.relevance_score;
     if (relevanceScore) {
       priority += relevanceScore * 2;
     }
 
-    const timesReviewed = (item as any).times_reviewed;
+    const timesReviewed = item.times_reviewed;
     if (timesReviewed && timesReviewed > 3) {
       priority -= 20;
     }
@@ -219,7 +207,7 @@ export function ReviewFeed({ onItemPress, limit = 20 }: ReviewFeedProps) {
       const nextReviewDate = new Date();
       nextReviewDate.setDate(nextReviewDate.getDate() + daysUntilNext);
 
-      const timesReviewed = (item as any).times_reviewed || 0;
+      const timesReviewed = item.times_reviewed || 0;
       const { error } = await supabase
         .from('items')
         .update({

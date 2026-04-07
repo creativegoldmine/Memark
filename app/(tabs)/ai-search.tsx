@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,10 +8,9 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator,
   Alert,
 } from 'react-native';
-import { Send, Sparkles } from 'lucide-react-native';
+import { Send, Sparkles, Video, FileText, AtSign, Image as ImageIcon, Clock, Star } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -24,14 +23,24 @@ import { LoadingLogo } from '@/components/LoadingLogo';
 import { LinkPreviewModal } from '@/components/LinkPreviewModal';
 import { InAppBrowser } from '@/components/InAppBrowser';
 import { ReminderPickerModal } from '@/components/ReminderPickerModal';
-import { createReminder, getPendingRemindersForItems } from '@/lib/reminders';
+import { createReminder } from '@/lib/reminders';
 
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   items?: Item[];
+  totalResults?: number;
 }
+
+const FILTER_CHIPS = [
+  { label: 'Videos', icon: Video, query: 'show me my YouTube videos' },
+  { label: 'Articles', icon: FileText, query: 'find my saved articles' },
+  { label: 'Tweets', icon: AtSign, query: 'show me my tweets' },
+  { label: 'Images', icon: ImageIcon, query: 'find marks with images' },
+  { label: 'Recent', icon: Clock, query: 'show me marks from this week' },
+  { label: 'Starred', icon: Star, query: 'show me my starred marks' },
+];
 
 export default function AISearch() {
   const { theme } = useTheme();
@@ -40,7 +49,7 @@ export default function AISearch() {
     {
       id: '1',
       role: 'assistant',
-      content: "Hi! I'm your MeMark AI assistant. I help you remember things by understanding how you describe them.\n\nTry asking me naturally:\n\n• \"that article about AI from last week\"\n• \"the cooking video I saved\"\n• \"something about productivity\"\n• \"the Twitter post about design\"",
+      content: "Hi! I'm your MeMark AI assistant. I search across ALL your saved marks -- titles, content, tags, descriptions, everything.\n\nTry asking me naturally:\n\n- \"that article about AI from last week\"\n- \"cooking videos I saved\"\n- \"tweets about design\"\n- \"anything about productivity\"",
     },
   ]);
   const [input, setInput] = useState('');
@@ -52,6 +61,7 @@ export default function AISearch() {
   const [reminderModalVisible, setReminderModalVisible] = useState(false);
   const [selectedReminderItem, setSelectedReminderItem] = useState<Item | null>(null);
   const [itemReminders, setItemReminders] = useState<Record<string, boolean>>({});
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
 
   const handleOpenUrl = (url: string) => {
@@ -108,12 +118,20 @@ export default function AISearch() {
     setSelectedReminderItem(null);
   };
 
-  const renderItemCard = (item: Item, onPress: () => void, onOpenUrl: (url: string) => void) => {
-    const platformType = (item as any).platform_type;
-    const embedHtml = (item as any).embed_html;
-    const hasMetadata = item.og_image || item.og_title || item.og_description;
+  const isSocialPlatform = (platformType?: string) => {
+    return platformType && ['youtube', 'twitter', 'instagram', 'tiktok', 'vimeo', 'facebook'].includes(platformType);
+  };
 
-    const shouldUseSocialEmbed = platformType && ['youtube', 'twitter', 'instagram', 'tiktok', 'vimeo', 'facebook'].includes(platformType) && (embedHtml || hasMetadata);
+  const hasMedia = (item: Item) => {
+    return item.video_url ||
+      item.embed_html ||
+      item.og_image ||
+      (item.media_urls && item.media_urls.length > 0) ||
+      (item.carousel_images && item.carousel_images.length > 0);
+  };
+
+  const renderItemCard = (item: Item, onPress: () => void, onOpenUrl: (url: string) => void) => {
+    const shouldUseSocialEmbed = isSocialPlatform(item.platform_type) && hasMedia(item);
 
     if (shouldUseSocialEmbed) {
       return (
@@ -140,34 +158,29 @@ export default function AISearch() {
     );
   };
 
-  const handleSend = async () => {
-    if (!input.trim() || !user || loading) return;
+  const handleSend = async (overrideQuery?: string) => {
+    const query = overrideQuery || input.trim();
+    if (!query || !user || loading) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: input.trim(),
+      content: query,
     };
 
     setMessages((prev) => [...prev, userMessage]);
-    setInput('');
+    if (!overrideQuery) setInput('');
     setLoading(true);
 
     try {
-      const { data: allItems } = await supabase
-        .from('items')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-        .order('created_at', { ascending: false });
-
-      const searchResults = await searchWithAI(input.trim(), allItems || []);
+      const searchResults = await searchWithAI(query);
 
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content: searchResults.message,
         items: searchResults.items,
+        totalResults: searchResults.totalResults,
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
@@ -175,95 +188,92 @@ export default function AISearch() {
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: 'Sorry, I encountered an error searching your content.',
+        content: 'Sorry, I encountered an error. Let me try a basic search instead.',
+        items: [],
       };
       setMessages((prev) => [...prev, errorMessage]);
+
+      try {
+        const fallbackResults = await fallbackSearch(query);
+        if (fallbackResults.length > 0) {
+          const fallbackMessage: Message = {
+            id: (Date.now() + 2).toString(),
+            role: 'assistant',
+            content: `I found ${fallbackResults.length} marks using a basic search:`,
+            items: fallbackResults,
+            totalResults: fallbackResults.length,
+          };
+          setMessages((prev) => [...prev, fallbackMessage]);
+        }
+      } catch {
+        // silently fail fallback
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const searchWithAI = async (query: string, items: Item[]) => {
-    try {
-      const { data, error } = await supabase.functions.invoke('ai-chat-assistant', {
-        body: {
-          userId: user!.id,
-          message: query,
-          sessionId: null,
-          includeContext: true,
-        },
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      const foundItems = data.itemsReferenced
-        ? items.filter((item) => data.itemsReferenced.includes(item.id))
-        : basicSearch(query, items);
-
-      return {
-        message: data.message || "I couldn't find anything matching that description.",
-        items: foundItems,
-      };
-    } catch (error) {
-      console.error('AI search error:', error);
-      return {
-        message: "I had trouble searching. Let me try a basic search instead.",
-        items: basicSearch(query, items),
-      };
-    }
-  };
-
-  const basicSearch = (query: string, items: Item[]) => {
-    const lowerQuery = query.toLowerCase();
-    const queryWords = lowerQuery.split(' ').filter((w) => w.length > 2);
-
-    const scoredMatches = items.map((item) => {
-      const itemData = item as any;
-      let score = 0;
-
-      const searchableText = `
-        ${item.title || ''}
-        ${item.summary || ''}
-        ${item.raw_content || ''}
-        ${item.tags?.join(' ') || ''}
-        ${item.category || ''}
-        ${itemData.content_topics?.join(' ') || ''}
-        ${itemData.semantic_category || ''}
-      `.toLowerCase();
-
-      queryWords.forEach((word) => {
-        if (searchableText.includes(word)) {
-          score += 1;
-        }
-
-        if (itemData.content_topics) {
-          itemData.content_topics.forEach((topic: string) => {
-            if (topic.toLowerCase().includes(word) || word.includes(topic.toLowerCase())) {
-              score += 3;
-            }
-          });
-        }
-
-        if (item.title?.toLowerCase().includes(word)) {
-          score += 2;
-        }
-      });
-
-      return { item, score };
+  const searchWithAI = async (query: string): Promise<{ message: string; items: Item[]; totalResults: number }> => {
+    const { data, error } = await supabase.functions.invoke('ai-chat-assistant', {
+      body: {
+        userId: user!.id,
+        message: query,
+        sessionId: sessionId,
+        includeContext: true,
+      },
     });
 
-    return scoredMatches
-      .filter(({ score }) => score > 0)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 10)
-      .map(({ item }) => item);
+    if (error) throw error;
+
+    if (data.sessionId && !sessionId) {
+      setSessionId(data.sessionId);
+    }
+
+    let foundItems: Item[] = [];
+
+    if (data.itemsReferenced && data.itemsReferenced.length > 0) {
+      const { data: items } = await supabase
+        .from('items')
+        .select('*')
+        .in('id', data.itemsReferenced)
+        .eq('user_id', user!.id);
+
+      if (items) {
+        const idOrder = data.itemsReferenced as string[];
+        foundItems = items.sort((a: Item, b: Item) => idOrder.indexOf(a.id) - idOrder.indexOf(b.id));
+      }
+    }
+
+    return {
+      message: data.message || "I couldn't find anything matching that description.",
+      items: foundItems,
+      totalResults: data.totalResults || foundItems.length,
+    };
+  };
+
+  const fallbackSearch = async (query: string): Promise<Item[]> => {
+    const { data, error } = await supabase.rpc('search_user_items', {
+      p_user_id: user!.id,
+      p_query: query,
+      p_limit: 10,
+    });
+
+    if (error || !data) return [];
+    return data as Item[];
+  };
+
+  const handleFilterChip = (query: string) => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    handleSend(query);
   };
 
   useEffect(() => {
     scrollViewRef.current?.scrollToEnd({ animated: true });
   }, [messages]);
+
+  const showFilterChips = messages.length <= 1;
 
   return (
     <KeyboardAvoidingView
@@ -301,6 +311,11 @@ export default function AISearch() {
 
             {message.items && message.items.length > 0 && (
               <View style={styles.itemsContainer}>
+                {message.totalResults && message.totalResults > message.items.length && (
+                  <Text style={[styles.resultCount, { color: theme.textSecondary }]}>
+                    Showing {message.items.length} of {message.totalResults} results
+                  </Text>
+                )}
                 {message.items.map((item) => (
                   <View key={item.id}>
                     {renderItemCard(
@@ -318,9 +333,35 @@ export default function AISearch() {
           </View>
         ))}
 
+        {showFilterChips && (
+          <View style={styles.filterChipsContainer}>
+            <Text style={[styles.filterLabel, { color: theme.textSecondary }]}>
+              Quick searches
+            </Text>
+            <View style={styles.filterChips}>
+              {FILTER_CHIPS.map((chip) => (
+                <TouchableOpacity
+                  key={chip.label}
+                  style={[styles.filterChip, { backgroundColor: theme.surface, borderColor: theme.border }]}
+                  onPress={() => handleFilterChip(chip.query)}
+                  activeOpacity={0.7}
+                >
+                  <chip.icon size={14} color={theme.primary} />
+                  <Text style={[styles.filterChipText, { color: theme.text }]}>
+                    {chip.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
+
         {loading && (
-          <View style={[styles.messageBubble, { backgroundColor: theme.surface }]}>
+          <View style={[styles.loadingBubble, { backgroundColor: theme.surface }]}>
             <LoadingLogo size={20} />
+            <Text style={[styles.loadingText, { color: theme.textSecondary }]}>
+              Searching your marks...
+            </Text>
           </View>
         )}
       </ScrollView>
@@ -328,17 +369,17 @@ export default function AISearch() {
       <View style={[styles.inputContainer, { backgroundColor: theme.cardBackground, borderTopColor: theme.border }]}>
         <TextInput
           style={[styles.input, { backgroundColor: theme.surface, color: theme.text }]}
-          placeholder="Ask me anything..."
+          placeholder="Search your marks..."
           placeholderTextColor={theme.textTertiary}
           value={input}
           onChangeText={setInput}
-          onSubmitEditing={handleSend}
+          onSubmitEditing={() => handleSend()}
           multiline
           maxLength={500}
         />
         <TouchableOpacity
           style={[styles.sendButton, { backgroundColor: input.trim() ? theme.primary : theme.border }]}
-          onPress={handleSend}
+          onPress={() => handleSend()}
           disabled={!input.trim() || loading}
         >
           <Send size={20} color="#FFFFFF" />
@@ -380,32 +421,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    paddingTop: 60,
-    paddingBottom: 16,
-    paddingHorizontal: 20,
-    borderBottomWidth: 1,
-  },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-  },
-  subtitle: {
-    fontSize: 14,
-    marginTop: 2,
-  },
   messagesContainer: {
     flex: 1,
   },
@@ -425,11 +440,56 @@ const styles = StyleSheet.create({
   },
   messageText: {
     fontSize: 15,
-    lineHeight: 20,
+    lineHeight: 22,
   },
   itemsContainer: {
     gap: 12,
     width: '100%',
+  },
+  resultCount: {
+    fontSize: 13,
+    fontWeight: '500',
+    paddingLeft: 4,
+    paddingBottom: 4,
+  },
+  filterChipsContainer: {
+    gap: 12,
+    paddingTop: 8,
+  },
+  filterLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  filterChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  filterChipText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  loadingBubble: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 14,
+    borderRadius: 16,
+    alignSelf: 'flex-start',
+  },
+  loadingText: {
+    fontSize: 14,
   },
   inputContainer: {
     flexDirection: 'row',

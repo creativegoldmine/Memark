@@ -61,16 +61,23 @@ export interface Item {
   last_viewed_at?: string;
   last_reviewed_at?: string;
   view_count?: number;
+  review_count?: number;
   shares_count?: number;
   is_archived?: boolean;
   is_public?: boolean;
+  is_starred?: boolean;
+  is_manual?: boolean;
+  priority?: string;
+  importance?: string;
+  user_notes?: string;
+  content_type?: string;
   preview_title?: string;
   preview_desc?: string;
   preview_image_url?: string;
   preview_fetched_at?: string;
   embed_type?: string;
   embed_html?: string;
-  embed_metadata?: any;
+  embed_metadata?: Record<string, any>;
   embed_fetched_at?: string;
   embed_error?: string;
   platform_type?: string;
@@ -85,23 +92,28 @@ export interface Item {
   og_published_time?: string;
   author_name?: string;
   author_avatar?: string;
-  media_urls?: string[];
+  content_duration?: string;
+  published_date?: string;
+  content_topics?: string[];
+  semantic_category?: string;
+  topic_confidence?: number;
+  additional_images?: string[];
   media_count?: number;
+  is_thread?: boolean;
+  thread_preview?: string;
+  thread_length?: number;
+  engagement_metrics?: Record<string, any>;
+  media_urls?: any[];
   media_storage_paths?: string[];
   thumbnail_urls?: string[];
-  content_classification?: 'text_only' | 'text_with_photo' | 'link_only' | 'link_with_text' | 'link_with_photo' | 'social_post' | 'direct_share';
-  ingestion_source?: 'sms' | 'ios_share' | 'android_share' | 'web' | 'api';
-  processing_status?: 'pending' | 'processing' | 'completed' | 'failed';
+  carousel_images?: any[];
+  video_metadata?: Record<string, any>;
+  content_classification?: string;
+  ingestion_source?: string;
+  processing_status?: string;
   processing_error?: string;
-  carousel_images?: string[];
-  video_metadata?: {
-    duration?: string;
-    quality?: string;
-    codec?: string;
-    width?: number;
-    height?: number;
-  };
   api_version?: string;
+  relevance_score?: number;
 }
 
 export interface Profile {
