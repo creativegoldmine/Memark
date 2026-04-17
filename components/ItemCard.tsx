@@ -401,9 +401,9 @@ export function ItemCard({
             </Text>
           </View>
         )}
-        {(item.media_count > 1 || (item.media_urls && item.media_urls.length > 1)) && (
+        {((item.media_count ?? 0) > 1 || (item.media_urls && item.media_urls.length > 1)) && (
           <View style={[styles.mediaCountBadge, { backgroundColor: 'rgba(0, 0, 0, 0.75)' }]}>
-            <Text style={styles.mediaCountText}>1/{item.media_count || item.media_urls.length}</Text>
+            <Text style={styles.mediaCountText}>1/{item.media_count || (item.media_urls?.length ?? 0)}</Text>
           </View>
         )}
         {item.is_thread && (

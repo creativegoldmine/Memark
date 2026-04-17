@@ -286,7 +286,7 @@ export function SocialEmbedCard({ item, onPress, onOpenUrl, viewMode = 'list' }:
 
         return (
           <View style={styles.embedContainer}>
-            <div dangerouslySetInnerHTML={{ __html: embedHtml }} />
+            <div dangerouslySetInnerHTML={{ __html: embedHtml || '' }} />
           </View>
         );
       }
@@ -313,7 +313,7 @@ export function SocialEmbedCard({ item, onPress, onOpenUrl, viewMode = 'list' }:
 
         return (
           <View style={styles.embedContainer}>
-            <div dangerouslySetInnerHTML={{ __html: embedHtml }} />
+            <div dangerouslySetInnerHTML={{ __html: embedHtml || '' }} />
           </View>
         );
       }
@@ -334,7 +334,7 @@ export function SocialEmbedCard({ item, onPress, onOpenUrl, viewMode = 'list' }:
 
         return (
           <View style={styles.embedContainer}>
-            <div dangerouslySetInnerHTML={{ __html: embedHtml }} />
+            <div dangerouslySetInnerHTML={{ __html: embedHtml || '' }} />
           </View>
         );
       }
@@ -357,7 +357,7 @@ export function SocialEmbedCard({ item, onPress, onOpenUrl, viewMode = 'list' }:
 
         return (
           <View style={styles.embedContainer}>
-            <div dangerouslySetInnerHTML={{ __html: embedHtml }} />
+            <div dangerouslySetInnerHTML={{ __html: embedHtml || '' }} />
           </View>
         );
       }
@@ -563,7 +563,8 @@ export function SocialEmbedCard({ item, onPress, onOpenUrl, viewMode = 'list' }:
     );
   }
 
-  function getPlatformLabel(platform: string): string {
+  function getPlatformLabel(platform: string | undefined | null): string {
+    if (!platform) return '';
     const labels: Record<string, string> = {
       youtube: 'YouTube',
       twitter: 'X / Twitter',

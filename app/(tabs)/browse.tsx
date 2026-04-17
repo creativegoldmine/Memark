@@ -178,7 +178,7 @@ export default function Browse() {
     const nextReviewDate = new Date();
     nextReviewDate.setDate(nextReviewDate.getDate() + daysUntilNext);
 
-    const timesReviewed = item.times_reviewed || 0;
+    const timesReviewed = (item as any).times_reviewed || 0;
     const { error } = await supabase
       .from('items')
       .update({

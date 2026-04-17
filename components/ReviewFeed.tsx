@@ -138,7 +138,7 @@ export function ReviewFeed({ onItemPress, limit = 20 }: ReviewFeedProps) {
       priority += relevanceScore * 2;
     }
 
-    const timesReviewed = item.times_reviewed;
+    const timesReviewed = (item as any).times_reviewed;
     if (timesReviewed && timesReviewed > 3) {
       priority -= 20;
     }
@@ -207,7 +207,7 @@ export function ReviewFeed({ onItemPress, limit = 20 }: ReviewFeedProps) {
       const nextReviewDate = new Date();
       nextReviewDate.setDate(nextReviewDate.getDate() + daysUntilNext);
 
-      const timesReviewed = item.times_reviewed || 0;
+      const timesReviewed = (item as any).times_reviewed || 0;
       const { error } = await supabase
         .from('items')
         .update({
